@@ -865,19 +865,29 @@
         // Initialize the application
         window.addEventListener('DOMContentLoaded', () => {
             initLoadingScreen();
-            setTimeout(() => {
+            
+            // Wait for Three.js to load, then initialize
+            if (typeof THREE !== 'undefined') {
                 initThreeJS();
                 initUI();
                 hideLoadingScreen();
-                showTutorial();
-            }, 2000);
+                setTimeout(() => showTutorial(), 500);
+            } else {
+                // Fallback if Three.js takes longer to load
+                setTimeout(() => {
+                    initThreeJS();
+                    initUI();
+                    hideLoadingScreen();
+                    setTimeout(() => showTutorial(), 500);
+                }, 1000);
+            }
         });
 
         // Loading Screen Management
         function initLoadingScreen() {
             let progress = 0;
             const interval = setInterval(() => {
-                progress += Math.random() * 15;
+                progress += Math.random() * 25;
                 if (progress >= 100) {
                     progress = 100;
                     clearInterval(interval);
@@ -893,7 +903,7 @@
                 } else {
                     document.getElementById('loading-text').textContent = 'اكتمل التحميل!';
                 }
-            }, 100);
+            }, 50);
         }
 
         function hideLoadingScreen() {
