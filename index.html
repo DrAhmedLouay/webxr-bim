@@ -1442,9 +1442,11 @@
         function loadModel(file) {
             const toast = document.getElementById('loading-toast');
             const toastStatus = document.getElementById('toast-status');
-            if (toast) toast.style.display = 'block';
+            if (toast) { toast.style.display = 'block'; toast.style.opacity = '1'; }
             if (toastStatus) toastStatus.textContent = 'جاري قراءة الملف من القرص...';
             const name = (file.name || '').toLowerCase();
+
+            console.log('loadModel called with file:', file.name, 'size:', file.size, 'type:', name);
 
             const reader = new FileReader();
             reader.onprogress = function(e) {
@@ -1454,72 +1456,19 @@
                 }
             };
 
-            reader.onload = async function(event) {
+            reader.onerror = function(e) {
+                console.error('FileReader error:', e);
+                if (toast) toast.style.display = 'none';
+                if (typeof showToast === 'function') showToast('error', '❌ فشل قراءة الملف');
+            };
+
+            reader.onload = function(event) {
                 const arrayBuffer = event.target.result;
+                console.log('File read successfully, buffer size:', arrayBuffer.byteLength);
 
                 if (name.endsWith('.ifc')) {
-                    if (toastStatus) toastStatus.textContent = '⚙️ جاري تهيئة محرك WebAssembly الهندسي...';
-                    try {
-                        var LoaderClass = (window.IFCLoader && window.IFCLoader.IFCLoader) || window.IFCLoader;
-                        if (!LoaderClass) {
-                            throw new Error('محرك قراءة ملفات IFC غير متوفر');
-                        }
-                        var ifcLoader = new LoaderClass();
-                        window.currentIFCLoader = ifcLoader;
-
-                        var baseDir = window.location.href.split('?')[0].split('#')[0].replace(/\/[^\/]*$/, '/');
-                        var wasmUrl = baseDir + 'web-ifc.wasm';
-
-                        if (ifcLoader.ifcManager && ifcLoader.ifcManager.state && ifcLoader.ifcManager.state.api) {
-                            if (!ifcLoader.ifcManager.state.api.wasmModule) {
-                                await ifcLoader.ifcManager.state.api.Init(function(path) {
-                                    return wasmUrl;
-                                });
-                            }
-                        } else if (typeof ifcLoader.ifcManager.setWasmPath === 'function') {
-                            ifcLoader.ifcManager.setWasmPath(baseDir);
-                        }
-
-                        if (typeof ifcLoader.ifcManager.setOnProgress === 'function') {
-                            ifcLoader.ifcManager.setOnProgress(function(prog) {
-                                if (prog && prog.total > 0) {
-                                    var p = Math.round((prog.loaded / prog.total) * 100);
-                                    if (toastStatus) toastStatus.textContent = '⚙️ جاري بناء عناصر IFC: ' + p + '%';
-                                }
-                            });
-                        }
-
-                        if (toastStatus) toastStatus.textContent = '⚙️ جاري تحليل نموذج IFC ثلاثي الأبعاد...';
-                        await new Promise(resolve => setTimeout(resolve, 80));
-
-                        var ifcModel = await ifcLoader.parse(arrayBuffer);
-
-                        // Clear previous model
-                        if (currentModel) scene.remove(currentModel);
-                        currentModel = ifcModel;
-                        scene.add(ifcModel);
-
-                        // Center camera to model
-                        const box = new THREE.Box3().setFromObject(ifcModel);
-                        const center = box.getCenter(new THREE.Vector3());
-                        const size = box.getSize(new THREE.Vector3());
-                        const maxDim = Math.max(size.x, size.y, size.z);
-                        if (maxDim > 0) {
-                            const s = 5 / maxDim;
-                            ifcModel.scale.setScalar(s);
-                            ifcModel.position.copy(center).multiplyScalar(-s);
-                        }
-
-                        if (toast) toast.style.display = 'none';
-                        if (typeof showToast === 'function') showToast('success', '✅ تم تحميل نموذج IFC بنجاح');
-                        if (typeof updateStats === 'function') updateStats();
-                        return;
-                    } catch (err) {
-                        console.error('IFC load error:', err);
-                        if (toast) toast.style.display = 'none';
-                        if (typeof showToast === 'function') showToast('error', '❌ فشل تحميل IFC');
-                        return;
-                    }
+                    loadIFCModel(arrayBuffer, toast, toastStatus);
+                    return;
                 }
 
                 if (name.endsWith('.glb') || name.endsWith('.gltf')) {
@@ -1550,9 +1499,98 @@
                 if (typeof showToast === 'function') showToast('error', '❌ نوع الملف غير مدعوم (استخدم GLB/GLTF/IFC)');
             };
             try { reader.readAsArrayBuffer(file); } catch(e) {
+                console.error('Reader error:', e);
                 if (toast) toast.style.display = 'none';
                 if (typeof showToast === 'function') showToast('error', '❌ فشل قراءة الملف');
             }
+        }
+
+        function loadIFCModel(arrayBuffer, toast, toastStatus) {
+            try {
+                if (toastStatus) toastStatus.textContent = '⚙️ جاري تهيئة محرك WebAssembly الهندسي...';
+
+                var LoaderClass = (window.IFCLoader && window.IFCLoader.IFCLoader) || window.IFCLoader;
+                console.log('LoaderClass found:', !!LoaderClass);
+
+                if (!LoaderClass) {
+                    throw new Error('محرك قراءة ملفات IFC غير متوفر. تأكد من تحميل مكتبة IFCLoader.');
+                }
+
+                var ifcLoader = new LoaderClass();
+                window.currentIFCLoader = ifcLoader;
+
+                var baseDir = window.location.href.split('?')[0].split('#')[0].replace(/\/[^\/]*$/, '/');
+                var wasmUrl = baseDir + 'web-ifc.wasm';
+                console.log('WASM URL:', wasmUrl);
+
+                if (ifcLoader.ifcManager && ifcLoader.ifcManager.state && ifcLoader.ifcManager.state.api) {
+                    if (!ifcLoader.ifcManager.state.api.wasmModule) {
+                        if (toastStatus) toastStatus.textContent = '⚙️ جاري تحميل WASM...';
+                        awaitInit(ifcLoader.ifcManager.state.api, function(path) { return wasmUrl; });
+                    }
+                } else if (typeof ifcLoader.ifcManager.setWasmPath === 'function') {
+                    ifcLoader.ifcManager.setWasmPath(baseDir);
+                }
+
+                if (typeof ifcLoader.ifcManager.setOnProgress === 'function') {
+                    ifcLoader.ifcManager.setOnProgress(function(prog) {
+                        if (prog && prog.total > 0) {
+                            var p = Math.round((prog.loaded / prog.total) * 100);
+                            if (toastStatus) toastStatus.textContent = '⚙️ جاري بناء عناصر IFC: ' + p + '%';
+                        }
+                    });
+                }
+
+                if (toastStatus) toastStatus.textContent = '⚙️ جاري تحليل نموذج IFC ثلاثي الأبعاد...';
+
+                ifcLoader.parse(arrayBuffer).then(function(ifcModel) {
+                    try {
+                        if (currentModel) scene.remove(currentModel);
+                        currentModel = ifcModel;
+                        scene.add(ifcModel);
+
+                        const box = new THREE.Box3().setFromObject(ifcModel);
+                        const center = box.getCenter(new THREE.Vector3());
+                        const size = box.getSize(new THREE.Vector3());
+                        const maxDim = Math.max(size.x, size.y, size.z);
+                        if (maxDim > 0) {
+                            const s = 5 / maxDim;
+                            ifcModel.scale.setScalar(s);
+                            ifcModel.position.copy(center).multiplyScalar(-s);
+                        }
+
+                        if (toast) toast.style.display = 'none';
+                        if (typeof showToast === 'function') showToast('success', '✅ تم تحميل نموذج IFC بنجاح');
+                        if (typeof updateStats === 'function') updateStats();
+                        console.log('IFC model loaded successfully');
+                    } catch (err) {
+                        console.error('IFC model processing error:', err);
+                        if (toast) toast.style.display = 'none';
+                        if (typeof showToast === 'function') showToast('error', '❌ خطأ في معالجة نموذج IFC');
+                    }
+                }).catch(function(err) {
+                    console.error('IFC parse error:', err);
+                    if (toast) toast.style.display = 'none';
+                    if (typeof showToast === 'function') showToast('error', '❌ فشل تحليل ملف IFC');
+                });
+
+            } catch (err) {
+                console.error('IFC init error:', err);
+                if (toast) toast.style.display = 'none';
+                if (typeof showToast === 'function') showToast('error', '❌ فشل تهيئة مكتبة IFC');
+            }
+        }
+
+        function awaitInit(api, getPath) {
+            return new Promise(function(resolve, reject) {
+                try {
+                    api.Init(getPath, function() {
+                        resolve();
+                    });
+                } catch (err) {
+                    reject(err);
+                }
+            });
         }
 
         function runClashDetection() {
