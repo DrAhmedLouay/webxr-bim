@@ -174,10 +174,7 @@
     </style>
 </head>
 <body>
-    <div id="loading">
-        <div class="loading-icon">🥽</div>
-        <div class="loading-text">جاري تحميل المحرك الثلاثي الأبعاد...</div>
-    </div>
+    <!-- Loading removed - instant display -->
 
     <div id="container"></div>
 
@@ -213,15 +210,18 @@
         let scene, camera, renderer, controls, clock;
         let loadedModel = null;
 
-        // Wait for Three.js to load
+        // Initialize immediately when scripts load
         function init() {
+            console.log('Initializing WebXR BIM Platform...');
+            
+            // Check if THREE is available
             if (typeof THREE === 'undefined') {
-                console.log('Waiting for Three.js...');
+                console.error('THREE.js not loaded yet, retrying...');
                 setTimeout(init, 100);
                 return;
             }
-
-            console.log('Three.js loaded successfully!');
+            
+            console.log('✅ Three.js loaded successfully!');
 
             // Scene
             scene = new THREE.Scene();
@@ -283,8 +283,7 @@
             // Clock
             clock = new THREE.Clock();
 
-            // Hide loading
-            document.getElementById('loading').classList.add('hidden');
+            console.log('✅ Platform initialized successfully!');
 
             // Start animation
             renderer.setAnimationLoop(animate);
