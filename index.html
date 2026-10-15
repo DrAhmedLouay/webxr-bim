@@ -721,14 +721,14 @@
                 <p>WebXR BIM Design Review & Coordination Platform</p>
                 <div class="login-academic-badge">🔬 إشراف وتطوير: المهندس المعماري الدكتور أحمد لؤي أحمد</div>
             </div>
-            <form id="login-form">
+<form id="login-form">
                 <div class="form-group">
                     <label for="login-username">👤 اسم المستخدم:</label>
-                    <input type="text" id="login-username" class="form-control" placeholder="أدخل اسم المستخدم" required>
+                    <input type="text" id="login-username" class="form-control" placeholder="admin" required value="admin">
                 </div>
                 <div class="form-group">
                     <label for="login-password">🔑 رمز المرور:</label>
-                    <input type="password" id="login-password" class="form-control" placeholder="أدخل رمز المرور" required>
+                    <input type="password" id="login-password" class="form-control" placeholder="admin123" required value="admin123">
                 </div>
                 <div id="login-error-msg"></div>
                 <button type="submit" class="btn-login-submit">
@@ -736,6 +736,52 @@
                     <span>تسجيل الدخول للمنصة</span>
                 </button>
             </form>
+            
+            <!-- Inline login handler for immediate execution -->
+            <script>
+            (function() {
+                const form = document.getElementById('login-form');
+                const errorMsg = document.getElementById('login-error-msg');
+                
+                form.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const username = document.getElementById('login-username').value.trim();
+                    const password = document.getElementById('login-password').value;
+                    
+                    console.log('Login attempt:', username);
+                    
+                    const validUsers = {
+                        'admin': { password: 'admin123', role: 'Admin', name: '👨‍🏫 د. أحمد لؤي أحمد' },
+                        'student': { password: 'student123', role: 'Student', name: '🎓 طالب معماري' }
+                    };
+                    
+                    if (validUsers[username] && validUsers[username].password === password) {
+                        console.log('Login successful:', username);
+                        document.getElementById('login-portal-overlay').style.display = 'none';
+                        // Call the main init if available
+                        if (typeof showToast === 'function') {
+                            showToast('success', `✅ مرحباً ${username}!`);
+                        }
+                        if (typeof initCollaboration === 'function') {
+                            initCollaboration();
+                        }
+                        if (typeof showTutorial === 'function') {
+                            setTimeout(showTutorial, 500);
+                        }
+                    } else {
+                        errorMsg.textContent = '❌ خطأ: admin/admin123 أو student/student123';
+                        errorMsg.style.display = 'block';
+                        errorMsg.style.color = '#f87171';
+                        errorMsg.style.background = 'rgba(239, 68, 68, 0.15)';
+                        errorMsg.style.border = '1px solid rgba(239, 68, 68, 0.4)';
+                        errorMsg.style.padding = '8px 12px';
+                        errorMsg.style.borderRadius = '6px';
+                        errorMsg.style.marginTop = '10px';
+                        console.log('Login failed for:', username);
+                    }
+                });
+            })();
+            </script>
             <div class="login-footer">
                 <span>🛡️ نظام إدارة صلاحيات الوصول القائم على الدور الأكاديمي (RBAC)</span>
             </div>
