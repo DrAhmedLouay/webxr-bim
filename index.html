@@ -794,13 +794,13 @@
     </div>
 
     <div id="webgl-container"></div>
-    <div id="drop-overlay">📥 أفلت ملف النموذج (.GLB / .GLTF / .IFC) هنا</div>
+    <div id="drop-overlay">📥 أفلت ملف النموذج (.GLB / .GLTF) هنا</div>
     <div id="loading-toast">
         <div style="font-weight: bold; color: #38bdf8; font-size: 0.95rem; margin-bottom: 6px;">جاري معالجة النموذج...</div>
         <div id="toast-status" style="font-size: 0.82rem; color: #e2e8f0;">يرجى الانتظار...</div>
     </div>
     
-    <input type="file" id="file-input" accept=".ifc,.glb,.gltf" style="display: none;">
+    <input type="file" id="file-input" accept=".glb,.gltf" style="display: none;">
 
     <div id="header-bar">
         <div class="title-group">
@@ -1135,7 +1135,7 @@
         <div>• استخدم العجلة للتقريب/التبعيد</div>
         <div>• اضغط T لإخفاء/إظهار الشريط</div>
         <div>• اضغط S للقوائم الجانبية</div>
-        <div>• اسحب ملف GLB/IFC لاستيراده</div>
+        <div>• اسحب ملف GLB لاستيراده</div>
     </div>
 
     <div id="toast-container"></div>
@@ -1158,7 +1158,7 @@
     let currentTutorialStep = 0;
     const tutorialSteps = [
         { icon: '🥽', title: 'مرحباً بك في غرفة فحص التعارضات', text: 'هذه المنصة تمكنك من مراجعة نماذج BIM في بيئة ثلاثية الأبعاد تفاعلية.' },
-        { icon: '📂', title: 'استيراد النماذج', text: 'يمكنك استيراد نماذج GLB أو IFC بالسحب والإفلات أو عبر زر الاستيراد.' },
+        { icon: '📂', title: 'استيراد النماذج', text: 'يمكنك استيراد نماذج GLB بالسحب والإفلات أو عبر زر الاستيراد.' },
         { icon: '🔍', title: 'فحص التعارضات', text: 'اضغط على زر التعارضات لاكتشاف التداخلات بين عناصر MEP والبناء تلقائياً.' },
         { icon: '✂️', title: 'أداة القطاع', text: 'استخدم أداة القطاع الهيدروليكي لفحص المقاطع الداخلية للمبنى.' },
         { icon: '🥽', title: 'الواقع الافتراضي', text: 'ارتدِ نظارة Meta Quest وادخل للنموذج بمقياس 1:1 حقيقي!' }
@@ -1232,7 +1232,7 @@
 
         const tutorialSteps = [
             { icon: '🥽', title: 'مرحباً بك في غرفة فحص التعارضات', text: 'هذه المنصة تمكنك من مراجعة نماذج BIM في بيئة ثلاثية الأبعاد تفاعلية.' },
-            { icon: '📂', title: 'استيراد النماذج', text: 'يمكنك استيراد نماذج GLB أو IFC بالسحب والإفلات أو عبر زر الاستيراد.' },
+            { icon: '📂', title: 'استيراد النماذج', text: 'يمكنك استيراد نماذج GLB بالسحب والإفلات أو عبر زر الاستيراد.' },
             { icon: '🔍', title: 'فحص التعارضات', text: 'اضغط على زر التعارضات لاكتشاف التداخلات بين عناصر MEP والبناء تلقائياً.' },
             { icon: '✂️', title: 'أداة القطاع', text: 'استخدم أداة القطاع الهيدروليكي لفحص المقاطع الداخلية للمبنى.' },
             { icon: '🥽', title: 'الواقع الافتراضي', text: 'ارتدِ نظارة Meta Quest وادخل للنموذج بمقياس 1:1 حقيقي!' }
@@ -1472,36 +1472,8 @@
                     });
                     return;
                 }
-                if (name.endsWith('.ifc')) {
-                    if (typeof THREE.IFCLoader === 'function') {
-                        const loader = new THREE.IFCLoader();
-                        loader.load(arrayBuffer, function(model) {
-                            try {
-                                if (currentModel) scene.remove(currentModel);
-                                currentModel = model;
-                                scene.add(currentModel);
-                                const box = new THREE.Box3().setFromObject(currentModel);
-                                const center = box.getCenter(new THREE.Vector3());
-                                const size = box.getSize(new THREE.Vector3());
-                                const maxDim = Math.max(size.x, size.y, size.z);
-                                if (maxDim > 0) {
-                                    const s = 5 / maxDim;
-                                    currentModel.scale.setScalar(s);
-                                    currentModel.position.copy(center).multiplyScalar(-s);
-                                }
-                            } catch (err) { console.error(err); }
-                            if (toast) toast.style.display = 'none';
-                            if (typeof showToast === 'function') showToast('success', '✅ تم تحميل IFC بنجاح');
-                            if (typeof updateStats === 'function') updateStats();
-                        }, function(){}, function() {});
-                        return;
-                    }
-                    if (toast) toast.style.display = 'none';
-                    if (typeof showToast === 'function') showToast('error', '❌ محمل IFC غير متوفر');
-                    return;
-                }
                 if (toast) toast.style.display = 'none';
-                if (typeof showToast === 'function') showToast('error', '❌ نوع الملف غير مدعوم');
+                if (typeof showToast === 'function') showToast('error', '❌ نوع الملف غير مدعوم (استخدم GLB/GLTF)');
             };
             try { reader.readAsArrayBuffer(file); } catch(e) {
                 if (toast) toast.style.display = 'none';
