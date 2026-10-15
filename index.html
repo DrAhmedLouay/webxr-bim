@@ -1142,14 +1142,78 @@
             <p style="font-size: 0.92rem; color: #cbd5e1; line-height: 1.6; margin-bottom: 20px;" id="tutorial-text">هذه المنصة تمكنك من مراجعة نماذج BIM في بيئة ثلاثية الأبعاد تفاعلية.</p>
             <div class="tutorial-progress" id="tutorial-progress"></div>
             <div style="display: flex; gap: 10px; justify-content: center;">
-                <button class="btn btn-outline" id="btn-skip-tutorial" style="font-size: 0.85rem;">تخطي</button>
-                <button class="btn btn-filter" id="btn-next-tutorial" style="font-size: 0.85rem;">التالي ➡</button>
+                <button class="btn btn-outline" id="btn-skip-tutorial" style="font-size: 0.85rem;" onclick="closeTutorial()">تخطي</button>
+                <button class="btn btn-filter" id="btn-next-tutorial" style="font-size: 0.85rem;" onclick="nextTutorialStep()">التالي ➡</button>
             </div>
         </div>
     </div>
 
     <script>
-        let scene, camera, renderer, controls, raycaster, mouse;
+    // Inline Tutorial System
+    let currentTutorialStep = 0;
+    const tutorialSteps = [
+        { icon: '🥽', title: 'مرحباً بك في غرفة فحص التعارضات', text: 'هذه المنصة تمكنك من مراجعة نماذج BIM في بيئة ثلاثية الأبعاد تفاعلية.' },
+        { icon: '📂', title: 'استيراد النماذج', text: 'يمكنك استيراد نماذج GLB أو IFC بالسحب والإفلات أو عبر زر الاستيراد.' },
+        { icon: '🔍', title: 'فحص التعارضات', text: 'اضغط على زر التعارضات لاكتشاف التداخلات بين عناصر MEP والبناء تلقائياً.' },
+        { icon: '✂️', title: 'أداة القطاع', text: 'استخدم أداة القطاع الهيدروليكي لفحص المقاطع الداخلية للمبنى.' },
+        { icon: '🥽', title: 'الواقع الافتراضي', text: 'ارتدِ نظارة Meta Quest وادخل للنموذج بمقياس 1:1 حقيقي!' }
+    ];
+
+    function renderTutorialStep() {
+        const step = tutorialSteps[currentTutorialStep];
+        const iconEl = document.getElementById('tutorial-icon');
+        const titleEl = document.getElementById('tutorial-title');
+        const textEl = document.getElementById('tutorial-text');
+        const progressEl = document.getElementById('tutorial-progress');
+        const nextBtn = document.getElementById('btn-next-tutorial');
+        
+        if (iconEl) iconEl.textContent = step.icon;
+        if (titleEl) titleEl.textContent = step.title;
+        if (textEl) textEl.textContent = step.text;
+        
+        if (progressEl) {
+            progressEl.innerHTML = '';
+            tutorialSteps.forEach((_, i) => {
+                const dot = document.createElement('div');
+                dot.className = 'tutorial-dot' + (i === currentTutorialStep ? ' active' : (i < currentTutorialStep ? ' completed' : ''));
+                progressEl.appendChild(dot);
+            });
+        }
+        
+        if (nextBtn) nextBtn.textContent = currentTutorialStep === tutorialSteps.length - 1 ? 'ابدأ 🚀' : 'التالي ➡';
+    }
+
+    function nextTutorialStep() {
+        if (currentTutorialStep < tutorialSteps.length - 1) {
+            currentTutorialStep++;
+            renderTutorialStep();
+        } else {
+            closeTutorial();
+            if (typeof showToast === 'function') showToast('success', '🎉 ابدأ استكشاف المنصة!');
+        }
+    }
+
+    function closeTutorial() {
+        const overlay = document.getElementById('tutorial-overlay');
+        if (overlay) overlay.style.display = 'none';
+        localStorage.setItem('tutorial-completed', 'true');
+    }
+
+    // Auto-start tutorial
+    document.addEventListener('DOMContentLoaded', function() {
+        if (!localStorage.getItem('tutorial-completed')) {
+            setTimeout(() => {
+                const overlay = document.getElementById('tutorial-overlay');
+                if (overlay) {
+                    overlay.style.display = 'flex';
+                    renderTutorialStep();
+                }
+            }, 1000);
+        }
+    });
+    </script>
+
+    <script>
         let currentModel = null;
         let measurePoints = [];
         let measureLine = null;
