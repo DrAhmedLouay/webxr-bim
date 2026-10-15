@@ -3,1916 +3,1947 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>منصة WebXR BIM - نظام متقدم لإدارة ومراجعة نماذج البناء</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <title>🥽 غرفة فحص التعارضات (WebXR BIM Lab)</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0b0f19; color: #ffffff; overflow: hidden; width: 100vw; height: 100vh; }
+        
+        #webgl-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; }
+        
+        #login-portal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: radial-gradient(circle at 50% 30%, rgba(14, 165, 233, 0.18), rgba(7, 10, 18, 0.98) 70%), #070a12;
+            backdrop-filter: blur(25px);
+            z-index: 999999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .login-card {
+            background: rgba(15, 23, 42, 0.94);
+            border: 1px solid rgba(56, 189, 248, 0.35);
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85), 0 0 40px rgba(56, 189, 248, 0.15);
+            border-radius: 18px;
+            width: 100%;
+            max-width: 440px;
+            padding: 34px 28px;
+            color: #f8fafc;
+            direction: rtl;
+            text-align: right;
+            animation: loginFadeIn 0.35s ease-out;
+        }
+        
+        @keyframes loginFadeIn { from { opacity: 0; transform: translateY(15px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        
+        .login-header { text-align: center; margin-bottom: 20px; }
+        .login-logo { font-size: 2.4rem; margin-bottom: 8px; }
+        .login-header h2 { font-size: 1.35rem; font-weight: 800; color: #ffffff; margin-bottom: 4px; }
+        .login-header p { font-size: 0.82rem; color: #94a3b8; direction: ltr; margin-bottom: 10px; }
+        
+        .login-academic-badge {
+            display: inline-block;
+            background: rgba(56, 189, 248, 0.12);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            padding: 4px 14px;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            color: #38bdf8;
+            font-weight: 600;
+        }
+        
+        .form-group { margin-bottom: 14px; }
+        .form-group label { display: block; font-size: 0.82rem; color: #cbd5e1; margin-bottom: 6px; font-weight: 600; }
+        
+        .form-control {
+            width: 100%;
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: #ffffff;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.2s;
             box-sizing: border-box;
         }
-
-        :root {
-            --primary: #38bdf8;
-            --secondary: #0284c7;
-            --success: #22c55e;
-            --warning: #f59e0b;
-            --danger: #ef4444;
-            --dark: #1e293b;
-            --light: #f8fafc;
-            --glass-bg: rgba(255, 255, 255, 0.1);
-            --glass-border: rgba(255, 255, 255, 0.2);
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            overflow: hidden;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: var(--dark);
-        }
-
-        body.dark-mode {
-            --dark: #f8fafc;
-            --light: #1e293b;
-            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-        }
-
-        #canvas-container {
-            position: fixed;
-            top: 0;
-            left: 0;
+        
+        .form-control:focus { border-color: #38bdf8; box-shadow: 0 0 10px rgba(56, 189, 248, 0.3); }
+        
+        .btn-login-submit {
             width: 100%;
-            height: 100%;
-            z-index: 1;
-        }
-
-        /* Glass Morphism Panels */
-        .glass-panel {
-            background: var(--glass-bg);
-            backdrop-filter: blur(10px);
-            border: 1px solid var(--glass-border);
-            border-radius: 12px;
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
-            padding: 20px;
-            color: white;
-        }
-
-        /* Sidebar */
-        .sidebar {
-            position: fixed;
-            top: 0;
-            right: 0;
-            width: 350px;
-            height: 100vh;
-            z-index: 1000;
-            padding: 20px;
-            overflow-y: auto;
-            transition: transform 0.3s ease;
-        }
-
-        .sidebar.collapsed {
-            transform: translateX(370px);
-        }
-
-        .sidebar-left {
-            right: auto;
-            left: 0;
-        }
-
-        .sidebar-left.collapsed {
-            transform: translateX(-370px);
-        }
-
-        /* Header */
-        .header {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 999;
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-
-        /* Buttons */
-        .btn {
-            padding: 10px 20px;
-            border: none;
+            background: linear-gradient(135deg, #0284c7, #0369a1);
+            border: 1px solid #38bdf8;
+            color: #ffffff;
+            padding: 12px;
             border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 18px;
+            box-shadow: 0 4px 15px rgba(2, 132, 199, 0.4);
+        }
+        
+        .btn-login-submit:hover { background: linear-gradient(135deg, #0369a1, #075985); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(2, 132, 199, 0.6); }
+        
+        #login-error-msg { background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; padding: 8px 12px; border-radius: 6px; font-size: 0.8rem; margin-top: 10px; text-align: center; display: none; }
+        
+        .login-footer { text-align: center; font-size: 0.72rem; color: #64748b; margin-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 12px; }
+        
+        #header-bar {
+            position: absolute;
+            top: 14px;
+            right: 18px;
+            left: 18px;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(15, 23, 42, 0.94);
+            backdrop-filter: blur(14px);
+            padding: 10px 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+            transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+        }
+        
+        #header-bar.ui-hidden { transform: translateY(-140%) !important; opacity: 0 !important; pointer-events: none !important; }
+        
+        .title-group h1 { font-size: 1.12rem; font-weight: 700; color: #38bdf8; margin-bottom: 2px; display: flex; align-items: center; gap: 8px; }
+        .title-group p { font-size: 0.76rem; color: #94a3b8; }
+        
+        .title-group .research-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 5px;
+            font-size: 0.74rem;
+            color: #bae6fd;
+            background: rgba(14, 165, 233, 0.15);
+            border: 1px solid rgba(56, 189, 248, 0.35);
+            padding: 3px 10px;
+            border-radius: 6px;
+            line-height: 1.4;
+        }
+        
+        .actions-group { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        
+        .btn {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 0.82rem;
             cursor: pointer;
             font-weight: 600;
-            transition: all 0.3s ease;
-            color: white;
-            background: var(--primary);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            text-decoration: none;
         }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        }
-
-        .btn-danger { background: var(--danger); }
-        .btn-success { background: var(--success); }
-        .btn-warning { background: var(--warning); }
-        .btn-secondary { background: var(--secondary); }
-
-        /* Conflict Panel */
-        .conflict-item {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 10px;
-            margin: 8px 0;
-            border-radius: 8px;
-            border-left: 4px solid;
+        
+        .btn:hover { background: #1d4ed8; transform: translateY(-1px); }
+        .btn-lab-active { background: rgba(14, 165, 233, 0.25); border: 1.5px solid #38bdf8; color: #38bdf8; box-shadow: 0 0 15px rgba(56, 189, 248, 0.3); }
+        .btn-filter { background: rgba(14, 165, 233, 0.18); border: 1.5px solid #38bdf8; color: #38bdf8; font-weight: 700; }
+        .btn-filter:hover { background: rgba(14, 165, 233, 0.35); }
+        .btn-upload { background: #059669; box-shadow: 0 4px 14px rgba(5, 150, 105, 0.4); }
+        .btn-upload:hover { background: #047857; }
+        .btn-center { background: #0284c7; box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4); }
+        .btn-center:hover { background: #0369a1; }
+        .btn-outline { background: transparent; border: 1px solid rgba(255, 255, 255, 0.25); color: #e2e8f0; }
+        .btn-outline:hover { background: rgba(255, 255, 255, 0.1); }
+        .btn-clash-view { background: rgba(239, 68, 68, 0.2); border: 1.5px solid #ef4444; color: #fca5a5; font-weight: 700; }
+        .btn-clash-view:hover { background: rgba(239, 68, 68, 0.4); color: #ffffff; box-shadow: 0 0 14px rgba(239, 68, 68, 0.45); }
+        
+        .user-session-container { display: inline-flex; align-items: center; gap: 8px; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255, 255, 255, 0.18); padding: 4px 10px; border-radius: 8px; margin-right: 4px; }
+        .user-session-pill { font-size: 0.82rem; font-weight: 700; color: #f8fafc; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+        
+        .btn-logout {
+            background: rgba(239, 68, 68, 0.18);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #f87171;
+            font-size: 0.74rem;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 6px;
             cursor: pointer;
             transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
         }
-
-        .conflict-item:hover {
-            background: rgba(255, 255, 255, 0.1);
-            transform: translateX(-5px);
+        
+        .btn-logout:hover { background: #ef4444; color: #ffffff; border-color: #ef4444; }
+        
+        #floating-ui-dock {
+            position: absolute;
+            top: 12px;
+            left: 50%;
+            transform: translateX(-50%) translateY(0);
+            display: none;
+            align-items: center;
+            gap: 6px;
+            background: rgba(15, 23, 42, 0.94);
+            backdrop-filter: blur(16px);
+            border: 1.5px solid rgba(56, 189, 248, 0.5);
+            padding: 6px 14px;
+            border-radius: 24px;
+            z-index: 105;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+            animation: fadeInDown 0.3s ease;
         }
-
-        .conflict-critical { border-left-color: var(--danger); }
-        .conflict-high { border-left-color: var(--warning); }
-        .conflict-medium { border-left-color: #f59e0b; }
-        .conflict-low { border-left-color: var(--success); }
-
-        /* Users Panel */
-        .user-item {
+        
+        @keyframes fadeInDown { from { opacity: 0; transform: translateX(-50%) translateY(-20px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+        
+        .dock-btn {
+            background: rgba(30, 41, 59, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #e2e8f0;
+            padding: 5px 12px;
+            border-radius: 16px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 8px;
-            margin: 5px 0;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 8px;
+            gap: 5px;
+            transition: all 0.2s ease;
         }
-
-        .user-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
+        
+        .dock-btn:hover { background: rgba(56, 189, 248, 0.25); border-color: #38bdf8; color: #38bdf8; }
+        .dock-btn.active { background: #0284c7; color: #ffffff; border-color: #38bdf8; }
+        
+        #floating-sidebar-toggle-right {
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(56, 189, 248, 0.45);
+            border-right: none;
+            border-radius: 10px 0 0 10px;
+            padding: 10px 6px;
+            color: #38bdf8;
+            font-size: 0.75rem;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 99;
+            box-shadow: -4px 0 15px rgba(0,0,0,0.5);
+            transition: all 0.2s ease;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
             display: flex;
             align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            border: 2px solid white;
+            gap: 6px;
+            user-select: none;
         }
-
-        /* Chat */
-        .chat-container {
-            max-height: 300px;
+        
+        #floating-sidebar-toggle-right:hover { background: rgba(56, 189, 248, 0.25); color: #ffffff; padding-right: 9px; }
+        
+        #floating-sidebar-toggle-left {
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(56, 189, 248, 0.45);
+            border-left: none;
+            border-radius: 0 10px 10px 0;
+            padding: 10px 6px;
+            color: #38bdf8;
+            font-size: 0.75rem;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 99;
+            box-shadow: 4px 0 15px rgba(0,0,0,0.5);
+            transition: all 0.2s ease;
+            writing-mode: vertical-lr;
+            text-orientation: mixed;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            user-select: none;
+        }
+        
+        #floating-sidebar-toggle-left:hover { background: rgba(56, 189, 248, 0.25); color: #ffffff; padding-left: 9px; }
+        
+        .sidebar-right-panel { transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease; }
+        .sidebar-right-panel.ui-sidebar-hidden { transform: translateX(130%) !important; opacity: 0 !important; pointer-events: none !important; }
+        .sidebar-left-panel { transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease; }
+        .sidebar-left-panel.ui-sidebar-hidden { transform: translateX(-130%) !important; opacity: 0 !important; pointer-events: none !important; }
+        
+        #bim-filter-panel {
+            position: absolute;
+            top: 72px;
+            right: 18px;
+            width: 380px;
+            max-height: calc(100vh - 95px);
+            background: rgba(15, 23, 42, 0.96);
+            backdrop-filter: blur(18px);
+            padding: 16px 18px;
+            border-radius: 14px;
+            border: 1px solid rgba(56, 189, 248, 0.35);
+            z-index: 95;
+            display: none;
+            box-shadow: 0 16px 45px rgba(0, 0, 0, 0.7);
             overflow-y: auto;
-            margin-bottom: 10px;
         }
-
-        .chat-message {
-            padding: 8px;
-            margin: 5px 0;
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.1);
+        
+        #bim-filter-panel::-webkit-scrollbar { width: 6px; }
+        #bim-filter-panel::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.3); border-radius: 3px; }
+        
+        .filter-section-title { font-size: 0.82rem; font-weight: 700; color: #38bdf8; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+        .filter-box { background: rgba(30, 41, 59, 0.65); padding: 12px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 12px; }
+        
+        .cat-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 10px;
+            border-radius: 6px;
+            transition: background 0.15s ease;
+            font-size: 0.8rem;
+            color: #e2e8f0;
+            cursor: pointer;
         }
-
-        .chat-input {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid var(--glass-border);
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-        }
-
-        /* Dashboard */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            margin: 15px 0;
-        }
-
-        .stat-card {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 15px;
-            border-radius: 8px;
+        
+        .cat-item:hover { background: rgba(56, 189, 248, 0.12); }
+        .cat-item input[type="checkbox"] { margin-left: 8px; accent-color: #38bdf8; cursor: pointer; width: 15px; height: 15px; }
+        .cat-badge { font-size: 0.68rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+        
+        .mode-btn-group { display: flex; gap: 4px; background: rgba(15, 23, 42, 0.7); padding: 3px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 8px; }
+        
+        .mode-btn {
+            flex: 1;
+            padding: 6px 4px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            background: transparent;
+            color: #94a3b8;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
             text-align: center;
         }
-
-        .stat-value {
-            font-size: 24px;
-            font-weight: bold;
-            color: var(--primary);
+        
+        .mode-btn:hover { color: #f1f5f9; background: rgba(255, 255, 255, 0.06); }
+        .mode-btn.active { background: #0284c7; color: #ffffff; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4); }
+        
+        .color-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-left: 6px; border: 1px solid rgba(255, 255, 255, 0.35); box-shadow: 0 0 4px rgba(0, 0, 0, 0.5); flex-shrink: 0; }
+        .bg-swatch { width: 26px; height: 26px; border-radius: 6px; cursor: pointer; border: 2px solid transparent; transition: transform 0.15s, border-color 0.15s; }
+        .bg-swatch:hover { transform: scale(1.1); }
+        .bg-swatch.active { border-color: #38bdf8; box-shadow: 0 0 10px rgba(56, 189, 248, 0.6); }
+        
+        #desktop-info-panel {
+            position: absolute;
+            bottom: 25px;
+            right: 25px;
+            width: 350px;
+            background: rgba(15, 23, 42, 0.98);
+            backdrop-filter: blur(20px);
+            padding: 18px 20px;
+            border-radius: 14px;
+            border: 2px solid #00f0ff;
+            z-index: 500;
+            display: none;
+            box-shadow: 0 16px 50px rgba(0, 0, 0, 0.85), 0 0 25px rgba(0, 240, 255, 0.35);
         }
-
-        /* Tutorial */
-        .tutorial-overlay {
-            position: fixed;
+        
+        #desktop-info-panel h3 { font-size: 1rem; color: #38bdf8; border-bottom: 1px solid rgba(255, 255, 255, 0.12); padding-bottom: 8px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+        .prop-row { display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 7px; }
+        .prop-label { color: #94a3b8; }
+        .prop-val { font-weight: 600; color: #f1f5f9; }
+        
+        .status-pill {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            font-weight: 600;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+        }
+        
+        #instructions {
+            position: absolute;
+            bottom: 25px;
+            left: 25px;
+            background: rgba(15, 23, 42, 0.92);
+            backdrop-filter: blur(10px);
+            padding: 12px 18px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            color: #cbd5e1;
+            z-index: 90;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            line-height: 1.6;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            max-width: 440px;
+        }
+        
+        #drop-overlay {
+            display: none;
+            position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            z-index: 2000;
-            display: none;
+            background: rgba(11, 15, 25, 0.92);
+            z-index: 1000;
             justify-content: center;
             align-items: center;
+            border: 4px dashed #38bdf8;
+            font-size: 1.6rem;
+            color: #38bdf8;
+            font-weight: bold;
+            pointer-events: none;
         }
-
-        .tutorial-overlay.active {
-            display: flex;
-        }
-
-        .tutorial-box {
-            background: white;
-            padding: 30px;
-            border-radius: 16px;
-            max-width: 600px;
-            color: var(--dark);
-        }
-
-        .tutorial-progress {
-            display: flex;
-            gap: 10px;
-            margin: 20px 0;
-        }
-
-        .progress-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #ddd;
-        }
-
-        .progress-dot.active {
-            background: var(--primary);
-        }
-
-        /* Toast Notifications */
-        .toast-container {
-            position: fixed;
-            top: 20px;
+        
+        #loading-toast {
+            display: none;
+            position: absolute;
+            top: 80px;
             left: 50%;
             transform: translateX(-50%);
-            z-index: 3000;
+            background: rgba(15, 23, 42, 0.98);
+            border: 1px solid #38bdf8;
+            color: white;
+            padding: 18px 26px;
+            border-radius: 12px;
+            font-size: 0.88rem;
+            z-index: 1001;
+            box-shadow: 0 12px 35px rgba(0,0,0,0.7);
+            min-width: 380px;
+            text-align: right;
+        }
+        
+        #measure-hud {
+            display: none;
+            position: absolute;
+            top: 75px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(14px);
+            border: 1.5px solid #00f0ff;
+            color: #f1f5f9;
+            padding: 10px 22px;
+            border-radius: 30px;
+            z-index: 110;
+            box-shadow: 0 10px 30px rgba(0, 240, 255, 0.35);
+            align-items: center;
+            gap: 14px;
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+        
+        #section-panel {
+            display: none;
+            position: absolute;
+            top: 75px;
+            left: 25px;
+            width: 320px;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(16px);
+            border: 1.5px solid rgba(56, 189, 248, 0.4);
+            border-radius: 14px;
+            padding: 16px;
+            z-index: 102;
+            color: #f1f5f9;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.6);
+        }
+        
+        #telemetry-panel {
+            display: none;
+            position: absolute;
+            top: 75px;
+            left: 25px;
+            width: 340px;
+            background: rgba(15, 23, 42, 0.96);
+            backdrop-filter: blur(16px);
+            border: 1.5px solid rgba(34, 197, 94, 0.45);
+            border-radius: 14px;
+            padding: 16px;
+            z-index: 103;
+            color: #f1f5f9;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.6);
+        }
+        
+        .tel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
+        .tel-card { background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 8px 10px; }
+        .tel-val { font-size: 1.05rem; font-weight: bold; font-family: monospace; color: #38bdf8; }
+        .tel-lbl { font-size: 0.7rem; color: #94a3b8; }
+        
+        #vr-guide-modal {
+            display: none;
+            position: absolute;
+            top: 75px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 640px;
+            max-width: 92vw;
+            max-height: calc(100vh - 100px);
+            background: rgba(15, 23, 42, 0.98);
+            backdrop-filter: blur(20px);
+            padding: 22px 24px;
+            border-radius: 16px;
+            border: 1.5px solid rgba(56, 189, 248, 0.5);
+            z-index: 120;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85);
+            overflow-y: auto;
+            color: #f8fafc;
+        }
+        
+        #clash-panel {
+            display: none;
+            position: absolute;
+            top: 72px;
+            right: 18px;
+            width: 420px;
+            max-height: calc(100vh - 95px);
+            background: rgba(15, 23, 42, 0.96);
+            backdrop-filter: blur(18px);
+            padding: 16px 18px;
+            border-radius: 14px;
+            border: 1.5px solid rgba(239, 68, 68, 0.45);
+            z-index: 96;
+            box-shadow: 0 16px 45px rgba(0, 0, 0, 0.7);
+            overflow-y: auto;
+        }
+        
+        .clash-card {
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .clash-card:hover { background: rgba(56, 189, 248, 0.12); border-color: rgba(56, 189, 248, 0.3); }
+        
+        .severity-critical { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444; }
+        .severity-high { background: rgba(249, 115, 22, 0.2); color: #f97316; border: 1px solid #f97316; }
+        .severity-medium { background: rgba(234, 179, 8, 0.2); color: #eab308; border: 1px solid #eab308; }
+        .severity-low { background: rgba(34, 197, 94, 0.2); color: #22c55e; border: 1px solid #22c55e; }
+        
+        #collaboration-panel {
+            display: none;
+            position: absolute;
+            top: 72px;
+            right: 18px;
+            width: 380px;
+            max-height: calc(100vh - 95px);
+            background: rgba(15, 23, 42, 0.96);
+            backdrop-filter: blur(18px);
+            padding: 16px 18px;
+            border-radius: 14px;
+            border: 1.5px solid rgba(139, 92, 246, 0.45);
+            z-index: 97;
+            box-shadow: 0 16px 45px rgba(0, 0, 0, 0.7);
+            overflow-y: auto;
+        }
+        
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .user-online { background: linear-gradient(135deg, #22c55e, #16a34a); }
+        .user-away { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .user-offline { background: linear-gradient(135deg, #64748b, #475569); }
+        
+        .chat-message {
+            background: rgba(30, 41, 59, 0.65);
+            padding: 8px 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            font-size: 0.82rem;
+        }
+        
+        #dashboard-panel {
+            display: none;
+            position: absolute;
+            top: 72px;
+            right: 18px;
+            width: 440px;
+            max-height: calc(100vh - 95px);
+            background: rgba(15, 23, 42, 0.96);
+            backdrop-filter: blur(18px);
+            padding: 16px 18px;
+            border-radius: 14px;
+            border: 1.5px solid rgba(56, 189, 248, 0.45);
+            z-index: 98;
+            box-shadow: 0 16px 45px rgba(0, 0, 0, 0.7);
+            overflow-y: auto;
+        }
+        
+        .stat-card {
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 14px;
+            text-align: center;
+        }
+        
+        .stat-value { font-size: 1.8rem; font-weight: bold; color: #38bdf8; }
+        .stat-label { font-size: 0.75rem; color: #94a3b8; margin-top: 4px; }
+        
+        #toast-container {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
             display: flex;
             flex-direction: column;
             gap: 10px;
-            pointer-events: none;
+            align-items: center;
         }
-
+        
         .toast {
-            background: white;
-            padding: 15px 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            background: rgba(15, 23, 42, 0.98);
+            backdrop-filter: blur(16px);
+            border-radius: 12px;
+            padding: 12px 20px;
+            font-size: 0.88rem;
             display: flex;
             align-items: center;
             gap: 10px;
-            animation: slideIn 0.3s ease;
-            pointer-events: all;
+            animation: toastSlideIn 0.3s ease;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
+            min-width: 320px;
         }
-
-        @keyframes slideIn {
-            from {
-                transform: translateY(-100px);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
-        }
-
-        /* Modal */
-        .modal {
+        
+        @keyframes toastSlideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .toast-success { border: 1.5px solid #22c55e; color: #86efac; }
+        .toast-warning { border: 1.5px solid #f59e0b; color: #fcd34d; }
+        .toast-error { border: 1.5px solid #ef4444; color: #fca5a5; }
+        .toast-info { border: 1.5px solid #38bdf8; color: #7dd3fc; }
+        
+        #tutorial-overlay {
+            display: none;
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            z-index: 2500;
-            display: none;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 99999;
+            align-items: center;
             justify-content: center;
-            align-items: center;
         }
-
-        .modal.active {
-            display: flex;
-        }
-
-        .modal-content {
-            background: white;
-            padding: 30px;
-            border-radius: 16px;
-            max-width: 800px;
-            max-height: 80vh;
-            overflow-y: auto;
-            color: var(--dark);
-        }
-
-        /* Projects List */
-        .project-item {
-            padding: 15px;
-            margin: 10px 0;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .project-item:hover {
-            background: rgba(255, 255, 255, 0.2);
-            transform: translateX(-5px);
-        }
-
-        /* Badges */
-        .badge {
-            display: inline-block;
-            padding: 5px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-            margin: 0 5px;
-        }
-
-        .badge-success { background: var(--success); color: white; }
-        .badge-warning { background: var(--warning); color: white; }
-        .badge-danger { background: var(--danger); color: white; }
-
-        /* Context Menu */
-        .context-menu {
-            position: fixed;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            padding: 5px 0;
-            display: none;
-            z-index: 3000;
-            color: var(--dark);
-        }
-
-        .context-menu.active {
-            display: block;
-        }
-
-        .context-menu-item {
-            padding: 10px 20px;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        .context-menu-item:hover {
-            background: var(--light);
-        }
-
-        /* Loading Bar */
-        .loading-bar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 0%;
-            height: 4px;
-            background: var(--primary);
-            z-index: 4000;
-            transition: width 0.3s ease;
-        }
-
-        /* Scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: var(--primary);
-            border-radius: 4px;
-        }
-
-        /* Toggle Switch */
-        .toggle-switch {
-            position: relative;
-            width: 50px;
-            height: 24px;
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 12px;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-
-        .toggle-switch.active {
-            background: var(--primary);
-        }
-
-        .toggle-slider {
-            position: absolute;
-            top: 2px;
-            left: 2px;
-            width: 20px;
-            height: 20px;
-            background: white;
-            border-radius: 50%;
-            transition: transform 0.3s;
-        }
-
-        .toggle-switch.active .toggle-slider {
-            transform: translateX(26px);
-        }
-
-        /* Tabs */
-        .tabs {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-
-        .tab {
-            padding: 10px 20px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .tab.active {
-            background: var(--primary);
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        /* Search Input */
-        .search-input {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid var(--glass-border);
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            margin-bottom: 10px;
-        }
-
-        /* Filter Buttons */
-        .filter-group {
-            display: flex;
-            gap: 5px;
-            flex-wrap: wrap;
-            margin: 10px 0;
-        }
-
-        .filter-btn {
-            padding: 5px 10px;
-            border: 1px solid white;
-            border-radius: 6px;
-            background: transparent;
-            color: white;
-            cursor: pointer;
-            font-size: 12px;
-            transition: all 0.2s;
-        }
-
-        .filter-btn.active {
-            background: white;
-            color: var(--dark);
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .sidebar {
-                width: 100%;
-                height: 50vh;
-                top: auto;
-                bottom: 0;
-            }
-
-            .sidebar.collapsed {
-                transform: translateY(100%);
-            }
-
-            .header {
-                flex-direction: column;
-                left: 20px;
-                transform: none;
-            }
-        }
-
-        /* Drag and Drop */
-        .drop-zone {
-            border: 2px dashed white;
-            border-radius: 12px;
-            padding: 40px;
+        
+        .tutorial-step {
+            background: rgba(15, 23, 42, 0.98);
+            border: 1.5px solid rgba(56, 189, 248, 0.5);
+            border-radius: 18px;
+            padding: 28px 32px;
+            max-width: 520px;
             text-align: center;
+            animation: tutorialFadeIn 0.3s ease;
+        }
+        
+        @keyframes tutorialFadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        
+        .tutorial-progress { display: flex; justify-content: center; gap: 8px; margin: 20px 0; }
+        .tutorial-dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255, 255, 255, 0.2); transition: all 0.3s; }
+        .tutorial-dot.active { background: #38bdf8; transform: scale(1.2); }
+        .tutorial-dot.completed { background: #22c55e; }
+        
+        .project-card {
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 14px;
+            margin-bottom: 10px;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: all 0.2s ease;
         }
-
-        .drop-zone.dragover {
-            background: rgba(56, 189, 248, 0.2);
-            border-color: var(--primary);
+        
+        .project-card:hover { background: rgba(56, 189, 248, 0.12); border-color: rgba(56, 189, 248, 0.3); }
+        
+        .chart-bar {
+            height: 20px;
+            background: linear-gradient(90deg, #0284c7, #38bdf8);
+            border-radius: 4px;
+            transition: width 0.5s ease;
         }
-
-        /* Achievement Badge */
-        .achievement {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            padding: 10px 15px;
-            background: linear-gradient(135deg, #ffd700, #ffed4e);
-            border-radius: 8px;
-            color: var(--dark);
-            font-weight: 600;
-            margin: 5px;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% {
-                transform: scale(1);
-            }
-            50% {
-                transform: scale(1.05);
-            }
-        }
-
-        .section-title {
-            font-size: 18px;
-            font-weight: 700;
-            margin: 15px 0 10px 0;
-            color: white;
-            border-bottom: 2px solid var(--primary);
-            padding-bottom: 5px;
-        }
-
-        .info-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 5px 0;
-            font-size: 14px;
-        }
-
-        .collapse-btn {
-            position: absolute;
-            top: 20px;
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 8px;
-            cursor: pointer;
-            z-index: 1001;
-        }
-
-        .collapse-btn-right {
-            right: 370px;
-        }
-
-        .collapse-btn-left {
-            left: 370px;
-        }
-
-        .sidebar.collapsed ~ .collapse-btn-right {
-            right: 20px;
-        }
-
-        .sidebar-left.collapsed ~ .collapse-btn-left {
-            left: 20px;
+        
+        #VRButton {
+            border-radius: 8px !important;
+            font-weight: bold !important;
+            box-shadow: 0 4px 20px rgba(37, 99, 235, 0.5) !important;
+            z-index: 95 !important;
+            bottom: 25px !important;
+            padding: 10px 24px !important;
+            font-size: 0.9rem !important;
         }
     </style>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/webxr/VRButton.js"></script>
 </head>
 <body>
-    <!-- Loading Bar -->
-    <div class="loading-bar" id="loadingBar"></div>
-
-    <!-- Canvas Container -->
-    <div id="canvas-container"></div>
-
-    <!-- Toast Container -->
-    <div class="toast-container" id="toastContainer"></div>
-
-    <!-- Header Controls -->
-    <div class="header glass-panel">
-        <button class="btn" onclick="app.startTutorial()">📚 دليل البداية</button>
-        <button class="btn btn-success" onclick="app.enterVR()">🥽 وضع VR</button>
-        <button class="btn btn-secondary" onclick="app.openProjectsModal()">📁 المشاريع</button>
-        <button class="btn btn-warning" onclick="app.detectConflicts()">⚠️ كشف التعارضات</button>
-        <div class="toggle-switch" onclick="app.toggleTheme()" id="themeToggle">
-            <div class="toggle-slider"></div>
-        </div>
-        <button class="btn" onclick="app.toggleLanguage()">🌐 <span id="langText">EN</span></button>
-    </div>
-
-    <!-- Collapse Buttons -->
-    <button class="collapse-btn collapse-btn-right" onclick="app.toggleSidebar('right')">◀</button>
-    <button class="collapse-btn collapse-btn-left" onclick="app.toggleSidebar('left')">▶</button>
-
-    <!-- Right Sidebar - Conflicts & Users -->
-    <div class="sidebar glass-panel" id="rightSidebar">
-        <div class="tabs">
-            <div class="tab active" onclick="app.switchTab('conflicts')">⚠️ التعارضات</div>
-            <div class="tab" onclick="app.switchTab('users')">👥 المستخدمون</div>
-            <div class="tab" onclick="app.switchTab('chat')">💬 الدردشة</div>
-        </div>
-
-        <!-- Conflicts Tab -->
-        <div class="tab-content active" id="conflictsTab">
-            <div class="section-title">🔍 نظام كشف التعارضات</div>
-            <div class="filter-group">
-                <button class="filter-btn active" data-level="all">الكل</button>
-                <button class="filter-btn" data-level="critical">حرجة</button>
-                <button class="filter-btn" data-level="high">عالية</button>
-                <button class="filter-btn" data-level="medium">متوسطة</button>
-                <button class="filter-btn" data-level="low">منخفضة</button>
+    <div id="login-portal-overlay">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="login-logo">🥽 🏛️</div>
+                <h2>منظومة مراجعة الـ BIM والواقع الافتراضي</h2>
+                <p>WebXR BIM Design Review & Coordination Platform</p>
+                <div class="login-academic-badge">🔬 إشراف وتطوير: المهندس المعماري الدكتور أحمد لؤي أحمد</div>
             </div>
-            <input type="text" class="search-input" placeholder="بحث في التعارضات..." id="conflictSearch">
-            <div id="conflictsList"></div>
-            <button class="btn btn-success" onclick="app.exportConflicts()" style="width: 100%; margin-top: 10px;">
-                📥 تصدير التقرير
-            </button>
-        </div>
-
-        <!-- Users Tab -->
-        <div class="tab-content" id="usersTab">
-            <div class="section-title">👥 المستخدمون النشطون (<span id="userCount">1</span>)</div>
-            <div id="usersList"></div>
-        </div>
-
-        <!-- Chat Tab -->
-        <div class="tab-content" id="chatTab">
-            <div class="section-title">💬 الدردشة الجماعية</div>
-            <div class="chat-container" id="chatContainer"></div>
-            <input type="text" class="chat-input" placeholder="اكتب رسالة..." id="chatInput" onkeypress="app.handleChatKeypress(event)">
-            <button class="btn" onclick="app.sendMessage()" style="width: 100%; margin-top: 5px;">إرسال</button>
-        </div>
-    </div>
-
-    <!-- Left Sidebar - Dashboard & Settings -->
-    <div class="sidebar sidebar-left glass-panel" id="leftSidebar">
-        <div class="tabs">
-            <div class="tab active" onclick="app.switchTab('dashboard')">📊 لوحة التحكم</div>
-            <div class="tab" onclick="app.switchTab('settings')">⚙️ الإعدادات</div>
-            <div class="tab" onclick="app.switchTab('achievements')">🏆 الإنجازات</div>
-        </div>
-
-        <!-- Dashboard Tab -->
-        <div class="tab-content active" id="dashboardTab">
-            <div class="section-title">📊 إحصائيات الأداء</div>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-value" id="fpsValue">60</div>
-                    <div>FPS</div>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="login-username">👤 اسم المستخدم:</label>
+                    <input type="text" id="login-username" class="form-control" placeholder="أدخل اسم المستخدم" required>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="memoryValue">0</div>
-                    <div>MB Memory</div>
+                <div class="form-group">
+                    <label for="login-password">🔑 رمز المرور:</label>
+                    <input type="password" id="login-password" class="form-control" placeholder="أدخل رمز المرور" required>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="trianglesValue">0</div>
-                    <div>Triangles</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="drawCallsValue">0</div>
-                    <div>Draw Calls</div>
-                </div>
-            </div>
-            <canvas id="performanceChart" width="300" height="200"></canvas>
-            <div class="section-title">📦 توزيع العناصر</div>
-            <canvas id="elementsChart" width="300" height="200"></canvas>
-            <button class="btn" onclick="app.exportPerformanceReport()" style="width: 100%; margin-top: 10px;">
-                📊 تصدير تقرير الأداء
-            </button>
-        </div>
-
-        <!-- Settings Tab -->
-        <div class="tab-content" id="settingsTab">
-            <div class="section-title">⚙️ الإعدادات</div>
-            <div class="info-row">
-                <span>وضع الطالب</span>
-                <div class="toggle-switch" onclick="app.toggleStudentMode()" id="studentModeToggle">
-                    <div class="toggle-slider"></div>
-                </div>
-            </div>
-            <div class="info-row">
-                <span>عرض الشبكة</span>
-                <div class="toggle-switch active" onclick="app.toggleGrid()" id="gridToggle">
-                    <div class="toggle-slider"></div>
-                </div>
-            </div>
-            <div class="info-row">
-                <span>الظلال</span>
-                <div class="toggle-switch active" onclick="app.toggleShadows()" id="shadowsToggle">
-                    <div class="toggle-slider"></div>
-                </div>
-            </div>
-            <div class="info-row">
-                <span>جودة الرسوميات</span>
-                <select class="search-input" onchange="app.changeQuality(this.value)">
-                    <option value="high">عالية</option>
-                    <option value="medium" selected>متوسطة</option>
-                    <option value="low">منخفضة</option>
-                </select>
-            </div>
-            <div class="section-title">⌨️ اختصارات لوحة المفاتيح</div>
-            <div class="info-row"><span>Ctrl + Z</span><span>تراجع</span></div>
-            <div class="info-row"><span>Ctrl + Y</span><span>إعادة</span></div>
-            <div class="info-row"><span>Delete</span><span>حذف</span></div>
-            <div class="info-row"><span>F</span><span>تركيز على العنصر</span></div>
-            <div class="info-row"><span>G</span><span>إظهار/إخفاء الشبكة</span></div>
-        </div>
-
-        <!-- Achievements Tab -->
-        <div class="tab-content" id="achievementsTab">
-            <div class="section-title">🏆 الإنجازات والشارات</div>
-            <div class="info-row">
-                <span>النقاط الإجمالية</span>
-                <span class="stat-value" id="totalPoints">0</span>
-            </div>
-            <div id="achievementsList"></div>
-        </div>
-    </div>
-
-    <!-- Tutorial Overlay -->
-    <div class="tutorial-overlay" id="tutorialOverlay">
-        <div class="tutorial-box">
-            <h2 id="tutorialTitle">مرحباً بك في منصة WebXR BIM</h2>
-            <div class="tutorial-progress" id="tutorialProgress"></div>
-            <p id="tutorialContent"></p>
-            <div style="display: flex; gap: 10px; margin-top: 20px;">
-                <button class="btn btn-secondary" onclick="app.skipTutorial()">تخطي</button>
-                <button class="btn" onclick="app.previousTutorialStep()">السابق</button>
-                <button class="btn btn-success" onclick="app.nextTutorialStep()">التالي</button>
+                <div id="login-error-msg"></div>
+                <button type="submit" class="btn-login-submit">
+                    <span>🚀</span>
+                    <span>تسجيل الدخول للمنصة</span>
+                </button>
+            </form>
+            <div class="login-footer">
+                <span>🛡️ نظام إدارة صلاحيات الوصول القائم على الدور الأكاديمي (RBAC)</span>
             </div>
         </div>
     </div>
 
-    <!-- Projects Modal -->
-    <div class="modal" id="projectsModal">
-        <div class="modal-content">
-            <h2>📁 إدارة المشاريع</h2>
-            <div style="display: flex; gap: 10px; margin: 15px 0;">
-                <input type="text" class="search-input" placeholder="بحث في المشاريع..." id="projectSearch">
-                <button class="btn btn-success" onclick="app.createNewProject()">➕ مشروع جديد</button>
+    <div id="webgl-container"></div>
+    <div id="drop-overlay">📥 أفلت ملف النموذج (.GLB / .GLTF / .IFC) هنا</div>
+    <div id="loading-toast">
+        <div style="font-weight: bold; color: #38bdf8; font-size: 0.95rem; margin-bottom: 6px;">جاري معالجة النموذج...</div>
+        <div id="toast-status" style="font-size: 0.82rem; color: #e2e8f0;">يرجى الانتظار...</div>
+    </div>
+    
+    <input type="file" id="file-input" accept=".ifc,.glb,.gltf" style="display: none;">
+
+    <div id="header-bar">
+        <div class="title-group">
+            <h1>🥽 غرفة فحص التعارضات (WebXR Lab)</h1>
+            <p>مراجعة التصاميم وتنسيق النماذج المعمارية والـ MEP بمقياس 1:1</p>
+            <div class="research-badge">🔬 هذه المنصة قيد التطوير لأغراض بحثية - تطوير: د. أحمد لؤي أحمد</div>
+        </div>
+        <div class="actions-group">
+            <button class="btn btn-lab-active" id="tab-lab-view">🥽 غرفة التعارضات</button>
+            <button class="btn btn-outline" id="btn-vr-guide">🥽 دليل الواقع الافتراضي</button>
+            <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.2); margin: 0 4px;"></div>
+            <button class="btn btn-outline" id="btn-quick-color-toggle">🎨 تمييز الألوان</button>
+            <button class="btn btn-outline" id="btn-quick-lighting">💡 إضاءة البيئة</button>
+            <button class="btn btn-outline" id="btn-toggle-measure">📏 قياس الأبعاد</button>
+            <button class="btn btn-outline" id="btn-toggle-section">✂️ قطاع هندسي</button>
+            <button class="btn btn-outline" id="btn-toggle-telemetry">📊 مؤشرات الأداء</button>
+            <button class="btn btn-filter" id="btn-toggle-filters-panel">🎛️ تصفية العناصر</button>
+            <button class="btn btn-upload" id="btn-trigger-upload">📂 استيراد نموذج</button>
+            <button class="btn btn-center" id="btn-center-model">🎯 توسيط الموديل</button>
+            <button class="btn btn-clash-view" id="btn-view-clashes">⚠️ التعارضات</button>
+            <button class="btn btn-outline" id="btn-collaboration">👥 التعاون</button>
+            <button class="btn btn-outline" id="btn-dashboard">📈 لوحة التحكم</button>
+            <button class="btn btn-outline" id="btn-toggle-topbar">🔼 إخفاء الشريط</button>
+            <button class="btn btn-outline" id="btn-toggle-sidebars">📑 القوائم الجانبية</button>
+            <button class="btn btn-outline" id="btn-toggle-zen">🔲 عرض كامل</button>
+            <div id="user-session-bar" class="user-session-container">
+                <div class="user-session-pill">
+                    <span id="user-session-name">👨‍🏫 د. أحمد لؤي أحمد (Admin)</span>
+                </div>
+                <button id="btn-logout" class="btn-logout">🚪 خروج</button>
             </div>
-            <div class="drop-zone" onclick="document.getElementById('fileInput').click()">
-                <div style="font-size: 48px;">📁</div>
-                <div>اسحب وأفلت ملفات النماذج هنا أو انقر للاختيار</div>
-                <input type="file" id="fileInput" style="display: none;" multiple accept=".obj,.gltf,.glb,.fbx">
-            </div>
-            <div id="projectsList"></div>
-            <button class="btn btn-secondary" onclick="app.closeProjectsModal()" style="margin-top: 15px;">إغلاق</button>
         </div>
     </div>
 
-    <!-- Context Menu -->
-    <div class="context-menu" id="contextMenu">
-        <div class="context-menu-item" onclick="app.contextAction('select')">✔️ تحديد</div>
-        <div class="context-menu-item" onclick="app.contextAction('hide')">👁️ إخفاء</div>
-        <div class="context-menu-item" onclick="app.contextAction('isolate')">🔍 عزل</div>
-        <div class="context-menu-item" onclick="app.contextAction('delete')">🗑️ حذف</div>
-        <div class="context-menu-item" onclick="app.contextAction('properties')">📋 الخصائص</div>
+    <div id="floating-ui-dock">
+        <button class="dock-btn" id="dock-btn-show-topbar">🔽 إظهار الشريط العلوي</button>
+        <button class="dock-btn" id="dock-btn-toggle-sidebars">📑 القوائم الجانبية</button>
+        <button class="dock-btn" id="dock-btn-toggle-zen">🔲 عرض عادي</button>
+    </div>
+
+    <div id="floating-sidebar-toggle-right"><span>◀</span><span>اللوحات الجانبية</span></div>
+    <div id="floating-sidebar-toggle-left"><span>▶</span><span>التعليمات</span></div>
+
+    <div id="measure-hud">
+        <span>📏</span>
+        <span id="measure-result-text">انقر على النقطة الأولى...</span>
+        <button id="btn-clear-measure" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #f1f5f9; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; cursor: pointer;">🗑️ مسح</button>
+        <button id="btn-close-measure" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer;">✕</button>
+    </div>
+
+    <div id="section-panel" class="sidebar-left-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 8px; margin-bottom: 12px;">
+            <h3 style="color: #38bdf8; font-size: 0.95rem; font-weight: bold; margin: 0;">✂️ أداة القطاع الفراغي</h3>
+            <button id="btn-close-section-panel" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer;">✕</button>
+        </div>
+        <div style="margin-bottom: 12px;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem; font-weight: bold; color: #38bdf8;">
+                <input type="checkbox" id="chk-section-active" style="accent-color: #38bdf8; width: 16px; height: 16px;">
+                <span>تفعيل مستوى القطع</span>
+            </label>
+        </div>
+        <div style="margin-bottom: 12px;">
+            <div style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 5px;">محور القطع:</div>
+            <div class="mode-btn-group">
+                <button class="mode-btn active" id="btn-sec-axis-y" data-axis="y">أفقي (Y)</button>
+                <button class="mode-btn" id="btn-sec-axis-x" data-axis="x">رأسي (X)</button>
+                <button class="mode-btn" id="btn-sec-axis-z" data-axis="z">طولي (Z)</button>
+            </div>
+        </div>
+        <div style="margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #94a3b8; margin-bottom: 4px;">
+                <span>موضع القطع:</span>
+                <span id="label-sec-pos" style="color: #38bdf8; font-weight: bold;">2.50 م</span>
+            </div>
+            <input type="range" id="slider-sec-pos" min="-1" max="6" step="0.05" value="2.5" style="width: 100%; accent-color: #38bdf8;">
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08);">
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.78rem; color: #cbd5e1;">
+                <input type="checkbox" id="chk-sec-invert" style="accent-color: #38bdf8;">
+                <span>عكس الاتجاه</span>
+            </label>
+            <button id="btn-reset-section" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #cbd5e1; padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; cursor: pointer;">إعادة ضبط</button>
+        </div>
+    </div>
+
+    <div id="telemetry-panel" class="sidebar-left-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 8px; margin-bottom: 10px;">
+            <div>
+                <h3 style="color: #22c55e; font-size: 0.95rem; font-weight: bold; margin: 0;">📊 مؤشرات الأداء</h3>
+                <div style="font-size: 0.7rem; color: #94a3b8;">Research Telemetry</div>
+            </div>
+            <button id="btn-close-telemetry" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer;">✕</button>
+        </div>
+        <div class="tel-grid">
+            <div class="tel-card">
+                <div class="tel-lbl">FPS:</div>
+                <div class="tel-val" id="tel-fps" style="color: #22c55e;">60</div>
+            </div>
+            <div class="tel-card">
+                <div class="tel-lbl">Draw Calls:</div>
+                <div class="tel-val" id="tel-calls">-</div>
+            </div>
+            <div class="tel-card">
+                <div class="tel-lbl">Triangles:</div>
+                <div class="tel-val" id="tel-triangles">-</div>
+            </div>
+            <div class="tel-card">
+                <div class="tel-lbl">Frame Time:</div>
+                <div class="tel-val" id="tel-frametime">- ms</div>
+            </div>
+            <div class="tel-card">
+                <div class="tel-lbl">Geometries:</div>
+                <div class="tel-val" id="tel-geoms">-</div>
+            </div>
+            <div class="tel-card">
+                <div class="tel-lbl">Memory:</div>
+                <div class="tel-val" id="tel-memory">-</div>
+            </div>
+        </div>
+        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 0.72rem; color: #64748b;">بيانات جاهزة للأبحاث</span>
+            <button class="btn btn-outline" id="btn-export-benchmark" style="font-size: 0.74rem; padding: 4px 10px; border-color: rgba(34, 197, 94, 0.4); color: #86efac;">📥 تصدير JSON</button>
+        </div>
+    </div>
+
+    <div id="vr-guide-modal">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 12px; margin-bottom: 16px;">
+            <div>
+                <h3 style="color: #38bdf8; font-size: 1.1rem; font-weight: bold; margin: 0;">🥽 دليل الواقع الافتراضي (WebXR & Meta Quest)</h3>
+                <div style="font-size: 0.75rem; color: #94a3b8;">تجربة الفحص الفراغي بمقياس 1:1</div>
+            </div>
+            <button id="btn-close-vr-guide" style="background: transparent; border: none; color: #94a3b8; font-size: 1.4rem; cursor: pointer;">✕</button>
+        </div>
+        <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; line-height: 1.5;">
+            <div style="font-weight: bold; color: #38bdf8; font-size: 0.88rem; margin-bottom: 4px;">📌 كيف يعمل؟</div>
+            <div style="font-size: 0.82rem; color: #cbd5e1;">تقنية WebXR تعمل على نظارات الواقع الافتراضي. عند فتح الموقع من كمبيوتر عادي، يظهر الزر بحالة <code>VR NOT SUPPORTED</code> لأن المتصفح لا يكتشف نظارة موصولة.</div>
+        </div>
+        <div style="margin-bottom: 16px;">
+            <div style="font-weight: bold; color: #e2e8f0; font-size: 0.9rem; margin-bottom: 10px;">🚀 خطوات التشغيل بنظارة Meta Quest:</div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 12px; display: flex; gap: 10px; align-items: flex-start;">
+                    <span style="background: #0284c7; color: white; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold; flex-shrink: 0;">1</span>
+                    <div style="font-size: 0.82rem; color: #e2e8f0;">افتح متصفح <b>Meta Quest Browser</b> على النظارة.</div>
+                </div>
+                <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 12px; display: flex; gap: 10px; align-items: flex-start;">
+                    <span style="background: #0284c7; color: white; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold; flex-shrink: 0;">2</span>
+                    <div style="font-size: 0.82rem; color: #e2e8f0;">افتح رابط المنصة المباشر.</div>
+                </div>
+                <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 12px; display: flex; gap: 10px; align-items: flex-start;">
+                    <span style="background: #0284c7; color: white; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold; flex-shrink: 0;">3</span>
+                    <div style="font-size: 0.82rem; color: #e2e8f0;">اضغط زر <b style="color: #38bdf8;">ENTER VR</b> للدخول بمقياس 1:1.</div>
+                </div>
+            </div>
+        </div>
+        <div style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.35); border-radius: 10px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+            <div>
+                <div style="font-weight: bold; color: #86efac; font-size: 0.85rem;">💻 محاكي على سطح المكتب:</div>
+                <div style="font-size: 0.75rem; color: #cbd5e1;">تجربة أسلوب التوجيه دون نظارة.</div>
+            </div>
+            <button id="btn-toggle-laser-sim" class="btn btn-outline" style="border-color: #22c55e; color: #86efac; font-size: 0.78rem; padding: 6px 12px;">⚡ تشغيل المحاكي</button>
+        </div>
+    </div>
+
+    <div id="bim-filter-panel" class="sidebar-right-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 8px; margin-bottom: 12px;">
+            <h3 style="color: #38bdf8; font-size: 0.95rem; font-weight: bold; margin: 0;">🎛️ تصفية العناصر والإضاءة</h3>
+            <button id="btn-close-filter-panel" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer;">✕</button>
+        </div>
+        <div class="filter-section-title">🏢 الطوابق (Storeys)</div>
+        <div class="filter-box">
+            <div class="mode-btn-group">
+                <button class="mode-btn active" data-floor="all">الكل</button>
+                <button class="mode-btn" data-floor="ground">الأرضي</button>
+                <button class="mode-btn" data-floor="first">الأول</button>
+                <button class="mode-btn" data-floor="roof">السطح</button>
+            </div>
+        </div>
+        <div class="filter-section-title">🔩 التصنيفات (Categories)</div>
+        <div class="filter-box">
+            <div class="cat-item"><span><span class="color-dot" style="background: #f97316;"></span>أبواب (Doors)</span><input type="checkbox" checked data-cat="doors"></div>
+            <div class="cat-item"><span><span class="color-dot" style="background: #3b82f6;"></span>نوافذ (Windows)</span><input type="checkbox" checked data-cat="windows"></div>
+            <div class="cat-item"><span><span class="color-dot" style="background: #8b5cf6;"></span>جدران (Walls)</span><input type="checkbox" checked data-cat="walls"></div>
+            <div class="cat-item"><span><span class="color-dot" style="background: #64748b;"></span>أرضيات (Floors)</span><input type="checkbox" checked data-cat="floors"></div>
+            <div class="cat-item"><span><span class="color-dot" style="background: #94a3b8;"></span>أسقف (Ceilings)</span><input type="checkbox" checked data-cat="ceilings"></div>
+            <div class="cat-item"><span><span class="color-dot" style="background: #ef4444;"></span>دكت (Ducts)</span><input type="checkbox" checked data-cat="ducts"></div>
+            <div class="cat-item"><span><span class="color-dot" style="background: #22c55e;"></span>أنابيب (Pipes)</span><input type="checkbox" checked data-cat="pipes"></div>
+            <div class="cat-item"><span><span class="color-dot" style="background: #eab308;"></span>كابلات (Cables)</span><input type="checkbox" checked data-cat="cables"></div>
+        </div>
+        <div class="filter-section-title">💡 الإضاءة (Lighting)</div>
+        <div class="filter-box">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-size: 0.75rem; color: #94a3b8;">شدة الإضاءة:</span>
+                <span id="light-intensity-val" style="font-size: 0.75rem; color: #38bdf8; font-weight: bold;">100%</span>
+            </div>
+            <input type="range" id="slider-light-intensity" min="0" max="100" value="100" style="width: 100%; accent-color: #38bdf8; margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-size: 0.75rem; color: #94a3b8;">لون الخلفية:</span>
+            </div>
+            <div style="display: flex; gap: 6px; justify-content: center;">
+                <div class="bg-swatch active" data-bg="#0b0f19" style="background: #0b0f19; border: 1px solid #38bdf8;"></div>
+                <div class="bg-swatch" data-bg="#1e293b" style="background: #1e293b;"></div>
+                <div class="bg-swatch" data-bg="#0f172a" style="background: #0f172a;"></div>
+                <div class="bg-swatch" data-bg="#000000" style="background: #000000;"></div>
+                <div class="bg-swatch" data-bg="#f8fafc" style="background: #f8fafc;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="clash-panel" class="sidebar-right-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 8px; margin-bottom: 12px;">
+            <h3 style="color: #ef4444; font-size: 0.95rem; font-weight: bold; margin: 0;">⚠️ كشف التعارضات</h3>
+            <button id="btn-close-clash-panel" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer;">✕</button>
+        </div>
+        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+            <button class="btn btn-clash-view" id="btn-run-clash-detection" style="flex: 1;">🔍 فحص التعارضات</button>
+        </div>
+        <div id="clash-stats" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px;">
+            <div style="text-align: center; padding: 8px; background: rgba(239, 68, 68, 0.15); border-radius: 6px;">
+                <div style="font-size: 1.2rem; font-weight: bold; color: #ef4444;" id="clash-critical-count">0</div>
+                <div style="font-size: 0.65rem; color: #94a3b8;">حرج</div>
+            </div>
+            <div style="text-align: center; padding: 8px; background: rgba(249, 115, 22, 0.15); border-radius: 6px;">
+                <div style="font-size: 1.2rem; font-weight: bold; color: #f97316;" id="clash-high-count">0</div>
+                <div style="font-size: 0.65rem; color: #94a3b8;">عالي</div>
+            </div>
+            <div style="text-align: center; padding: 8px; background: rgba(234, 179, 8, 0.15); border-radius: 6px;">
+                <div style="font-size: 1.2rem; font-weight: bold; color: #eab308;" id="clash-medium-count">0</div>
+                <div style="font-size: 0.65rem; color: #94a3b8;">متوسط</div>
+            </div>
+            <div style="text-align: center; padding: 8px; background: rgba(34, 197, 94, 0.15); border-radius: 6px;">
+                <div style="font-size: 1.2rem; font-weight: bold; color: #22c55e;" id="clash-low-count">0</div>
+                <div style="font-size: 0.65rem; color: #94a3b8;">منخفض</div>
+            </div>
+        </div>
+        <div id="clash-list" style="max-height: 400px; overflow-y: auto;"></div>
+        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; gap: 8px;">
+            <button class="btn btn-outline" id="btn-export-clash-json" style="flex: 1; font-size: 0.78rem;">📥 تصدير JSON</button>
+            <button class="btn btn-outline" id="btn-export-clash-csv" style="flex: 1; font-size: 0.78rem;">📊 تصدير CSV</button>
+        </div>
+    </div>
+
+    <div id="collaboration-panel" class="sidebar-right-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 8px; margin-bottom: 12px;">
+            <h3 style="color: #8b5cf6; font-size: 0.95rem; font-weight: bold; margin: 0;">👥 التعاون متعدد المستخدمين</h3>
+            <button id="btn-close-collab-panel" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer;">✕</button>
+        </div>
+        <div style="margin-bottom: 12px;">
+            <div style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 8px;">المستخدمون المتصلون:</div>
+            <div id="users-list" style="display: flex; flex-direction: column; gap: 8px;"></div>
+        </div>
+        <div style="border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px; margin-bottom: 12px;">
+            <div style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 8px;">المحادثة:</div>
+            <div id="chat-messages" style="max-height: 250px; overflow-y: auto; margin-bottom: 8px;"></div>
+            <div style="display: flex; gap: 8px;">
+                <input type="text" id="chat-input" placeholder="اكتب رسالة..." style="flex: 1; background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 8px 12px; color: #f1f5f9; font-size: 0.82rem;">
+                <button class="btn" id="btn-send-chat" style="padding: 8px 14px;">إرسال</button>
+            </div>
+        </div>
+        <div style="font-size: 0.72rem; color: #64748b; text-align: center;">
+            <span id="connection-status" style="color: #22c55e;">● متصل</span> | محاكاة WebSocket
+        </div>
+    </div>
+
+    <div id="dashboard-panel" class="sidebar-right-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 8px; margin-bottom: 12px;">
+            <h3 style="color: #38bdf8; font-size: 0.95rem; font-weight: bold; margin: 0;">📈 لوحة التحكم التحليلية</h3>
+            <button id="btn-close-dashboard-panel" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer;">✕</button>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px;">
+            <div class="stat-card">
+                <div class="stat-value" id="stat-elements">0</div>
+                <div class="stat-label">العناصر</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-clashes">0</div>
+                <div class="stat-label">التعارضات</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-users">3</div>
+                <div class="stat-label">المستخدمون</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-annotations">0</div>
+                <div class="stat-label">الملاحظات</div>
+            </div>
+        </div>
+        <div style="margin-bottom: 16px;">
+            <div style="font-size: 0.82rem; font-weight: bold; color: #38bdf8; margin-bottom: 10px;">توزيع العناصر:</div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 4px;">
+                        <span>جدران</span>
+                        <span style="color: #38bdf8;">35%</span>
+                    </div>
+                    <div class="chart-bar" style="width: 35%;"></div>
+                </div>
+                <div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 4px;">
+                        <span>أبواب ونوافذ</span>
+                        <span style="color: #38bdf8;">25%</span>
+                    </div>
+                    <div class="chart-bar" style="width: 25%;"></div>
+                </div>
+                <div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 4px;">
+                        <span>MEP</span>
+                        <span style="color: #38bdf8;">40%</span>
+                    </div>
+                    <div class="chart-bar" style="width: 40%;"></div>
+                </div>
+            </div>
+        </div>
+        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08);">
+            <button class="btn btn-filter" id="btn-export-dashboard" style="width: 100%;">📥 تصدير التقرير</button>
+        </div>
+    </div>
+
+    <div id="desktop-info-panel">
+        <h3>📋 معلومات العنصر <span style="font-size: 0.75rem; color: #94a3b8; font-weight: normal; cursor: pointer;" id="btn-close-info">✕</span></h3>
+        <div class="prop-row"><span class="prop-label">الاسم:</span><span class="prop-val" id="prop-name">-</span></div>
+        <div class="prop-row"><span class="prop-label">التصنيف:</span><span class="prop-val" id="prop-category">-</span></div>
+        <div class="prop-row"><span class="prop-label">المستوى:</span><span class="prop-val" id="prop-level">-</span></div>
+        <div class="prop-row"><span class="prop-label">المادة:</span><span class="prop-val" id="prop-material">-</span></div>
+        <div class="prop-row"><span class="prop-label">الأبعاد:</span><span class="prop-val" id="prop-dimensions">-</span></div>
+        <div class="prop-row"><span class="prop-label">الحالة:</span><span class="prop-val"><span class="status-pill" id="prop-status">جديد</span></span></div>
+    </div>
+
+    <div id="instructions">
+        <div style="font-weight: bold; color: #38bdf8; margin-bottom: 6px;">💡 نصائح الاستخدام:</div>
+        <div>• انقر بالزر الأيسر لتحديد عنصر</div>
+        <div>• اسحب بالزر الأيمن للتدوير</div>
+        <div>• استخدم العجلة للتقريب/التبعيد</div>
+        <div>• اضغط T لإخفاء/إظهار الشريط</div>
+        <div>• اضغط S للقوائم الجانبية</div>
+        <div>• اسحب ملف GLB/IFC لاستيراده</div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <div id="tutorial-overlay">
+        <div class="tutorial-step">
+            <div style="font-size: 2.5rem; margin-bottom: 16px;" id="tutorial-icon">🥽</div>
+            <h2 style="font-size: 1.3rem; margin-bottom: 12px; color: #38bdf8;" id="tutorial-title">مرحباً بك في غرفة فحص التعارضات</h2>
+            <p style="font-size: 0.92rem; color: #cbd5e1; line-height: 1.6; margin-bottom: 20px;" id="tutorial-text">هذه المنصة تمكنك من مراجعة نماذج BIM في بيئة ثلاثية الأبعاد تفاعلية.</p>
+            <div class="tutorial-progress" id="tutorial-progress"></div>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button class="btn btn-outline" id="btn-skip-tutorial" style="font-size: 0.85rem;">تخطي</button>
+                <button class="btn btn-filter" id="btn-next-tutorial" style="font-size: 0.85rem;">التالي ➡</button>
+            </div>
+        </div>
     </div>
 
     <script>
-        // Main Application
-        class WebXRBIMApp {
-            constructor() {
-                this.scene = null;
-                this.camera = null;
-                this.renderer = null;
-                this.controls = null;
-                this.objects = [];
-                this.conflicts = [];
-                this.users = [];
-                this.messages = [];
-                this.projects = [];
-                this.achievements = [];
-                this.history = { past: [], future: [] };
-                this.stats = { fps: 0, memory: 0, triangles: 0, drawCalls: 0 };
-                this.tutorialStep = 0;
-                this.isStudentMode = false;
-                this.currentLanguage = 'ar';
-                this.performanceData = [];
-                this.selectedObject = null;
-                this.init();
-            }
-
-            init() {
-                console.log('🚀 Initializing WebXR BIM Platform...');
-                this.setupThreeJS();
-                this.setupScene();
-                this.setupLights();
-                this.setupGrid();
-                this.setupEventListeners();
-                this.setupCharts();
-                this.loadDemoData();
-                this.animate();
-                this.startPerformanceMonitoring();
-                this.showToast('مرحباً! المنصة جاهزة للاستخدام', 'success');
-                
-                // Load saved data
-                this.loadFromLocalStorage();
-            }
-
-            setupThreeJS() {
-                // Scene
-                this.scene = new THREE.Scene();
-                this.scene.background = new THREE.Color(0x87ceeb);
-                this.scene.fog = new THREE.Fog(0x87ceeb, 10, 500);
-
-                // Camera
-                this.camera = new THREE.PerspectiveCamera(
-                    75,
-                    window.innerWidth / window.innerHeight,
-                    0.1,
-                    1000
-                );
-                this.camera.position.set(10, 10, 10);
-                this.camera.lookAt(0, 0, 0);
-
-                // Renderer
-                this.renderer = new THREE.WebGLRenderer({ antialias: true });
-                this.renderer.setSize(window.innerWidth, window.innerHeight);
-                this.renderer.shadowMap.enabled = true;
-                this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-                this.renderer.xr.enabled = true;
-                document.getElementById('canvas-container').appendChild(this.renderer.domElement);
-
-                // Basic orbit controls simulation
-                this.setupOrbitControls();
-            }
-
-            setupOrbitControls() {
-                let isDragging = false;
-                let previousMousePosition = { x: 0, y: 0 };
-
-                this.renderer.domElement.addEventListener('mousedown', (e) => {
-                    isDragging = true;
-                    previousMousePosition = { x: e.clientX, y: e.clientY };
-                });
-
-                this.renderer.domElement.addEventListener('mousemove', (e) => {
-                    if (isDragging) {
-                        const deltaX = e.clientX - previousMousePosition.x;
-                        const deltaY = e.clientY - previousMousePosition.y;
-                        
-                        const radius = this.camera.position.length();
-                        const theta = Math.atan2(this.camera.position.x, this.camera.position.z);
-                        const phi = Math.acos(this.camera.position.y / radius);
-
-                        const newTheta = theta - deltaX * 0.01;
-                        const newPhi = Math.max(0.1, Math.min(Math.PI - 0.1, phi + deltaY * 0.01));
-
-                        this.camera.position.x = radius * Math.sin(newPhi) * Math.sin(newTheta);
-                        this.camera.position.y = radius * Math.cos(newPhi);
-                        this.camera.position.z = radius * Math.sin(newPhi) * Math.cos(newTheta);
-                        this.camera.lookAt(0, 0, 0);
-
-                        previousMousePosition = { x: e.clientX, y: e.clientY };
-                    }
-                });
-
-                this.renderer.domElement.addEventListener('mouseup', () => {
-                    isDragging = false;
-                });
-
-                this.renderer.domElement.addEventListener('wheel', (e) => {
-                    e.preventDefault();
-                    const delta = e.deltaY * 0.01;
-                    const newRadius = this.camera.position.length() + delta;
-                    if (newRadius > 5 && newRadius < 100) {
-                        this.camera.position.multiplyScalar(newRadius / this.camera.position.length());
-                    }
-                });
-            }
-
-            setupScene() {
-                // Add sample BIM objects
-                const materials = [
-                    new THREE.MeshStandardMaterial({ color: 0xff6b6b }),
-                    new THREE.MeshStandardMaterial({ color: 0x4ecdc4 }),
-                    new THREE.MeshStandardMaterial({ color: 0xffe66d }),
-                    new THREE.MeshStandardMaterial({ color: 0xa8e6cf }),
-                ];
-
-                // Walls
-                for (let i = 0; i < 4; i++) {
-                    const geometry = new THREE.BoxGeometry(0.2, 3, 5);
-                    const wall = new THREE.Mesh(geometry, materials[i % materials.length]);
-                    wall.position.set(
-                        i === 0 ? 5 : i === 1 ? -5 : 0,
-                        1.5,
-                        i === 2 ? 5 : i === 3 ? -5 : 0
-                    );
-                    wall.castShadow = true;
-                    wall.receiveShadow = true;
-                    wall.userData = {
-                        type: 'wall',
-                        id: `wall_${i}`,
-                        name: `جدار ${i + 1}`,
-                    };
-                    this.scene.add(wall);
-                    this.objects.push(wall);
-                }
-
-                // Columns
-                for (let i = 0; i < 4; i++) {
-                    const geometry = new THREE.CylinderGeometry(0.3, 0.3, 4, 16);
-                    const column = new THREE.Mesh(geometry, materials[2]);
-                    column.position.set(
-                        i % 2 === 0 ? 4 : -4,
-                        2,
-                        i < 2 ? 4 : -4
-                    );
-                    column.castShadow = true;
-                    column.receiveShadow = true;
-                    column.userData = {
-                        type: 'column',
-                        id: `column_${i}`,
-                        name: `عمود ${i + 1}`,
-                    };
-                    this.scene.add(column);
-                    this.objects.push(column);
-                }
-
-                // Beams - intentionally placed to create conflicts
-                for (let i = 0; i < 3; i++) {
-                    const geometry = new THREE.BoxGeometry(8, 0.4, 0.4);
-                    const beam = new THREE.Mesh(geometry, materials[3]);
-                    beam.position.set(0, 3.5 + i * 0.3, i * 2 - 2);
-                    beam.castShadow = true;
-                    beam.receiveShadow = true;
-                    beam.userData = {
-                        type: 'beam',
-                        id: `beam_${i}`,
-                        name: `كمرة ${i + 1}`,
-                    };
-                    this.scene.add(beam);
-                    this.objects.push(beam);
-                }
-
-                // Slabs
-                const slabGeometry = new THREE.BoxGeometry(10, 0.2, 10);
-                const slab = new THREE.Mesh(slabGeometry, materials[1]);
-                slab.position.set(0, 0, 0);
-                slab.receiveShadow = true;
-                slab.userData = {
-                    type: 'slab',
-                    id: 'slab_1',
-                    name: 'بلاطة',
-                };
-                this.scene.add(slab);
-                this.objects.push(slab);
-            }
-
-            setupLights() {
-                // Ambient light
-                const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-                this.scene.add(ambientLight);
-
-                // Directional light (sun)
-                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-                directionalLight.position.set(10, 20, 10);
-                directionalLight.castShadow = true;
-                directionalLight.shadow.mapSize.width = 2048;
-                directionalLight.shadow.mapSize.height = 2048;
-                directionalLight.shadow.camera.near = 0.5;
-                directionalLight.shadow.camera.far = 500;
-                directionalLight.shadow.camera.left = -20;
-                directionalLight.shadow.camera.right = 20;
-                directionalLight.shadow.camera.top = 20;
-                directionalLight.shadow.camera.bottom = -20;
-                this.scene.add(directionalLight);
-
-                // Hemisphere light
-                const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.4);
-                this.scene.add(hemiLight);
-            }
-
-            setupGrid() {
-                const gridHelper = new THREE.GridHelper(20, 20, 0xffffff, 0xcccccc);
-                gridHelper.name = 'gridHelper';
-                this.scene.add(gridHelper);
-            }
-
-            setupEventListeners() {
-                // Window resize
-                window.addEventListener('resize', () => {
-                    this.camera.aspect = window.innerWidth / window.innerHeight;
-                    this.camera.updateProjectionMatrix();
-                    this.renderer.setSize(window.innerWidth, window.innerHeight);
-                });
-
-                // Keyboard shortcuts
-                document.addEventListener('keydown', (e) => {
-                    if (e.ctrlKey && e.key === 'z') {
-                        e.preventDefault();
-                        this.undo();
-                    } else if (e.ctrlKey && e.key === 'y') {
-                        e.preventDefault();
-                        this.redo();
-                    } else if (e.key === 'Delete') {
-                        this.deleteSelected();
-                    } else if (e.key === 'f' || e.key === 'F') {
-                        this.focusOnSelected();
-                    } else if (e.key === 'g' || e.key === 'G') {
-                        this.toggleGrid();
-                    }
-                });
-
-                // Context menu
-                this.renderer.domElement.addEventListener('contextmenu', (e) => {
-                    e.preventDefault();
-                    this.showContextMenu(e.clientX, e.clientY);
-                });
-
-                // Click outside to hide context menu
-                document.addEventListener('click', () => {
-                    document.getElementById('contextMenu').classList.remove('active');
-                });
-
-                // Drag and drop
-                const dropZone = document.querySelector('.drop-zone');
-                dropZone.addEventListener('dragover', (e) => {
-                    e.preventDefault();
-                    dropZone.classList.add('dragover');
-                });
-
-                dropZone.addEventListener('dragleave', () => {
-                    dropZone.classList.remove('dragover');
-                });
-
-                dropZone.addEventListener('drop', (e) => {
-                    e.preventDefault();
-                    dropZone.classList.remove('dragover');
-                    this.handleFileUpload(e.dataTransfer.files);
-                });
-
-                // File input
-                document.getElementById('fileInput').addEventListener('change', (e) => {
-                    this.handleFileUpload(e.target.files);
-                });
-
-                // Search filters
-                document.getElementById('conflictSearch').addEventListener('input', (e) => {
-                    this.filterConflicts(e.target.value);
-                });
-
-                document.getElementById('projectSearch').addEventListener('input', (e) => {
-                    this.filterProjects(e.target.value);
-                });
-
-                // Filter buttons
-                document.querySelectorAll('.filter-btn').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-                        btn.classList.add('active');
-                        this.filterConflictsByLevel(btn.dataset.level);
-                    });
-                });
-            }
-
-            setupCharts() {
-                // Performance Chart
-                const perfCtx = document.getElementById('performanceChart').getContext('2d');
-                this.performanceChart = new Chart(perfCtx, {
-                    type: 'line',
-                    data: {
-                        labels: [],
-                        datasets: [{
-                            label: 'FPS',
-                            data: [],
-                            borderColor: '#38bdf8',
-                            backgroundColor: 'rgba(56, 189, 248, 0.1)',
-                            tension: 0.4,
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                max: 120
-                            }
-                        },
-                        plugins: {
-                            legend: {
-                                labels: { color: 'white' }
-                            }
-                        }
-                    }
-                });
-
-                // Elements Chart
-                const elemCtx = document.getElementById('elementsChart').getContext('2d');
-                this.elementsChart = new Chart(elemCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['جدران', 'أعمدة', 'كمرات', 'بلاطات'],
-                        datasets: [{
-                            data: [4, 4, 3, 1],
-                            backgroundColor: ['#ff6b6b', '#4ecdc4', '#ffe66d', '#a8e6cf']
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                labels: { color: 'white' }
-                            }
-                        }
-                    }
-                });
-            }
-
-            loadDemoData() {
-                // Demo users
-                this.users = [
-                    { id: 1, name: 'أحمد محمد', avatar: '👨‍💼', color: '#ff6b6b', online: true },
-                    { id: 2, name: 'سارة أحمد', avatar: '👩‍💼', color: '#4ecdc4', online: true },
-                    { id: 3, name: 'خالد علي', avatar: '👨‍🔧', color: '#ffe66d', online: false },
-                ];
-                this.updateUsersList();
-
-                // Demo messages
-                this.messages = [
-                    { user: 'أحمد محمد', text: 'مرحباً بالجميع!', time: new Date() },
-                    { user: 'سارة أحمد', text: 'هل راجعتم التعارضات الجديدة؟', time: new Date() },
-                ];
-                this.updateChatDisplay();
-
-                // Demo projects
-                this.projects = [
-                    {
-                        id: 1,
-                        name: 'مشروع البرج السكني',
-                        date: '2026-10-01',
-                        version: '1.2',
-                        tags: ['سكني', 'قيد التنفيذ'],
-                        conflicts: 5
-                    },
-                    {
-                        id: 2,
-                        name: 'مركز التسوق التجاري',
-                        date: '2026-09-15',
-                        version: '2.0',
-                        tags: ['تجاري', 'مكتمل'],
-                        conflicts: 0
-                    },
-                ];
-
-                // Demo achievements
-                this.achievements = [
-                    { id: 1, name: 'أول خطوة', description: 'دخول المنصة لأول مرة', icon: '🎯', unlocked: true, points: 10 },
-                    { id: 2, name: 'محترف الكشف', description: 'كشف 10 تعارضات', icon: '🔍', unlocked: false, points: 50 },
-                    { id: 3, name: 'خبير VR', description: 'استخدام وضع VR لأول مرة', icon: '🥽', unlocked: false, points: 30 },
-                    { id: 4, name: 'عمل جماعي', description: 'التعاون مع 5 مستخدمين', icon: '👥', unlocked: false, points: 40 },
-                ];
-                this.updateAchievements();
-            }
-
-            animate() {
-                requestAnimationFrame(() => this.animate());
-
-                // Update stats
-                this.updateStats();
-
-                this.renderer.render(this.scene, this.camera);
-            }
-
-            updateStats() {
-                // FPS calculation
-                this.stats.fps = Math.round(1000 / 16.67); // Approximation
-
-                // Memory (if available)
-                if (performance.memory) {
-                    this.stats.memory = Math.round(performance.memory.usedJSHeapSize / 1048576);
-                }
-
-                // Triangles and draw calls
-                this.stats.triangles = 0;
-                this.stats.drawCalls = 0;
-                this.scene.traverse((obj) => {
-                    if (obj instanceof THREE.Mesh) {
-                        this.stats.triangles += obj.geometry.attributes.position.count / 3;
-                        this.stats.drawCalls++;
-                    }
-                });
-
-                // Update display
-                document.getElementById('fpsValue').textContent = this.stats.fps;
-                document.getElementById('memoryValue').textContent = this.stats.memory;
-                document.getElementById('trianglesValue').textContent = Math.round(this.stats.triangles);
-                document.getElementById('drawCallsValue').textContent = this.stats.drawCalls;
-            }
-
-            startPerformanceMonitoring() {
-                setInterval(() => {
-                    this.performanceData.push(this.stats.fps);
-                    if (this.performanceData.length > 20) {
-                        this.performanceData.shift();
-                    }
-
-                    // Update chart
-                    this.performanceChart.data.labels = this.performanceData.map((_, i) => i);
-                    this.performanceChart.data.datasets[0].data = this.performanceData;
-                    this.performanceChart.update('none');
-                }, 1000);
-            }
-
-            // Conflict Detection System
-            detectConflicts() {
-                console.log('🔍 Starting conflict detection...');
-                this.showProgressBar();
-                this.conflicts = [];
-
-                // Check all object pairs for intersection
-                for (let i = 0; i < this.objects.length; i++) {
-                    for (let j = i + 1; j < this.objects.length; j++) {
-                        const objA = this.objects[i];
-                        const objB = this.objects[j];
-
-                        // Calculate bounding boxes
-                        const boxA = new THREE.Box3().setFromObject(objA);
-                        const boxB = new THREE.Box3().setFromObject(objB);
-
-                        // Check intersection
-                        if (boxA.intersectsBox(boxB)) {
-                            // Calculate overlap volume
-                            const intersection = boxA.clone().intersect(boxB);
-                            const volume = intersection.getSize(new THREE.Vector3()).length();
-
-                            // Classify severity
-                            let severity = 'low';
-                            if (volume > 2) severity = 'critical';
-                            else if (volume > 1) severity = 'high';
-                            else if (volume > 0.5) severity = 'medium';
-
-                            const conflict = {
-                                id: `conflict_${this.conflicts.length}`,
-                                objectA: objA.userData.name,
-                                objectB: objB.userData.name,
-                                severity: severity,
-                                volume: volume.toFixed(3),
-                                distance: boxA.distanceToBox(boxB).toFixed(3),
-                                suggestion: this.generateSuggestion(objA, objB, severity),
-                                objects: [objA, objB]
-                            };
-
-                            this.conflicts.push(conflict);
-                        }
-                    }
-                }
-
-                this.hideProgressBar();
-                this.updateConflictsList();
-                this.showToast(`تم كشف ${this.conflicts.length} تعارض`, 'warning');
-                this.unlockAchievement(2);
-            }
-
-            generateSuggestion(objA, objB, severity) {
-                const suggestions = {
-                    critical: `يجب نقل ${objB.userData.name} فوراً - تعارض حرج!`,
-                    high: `يُنصح بإعادة ترتيب ${objA.userData.name} أو ${objB.userData.name}`,
-                    medium: `قد يلزم تعديل بسيط في موضع العنصرين`,
-                    low: `تعارض طفيف - المراجعة اختيارية`
-                };
-                return suggestions[severity];
-            }
-
-            updateConflictsList() {
-                const container = document.getElementById('conflictsList');
-                container.innerHTML = '';
-
-                this.conflicts.forEach(conflict => {
-                    const div = document.createElement('div');
-                    div.className = `conflict-item conflict-${conflict.severity}`;
-                    div.innerHTML = `
-                        <div style="font-weight: bold; margin-bottom: 5px;">
-                            ${conflict.objectA} ⚠️ ${conflict.objectB}
-                        </div>
-                        <div style="font-size: 12px; opacity: 0.9;">
-                            الحجم: ${conflict.volume} م³ | المسافة: ${conflict.distance} م
-                        </div>
-                        <div style="font-size: 11px; opacity: 0.8; margin-top: 5px;">
-                            💡 ${conflict.suggestion}
-                        </div>
-                    `;
-                    div.onclick = () => this.highlightConflict(conflict);
-                    container.appendChild(div);
-                });
-
-                if (this.conflicts.length === 0) {
-                    container.innerHTML = '<div style="text-align: center; padding: 20px;">✅ لا توجد تعارضات</div>';
-                }
-            }
-
-            highlightConflict(conflict) {
-                // Reset all materials
-                this.objects.forEach(obj => {
-                    if (obj.userData.originalMaterial) {
-                        obj.material = obj.userData.originalMaterial;
-                    }
-                });
-
-                // Highlight conflict objects
-                conflict.objects.forEach(obj => {
-                    obj.userData.originalMaterial = obj.material;
-                    obj.material = new THREE.MeshStandardMaterial({
-                        color: 0xff0000,
-                        emissive: 0xff0000,
-                        emissiveIntensity: 0.5
-                    });
-                });
-
-                // Focus camera on conflict
-                const center = new THREE.Vector3();
-                new THREE.Box3().setFromObject(conflict.objects[0]).getCenter(center);
-                this.camera.position.set(center.x + 5, center.y + 5, center.z + 5);
-                this.camera.lookAt(center);
-
-                this.showToast(`تم تحديد التعارض: ${conflict.objectA} و ${conflict.objectB}`, 'info');
-            }
-
-            filterConflicts(query) {
-                const items = document.querySelectorAll('.conflict-item');
-                items.forEach(item => {
-                    const text = item.textContent.toLowerCase();
-                    item.style.display = text.includes(query.toLowerCase()) ? 'block' : 'none';
-                });
-            }
-
-            filterConflictsByLevel(level) {
-                const items = document.querySelectorAll('.conflict-item');
-                items.forEach(item => {
-                    if (level === 'all') {
-                        item.style.display = 'block';
-                    } else {
-                        item.style.display = item.classList.contains(`conflict-${level}`) ? 'block' : 'none';
-                    }
-                });
-            }
-
-            exportConflicts() {
-                const report = {
-                    date: new Date().toISOString(),
-                    totalConflicts: this.conflicts.length,
-                    conflicts: this.conflicts.map(c => ({
-                        id: c.id,
-                        objectA: c.objectA,
-                        objectB: c.objectB,
-                        severity: c.severity,
-                        volume: c.volume,
-                        distance: c.distance,
-                        suggestion: c.suggestion
-                    }))
-                };
-
-                const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `conflict_report_${Date.now()}.json`;
-                a.click();
-
-                this.showToast('تم تصدير تقرير التعارضات', 'success');
-            }
-
-            // Users & Collaboration
-            updateUsersList() {
-                const container = document.getElementById('usersList');
-                container.innerHTML = '';
-
-                this.users.forEach(user => {
-                    const div = document.createElement('div');
-                    div.className = 'user-item';
-                    div.innerHTML = `
-                        <div class="user-avatar" style="background: ${user.color}">
-                            ${user.avatar}
-                        </div>
-                        <div style="flex: 1;">
-                            <div style="font-weight: bold;">${user.name}</div>
-                            <div style="font-size: 12px; opacity: 0.8;">
-                                ${user.online ? '🟢 متصل' : '⚫ غير متصل'}
-                            </div>
-                        </div>
-                    `;
-                    container.appendChild(div);
-                });
-
-                document.getElementById('userCount').textContent = this.users.filter(u => u.online).length;
-            }
-
-            // Chat System
-            handleChatKeypress(event) {
-                if (event.key === 'Enter') {
-                    this.sendMessage();
-                }
-            }
-
-            sendMessage() {
-                const input = document.getElementById('chatInput');
-                const text = input.value.trim();
-                if (!text) return;
-
-                const message = {
-                    user: 'أنت',
-                    text: text,
-                    time: new Date()
-                };
-
-                this.messages.push(message);
-                this.updateChatDisplay();
-                input.value = '';
-
-                // Simulate response
-                setTimeout(() => {
-                    this.messages.push({
-                        user: this.users[Math.floor(Math.random() * this.users.length)].name,
-                        text: 'شكراً على الرسالة!',
-                        time: new Date()
-                    });
-                    this.updateChatDisplay();
-                }, 1000);
-            }
-
-            updateChatDisplay() {
-                const container = document.getElementById('chatContainer');
-                container.innerHTML = '';
-
-                this.messages.forEach(msg => {
-                    const div = document.createElement('div');
-                    div.className = 'chat-message';
-                    div.innerHTML = `
-                        <div style="font-weight: bold; font-size: 12px;">${msg.user}</div>
-                        <div style="margin: 5px 0;">${msg.text}</div>
-                        <div style="font-size: 10px; opacity: 0.7;">
-                            ${msg.time.toLocaleTimeString('ar-EG')}
-                        </div>
-                    `;
-                    container.appendChild(div);
-                });
-
-                container.scrollTop = container.scrollHeight;
-            }
-
-            // Tutorial System
-            startTutorial() {
-                this.tutorialStep = 0;
-                this.showTutorialStep();
-                document.getElementById('tutorialOverlay').classList.add('active');
-            }
-
-            showTutorialStep() {
-                const steps = [
-                    {
-                        title: 'مرحباً بك في منصة WebXR BIM',
-                        content: 'هذه المنصة تساعدك على مراجعة نماذج البناء ثلاثية الأبعاد وكشف التعارضات بشكل ذكي.'
-                    },
-                    {
-                        title: 'التنقل في المشهد',
-                        content: 'استخدم الماوس للدوران حول النموذج. اسحب بالزر الأيسر للتدوير، وعجلة الماوس للتقريب والتبعيد.'
-                    },
-                    {
-                        title: 'كشف التعارضات',
-                        content: 'اضغط على زر "كشف التعارضات" لتحليل النموذج تلقائياً. سيتم تصنيف التعارضات حسب الخطورة.'
-                    },
-                    {
-                        title: 'التعاون مع الفريق',
-                        content: 'يمكنك رؤية المستخدمين النشطين والدردشة معهم. كل تغيير يتم مشاركته مباشرة.'
-                    },
-                    {
-                        title: 'وضع VR',
-                        content: 'اضغط على زر VR لتجربة النموذج في الواقع الافتراضي باستخدام Meta Quest أو أي نظارة متوافقة.'
-                    }
-                ];
-
-                const step = steps[this.tutorialStep];
-                document.getElementById('tutorialTitle').textContent = step.title;
-                document.getElementById('tutorialContent').textContent = step.content;
-
-                // Update progress dots
-                const progress = document.getElementById('tutorialProgress');
-                progress.innerHTML = '';
-                for (let i = 0; i < steps.length; i++) {
-                    const dot = document.createElement('div');
-                    dot.className = `progress-dot ${i === this.tutorialStep ? 'active' : ''}`;
-                    progress.appendChild(dot);
-                }
-            }
-
-            nextTutorialStep() {
-                if (this.tutorialStep < 4) {
-                    this.tutorialStep++;
-                    this.showTutorialStep();
-                } else {
-                    this.skipTutorial();
-                }
-            }
-
-            previousTutorialStep() {
-                if (this.tutorialStep > 0) {
-                    this.tutorialStep--;
-                    this.showTutorialStep();
-                }
-            }
-
-            skipTutorial() {
-                document.getElementById('tutorialOverlay').classList.remove('active');
-                this.saveToLocalStorage();
-            }
-
-            // Projects Management
-            openProjectsModal() {
-                document.getElementById('projectsModal').classList.add('active');
-                this.updateProjectsList();
-            }
-
-            closeProjectsModal() {
-                document.getElementById('projectsModal').classList.remove('active');
-            }
-
-            updateProjectsList() {
-                const container = document.getElementById('projectsList');
-                container.innerHTML = '';
-
-                this.projects.forEach(project => {
-                    const div = document.createElement('div');
-                    div.className = 'project-item';
-                    div.innerHTML = `
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div>
-                                <div style="font-weight: bold; font-size: 16px;">${project.name}</div>
-                                <div style="font-size: 12px; opacity: 0.8; margin: 5px 0;">
-                                    📅 ${project.date} | 🔢 إصدار ${project.version}
-                                </div>
-                                <div>
-                                    ${project.tags.map(tag => `<span class="badge badge-success">${tag}</span>`).join('')}
-                                </div>
-                            </div>
-                            <div style="text-align: center;">
-                                <div class="stat-value">${project.conflicts}</div>
-                                <div style="font-size: 12px;">تعارضات</div>
-                            </div>
-                        </div>
-                    `;
-                    div.onclick = () => this.loadProject(project);
-                    container.appendChild(div);
-                });
-            }
-
-            createNewProject() {
-                const name = prompt('اسم المشروع الجديد:');
-                if (!name) return;
-
-                const project = {
-                    id: this.projects.length + 1,
-                    name: name,
-                    date: new Date().toISOString().split('T')[0],
-                    version: '1.0',
-                    tags: ['جديد'],
-                    conflicts: 0
-                };
-
-                this.projects.push(project);
-                this.updateProjectsList();
-                this.showToast(`تم إنشاء مشروع: ${name}`, 'success');
-            }
-
-            loadProject(project) {
-                this.showToast(`جاري تحميل: ${project.name}...`, 'info');
-                this.closeProjectsModal();
-                // Simulate loading
-                setTimeout(() => {
-                    this.showToast(`تم تحميل: ${project.name}`, 'success');
-                }, 1500);
-            }
-
-            filterProjects(query) {
-                const items = document.querySelectorAll('.project-item');
-                items.forEach(item => {
-                    const text = item.textContent.toLowerCase();
-                    item.style.display = text.includes(query.toLowerCase()) ? 'block' : 'none';
-                });
-            }
-
-            handleFileUpload(files) {
-                if (files.length === 0) return;
-
-                this.showToast(`جاري رفع ${files.length} ملف...`, 'info');
-                
-                // Simulate upload
-                let progress = 0;
-                const interval = setInterval(() => {
-                    progress += 10;
-                    this.updateProgressBar(progress);
-                    if (progress >= 100) {
-                        clearInterval(interval);
-                        this.hideProgressBar();
-                        this.showToast('تم رفع الملفات بنجاح', 'success');
-                    }
-                }, 200);
-            }
-
-            // Achievements System
-            updateAchievements() {
-                const container = document.getElementById('achievementsList');
-                container.innerHTML = '';
-
-                let totalPoints = 0;
-                this.achievements.forEach(achievement => {
-                    if (achievement.unlocked) {
-                        totalPoints += achievement.points;
-                        const div = document.createElement('div');
-                        div.className = 'achievement';
-                        div.innerHTML = `
-                            <div style="font-size: 32px;">${achievement.icon}</div>
-                            <div style="flex: 1;">
-                                <div style="font-weight: bold;">${achievement.name}</div>
-                                <div style="font-size: 12px;">${achievement.description}</div>
-                            </div>
-                            <div class="stat-value">${achievement.points}</div>
-                        `;
-                        container.appendChild(div);
-                    }
-                });
-
-                document.getElementById('totalPoints').textContent = totalPoints;
-            }
-
-            unlockAchievement(id) {
-                const achievement = this.achievements.find(a => a.id === id);
-                if (achievement && !achievement.unlocked) {
-                    achievement.unlocked = true;
-                    this.updateAchievements();
-                    this.showToast(`🏆 إنجاز جديد: ${achievement.name} (+${achievement.points} نقطة)`, 'success');
-                }
-            }
-
-            // UI Controls
-            switchTab(tabName) {
-                // Remove active class from all tabs and contents
-                document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-
-                // Add active class to selected tab
-                event.target.classList.add('active');
-                document.getElementById(`${tabName}Tab`).classList.add('active');
-            }
-
-            toggleSidebar(side) {
-                const sidebar = side === 'right' ? document.getElementById('rightSidebar') : document.getElementById('leftSidebar');
-                sidebar.classList.toggle('collapsed');
-            }
-
-            toggleTheme() {
-                document.body.classList.toggle('dark-mode');
-                document.getElementById('themeToggle').classList.toggle('active');
-                this.showToast('تم تغيير السمة', 'info');
-            }
-
-            toggleLanguage() {
-                this.currentLanguage = this.currentLanguage === 'ar' ? 'en' : 'ar';
-                document.getElementById('langText').textContent = this.currentLanguage === 'ar' ? 'EN' : 'AR';
-                document.documentElement.setAttribute('dir', this.currentLanguage === 'ar' ? 'rtl' : 'ltr');
-                this.showToast(`Language changed to ${this.currentLanguage === 'ar' ? 'Arabic' : 'English'}`, 'info');
-            }
-
-            toggleStudentMode() {
-                this.isStudentMode = !this.isStudentMode;
-                document.getElementById('studentModeToggle').classList.toggle('active');
-                this.showToast(this.isStudentMode ? 'تم تفعيل وضع الطالب' : 'تم إلغاء وضع الطالب', 'info');
-            }
-
-            toggleGrid() {
-                const grid = this.scene.getObjectByName('gridHelper');
-                if (grid) {
-                    grid.visible = !grid.visible;
-                    document.getElementById('gridToggle').classList.toggle('active');
-                }
-            }
-
-            toggleShadows() {
-                this.renderer.shadowMap.enabled = !this.renderer.shadowMap.enabled;
-                document.getElementById('shadowsToggle').classList.toggle('active');
-                this.showToast(`الظلال: ${this.renderer.shadowMap.enabled ? 'مفعّلة' : 'معطّلة'}`, 'info');
-            }
-
-            changeQuality(quality) {
-                const settings = {
-                    high: { pixelRatio: 2, shadowMapSize: 2048 },
-                    medium: { pixelRatio: 1.5, shadowMapSize: 1024 },
-                    low: { pixelRatio: 1, shadowMapSize: 512 }
-                };
-
-                const setting = settings[quality];
-                this.renderer.setPixelRatio(setting.pixelRatio);
-                this.showToast(`تم تغيير الجودة إلى: ${quality}`, 'info');
-            }
-
-            // VR Support
-            enterVR() {
-                if ('xr' in navigator) {
-                    navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
-                        if (supported) {
-                            this.renderer.xr.enabled = true;
-                            const button = document.createElement('button');
-                            button.textContent = 'Enter VR';
-                            button.onclick = () => {
-                                this.renderer.xr.getSession().then(() => {
-                                    this.showToast('مرحباً في وضع VR!', 'success');
-                                    this.unlockAchievement(3);
-                                });
-                            };
-                            this.showToast('جاري تشغيل وضع VR...', 'info');
-                        } else {
-                            this.showToast('المتصفح لا يدعم WebXR', 'warning');
-                        }
-                    });
-                } else {
-                    this.showToast('WebXR غير متاح في هذا المتصفح', 'warning');
-                }
-            }
-
-            // Context Menu
-            showContextMenu(x, y) {
-                const menu = document.getElementById('contextMenu');
-                menu.style.left = `${x}px`;
-                menu.style.top = `${y}px`;
-                menu.classList.add('active');
-            }
-
-            contextAction(action) {
-                document.getElementById('contextMenu').classList.remove('active');
-                this.showToast(`تم تنفيذ: ${action}`, 'info');
-            }
-
-            // History (Undo/Redo)
-            undo() {
-                if (this.history.past.length > 0) {
-                    const state = this.history.past.pop();
-                    this.history.future.push(this.getCurrentState());
-                    this.restoreState(state);
-                    this.showToast('تراجع', 'info');
-                }
-            }
-
-            redo() {
-                if (this.history.future.length > 0) {
-                    const state = this.history.future.pop();
-                    this.history.past.push(this.getCurrentState());
-                    this.restoreState(state);
-                    this.showToast('إعادة', 'info');
-                }
-            }
-
-            getCurrentState() {
-                return {
-                    camera: this.camera.position.clone(),
-                    objects: this.objects.map(obj => ({
-                        position: obj.position.clone(),
-                        rotation: obj.rotation.clone()
-                    }))
-                };
-            }
-
-            restoreState(state) {
-                this.camera.position.copy(state.camera);
-                // Restore objects if needed
-            }
-
-            deleteSelected() {
-                if (this.selectedObject) {
-                    this.scene.remove(this.selectedObject);
-                    this.objects = this.objects.filter(obj => obj !== this.selectedObject);
-                    this.selectedObject = null;
-                    this.showToast('تم حذف العنصر', 'info');
-                }
-            }
-
-            focusOnSelected() {
-                if (this.selectedObject) {
-                    const center = new THREE.Vector3();
-                    new THREE.Box3().setFromObject(this.selectedObject).getCenter(center);
-                    this.camera.position.set(center.x + 5, center.y + 5, center.z + 5);
-                    this.camera.lookAt(center);
-                }
-            }
-
-            // Toast Notifications
-            showToast(message, type = 'info') {
-                const container = document.getElementById('toastContainer');
-                const toast = document.createElement('div');
-                toast.className = 'toast';
-                
-                const icons = {
-                    success: '✅',
-                    warning: '⚠️',
-                    danger: '❌',
-                    info: 'ℹ️'
-                };
-
-                toast.innerHTML = `
-                    <div style="font-size: 24px;">${icons[type]}</div>
-                    <div>${message}</div>
-                `;
-
-                container.appendChild(toast);
-
-                setTimeout(() => {
-                    toast.style.opacity = '0';
-                    setTimeout(() => toast.remove(), 300);
-                }, 3000);
-            }
-
-            // Progress Bar
-            showProgressBar() {
-                document.getElementById('loadingBar').style.width = '0%';
-                setTimeout(() => {
-                    document.getElementById('loadingBar').style.width = '100%';
-                }, 100);
-            }
-
-            updateProgressBar(percent) {
-                document.getElementById('loadingBar').style.width = `${percent}%`;
-            }
-
-            hideProgressBar() {
-                setTimeout(() => {
-                    document.getElementById('loadingBar').style.width = '0%';
-                }, 500);
-            }
-
-            // Export Functions
-            exportPerformanceReport() {
-                const report = {
-                    date: new Date().toISOString(),
-                    avgFPS: this.performanceData.reduce((a, b) => a + b, 0) / this.performanceData.length,
-                    memory: this.stats.memory,
-                    triangles: this.stats.triangles,
-                    drawCalls: this.stats.drawCalls,
-                    objectCount: this.objects.length
-                };
-
-                const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `performance_report_${Date.now()}.json`;
-                a.click();
-
-                this.showToast('تم تصدير تقرير الأداء', 'success');
-            }
-
-            // Local Storage
-            saveToLocalStorage() {
-                const data = {
-                    tutorialCompleted: true,
-                    projects: this.projects,
-                    achievements: this.achievements,
-                    theme: document.body.classList.contains('dark-mode') ? 'dark' : 'light'
-                };
-                localStorage.setItem('webxr_bim_data', JSON.stringify(data));
-            }
-
-            loadFromLocalStorage() {
-                const data = localStorage.getItem('webxr_bim_data');
-                if (data) {
-                    const parsed = JSON.parse(data);
-                    if (parsed.theme === 'dark') {
-                        document.body.classList.add('dark-mode');
-                        document.getElementById('themeToggle').classList.add('active');
-                    }
+        let scene, camera, renderer, controls, raycaster, mouse;
+        let currentModel = null;
+        let measurePoints = [];
+        let measureLine = null;
+        let isMeasureMode = false;
+        let isSectionActive = false;
+        let clippingPlane = null;
+        let detectedClashes = [];
+        let sessionUser = { name: 'د. أحمد لؤي أحمد', role: 'Admin' };
+        let telemetryData = { fps: 60, calls: 0, triangles: 0, geometries: 0, memory: 0 };
+        let annotations = [];
+
+        const tutorialSteps = [
+            { icon: '🥽', title: 'مرحباً بك في غرفة فحص التعارضات', text: 'هذه المنصة تمكنك من مراجعة نماذج BIM في بيئة ثلاثية الأبعاد تفاعلية.' },
+            { icon: '📂', title: 'استيراد النماذج', text: 'يمكنك استيراد نماذج GLB أو IFC بالسحب والإفلات أو عبر زر الاستيراد.' },
+            { icon: '🔍', title: 'فحص التعارضات', text: 'اضغط على زر التعارضات لاكتشاف التداخلات بين عناصر MEP والبناء تلقائياً.' },
+            { icon: '✂️', title: 'أداة القطاع', text: 'استخدم أداة القطاع الهيدروليكي لفحص المقاطع الداخلية للمبنى.' },
+            { icon: '🥽', title: 'الواقع الافتراضي', text: 'ارتدِ نظارة Meta Quest وادخل للنموذج بمقياس 1:1 حقيقي!' }
+        ];
+        let currentTutorialStep = 0;
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0b0f19);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(5, 5, 5);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.xr.enabled = true;
+            document.getElementById('webgl-container').appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.screenSpacePanning = false;
+            controls.minDistance = 1;
+            controls.maxDistance = 100;
+
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(10, 20, 10);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 2048;
+            directionalLight.shadow.mapSize.height = 2048;
+            scene.add(directionalLight);
+
+            const gridHelper = new THREE.GridHelper(20, 20, 0x38bdf8, 0x1e293b);
+            scene.add(gridHelper);
+
+            createDemoBuilding();
+
+            document.body.appendChild(VRButton.createButton(renderer));
+
+            renderer.setAnimationLoop(animate);
+
+            window.addEventListener('resize', onWindowResize);
+            renderer.domElement.addEventListener('click', onCanvasClick);
+            renderer.domElement.addEventListener('mousemove', onCanvasMouseMove);
+
+            console.log('✅ WebXR BIM Platform initialized');
+        }
+
+        function createDemoBuilding() {
+            const floorGeom = new THREE.BoxGeometry(10, 0.3, 8);
+            const floorMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.8 });
+            
+            const floor1 = new THREE.Mesh(floorGeom, floorMat);
+            floor1.position.y = 0;
+            floor1.userData = { category: 'floors', name: 'الأرضية - الطابق الأرضي', level: 'الأرضي' };
+            scene.add(floor1);
+
+            const floor2 = new THREE.Mesh(floorGeom, floorMat);
+            floor2.position.y = 3.5;
+            floor2.userData = { category: 'floors', name: 'الأرضية - الطابق الأول', level: 'الأول' };
+            scene.add(floor2);
+
+            const wallGeom = new THREE.BoxGeometry(0.2, 3.2, 8);
+            const wallMat = new THREE.MeshStandardMaterial({ color: 0x8b5cf6, roughness: 0.7 });
+
+            const wall1 = new THREE.Mesh(wallGeom, wallMat);
+            wall1.position.set(-5, 1.75, 0);
+            wall1.userData = { category: 'walls', name: 'جدار جانبي - غرب', level: 'الأرضي' };
+            scene.add(wall1);
+
+            const wall2 = new THREE.Mesh(wallGeom, wallMat);
+            wall2.position.set(5, 1.75, 0);
+            wall2.userData = { category: 'walls', name: 'جدار جانبي - شرق', level: 'الأرضي' };
+            scene.add(wall2);
+
+            const wall3Geom = new THREE.BoxGeometry(10, 3.2, 0.2);
+            const wall3 = new THREE.Mesh(wall3Geom, wallMat);
+            wall3.position.set(0, 1.75, -4);
+            wall3.userData = { category: 'walls', name: 'جدار خلفي', level: 'الأرضي' };
+            scene.add(wall3);
+
+            const wall4 = new THREE.Mesh(wall3Geom, wallMat);
+            wall4.position.set(0, 1.75, 4);
+            wall4.userData = { category: 'walls', name: 'جدار أمامي', level: 'الأرضي' };
+            scene.add(wall4);
+
+            const doorGeom = new THREE.BoxGeometry(1, 2.2, 0.1);
+            const doorMat = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.6 });
+
+            const door1 = new THREE.Mesh(doorGeom, doorMat);
+            door1.position.set(2, 1.1, 4.1);
+            door1.userData = { category: 'doors', name: 'الباب الرئيسي', level: 'الأرضي' };
+            scene.add(door1);
+
+            const windowGeom = new THREE.BoxGeometry(1.5, 1, 0.1);
+            const windowMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.6 });
+
+            const window1 = new THREE.Mesh(windowGeom, windowMat);
+            window1.position.set(-2, 2, 4.1);
+            window1.userData = { category: 'windows', name: 'نافذة غرفة 1', level: 'الأرضي' };
+            scene.add(window1);
+
+            const window2 = new THREE.Mesh(windowGeom, windowMat);
+            window2.position.set(0, 2, -4.1);
+            window2.userData = { category: 'windows', name: 'نافذة خلفية', level: 'الأرضي' };
+            scene.add(window2);
+
+            const ductGeom = new THREE.BoxGeometry(0.4, 0.4, 8);
+            const ductMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.5 });
+
+            const duct1 = new THREE.Mesh(ductGeom, ductMat);
+            duct1.position.set(-3, 3, 0);
+            duct1.userData = { category: 'ducts', name: 'دكت تهوية رئيسي', level: 'الكل', type: 'HVAC' };
+            scene.add(duct1);
+
+            const duct2 = new THREE.Mesh(ductGeom, ductMat);
+            duct2.position.set(0, 3, 2);
+            duct2.rotation.y = Math.PI / 2;
+            duct2.userData = { category: 'ducts', name: 'دكت فرعي', level: 'الكل', type: 'HVAC' };
+            scene.add(duct2);
+
+            const pipeGeom = new THREE.CylinderGeometry(0.08, 0.08, 3.5, 16);
+            const pipeMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.4 });
+
+            const pipe1 = new THREE.Mesh(pipeGeom, pipeMat);
+            pipe1.position.set(3.5, 1.75, 0);
+            pipe1.userData = { category: 'pipes', name: 'ماسورة مياه', level: 'الكل', type: 'Plumbing' };
+            scene.add(pipe1);
+
+            const clashPipeGeom = new THREE.CylinderGeometry(0.1, 0.1, 2, 16);
+            const clashPipeMat = new THREE.MeshStandardMaterial({ color: 0xeab308, roughness: 0.4 });
+
+            const clashPipe = new THREE.Mesh(clashPipeGeom, clashPipeMat);
+            clashPipe.position.set(-3, 3, 1.5);
+            clashPipe.rotation.x = Math.PI / 2;
+            clashPipe.userData = { category: 'pipes', name: 'ماسورة كهربائية (تعارض!)', level: 'الكل', type: 'Electrical', hasClash: true };
+            scene.add(clashPipe);
+
+            const cableGeom = new THREE.CylinderGeometry(0.05, 0.05, 6, 8);
+            const cableMat = new THREE.MeshStandardMaterial({ color: 0xeab308, roughness: 0.3 });
+
+            const cable1 = new THREE.Mesh(cableGeom, cableMat);
+            cable1.position.set(4, 2.5, 0);
+            cable1.rotation.z = Math.PI / 2;
+            cable1.userData = { category: 'cables', name: 'كابل كهربائي', level: 'الكل', type: 'Electrical' };
+            scene.add(cable1);
+
+            updateStats();
+        }
+
+        function animate() {
+            controls.update();
+            updateTelemetry();
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function onCanvasClick(event) {
+            if (!isMeasureMode) return;
+
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(scene.children, true);
+
+            if (intersects.length > 0) {
+                const point = intersects[0].point.clone();
+                measurePoints.push(point);
+
+                if (measurePoints.length === 1) {
+                    document.getElementById('measure-result-text').textContent = 'انقر على النقطة الثانية...';
+                    showToast('info', '📍 تم تحديد النقطة الأولى');
+                } else if (measurePoints.length === 2) {
+                    const distance = measurePoints[0].distanceTo(measurePoints[1]);
+                    document.getElementById('measure-result-text').textContent = `المسافة: ${distance.toFixed(3)} متر`;
+                    showToast('success', `📏 المسافة المقاسة: ${distance.toFixed(3)} م`);
+
+                    const lineGeom = new THREE.BufferGeometry().setFromPoints(measurePoints);
+                    const lineMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, linewidth: 2 });
+                    if (measureLine) scene.remove(measureLine);
+                    measureLine = new THREE.Line(lineGeom, lineMat);
+                    scene.add(measureLine);
                 }
             }
         }
 
-        // Initialize App
-        const app = new WebXRBIMApp();
+        function onCanvasMouseMove(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        }
 
-        // Auto-save every 5 minutes
-        setInterval(() => {
-            app.saveToLocalStorage();
-        }, 300000);
+        function loadModel(file) {
+            const loadingToast = document.getElementById('loading-toast');
+            loadingToast.style.display = 'block';
+            document.getElementById('toast-status').textContent = 'جاري قراءة الملف...';
 
-        console.log('✅ WebXR BIM Platform loaded successfully!');
-        console.log('🎯 Features:');
-        console.log('   - Advanced Conflict Detection');
-        console.log('   - Multi-user Collaboration');
-        console.log('   - Performance Dashboard');
-        console.log('   - Interactive Tutorial');
-        console.log('   - Project Management');
-        console.log('   - VR Support');
-        console.log('   - And much more...');
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const loader = new THREE.GLTFLoader();
+                loader.parse(e.target.result, '', function(gltf) {
+                    if (currentModel) scene.remove(currentModel);
+                    
+                    currentModel = gltf.scene;
+                    
+                    const box = new THREE.Box3().setFromObject(currentModel);
+                    const center = box.getCenter(new THREE.Vector3());
+                    const size = box.getSize(new THREE.Vector3());
+                    const maxDim = Math.max(size.x, size.y, size.z);
+                    const scale = 5 / maxDim;
+                    currentModel.scale.multiplyScalar(scale);
+                    currentModel.position.sub(center.multiplyScalar(scale));
+
+                    scene.add(currentModel);
+                    
+                    loadingToast.style.display = 'none';
+                    showToast('success', '✅ تم تحميل النموذج بنجاح');
+                    updateStats();
+                }, function(error) {
+                    loadingToast.style.display = 'none';
+                    showToast('error', '❌ فشل تحميل النموذج');
+                    console.error(error);
+                });
+            };
+
+            if (file.name.endsWith('.glb') || file.name.endsWith('.gltf')) {
+                reader.readAsArrayBuffer(file);
+            } else {
+                showToast('error', '❌ نوع الملف غير مدعوم');
+                loadingToast.style.display = 'none';
+            }
+        }
+
+        function runClashDetection() {
+            showToast('info', '🔍 جاري فحص التعارضات...');
+            detectedClashes = [];
+
+            const meshes = [];
+            scene.traverse(function(obj) {
+                if (obj.isMesh && obj.userData.category) {
+                    meshes.push(obj);
+                }
+            });
+
+            for (let i = 0; i < meshes.length; i++) {
+                for (let j = i + 1; j < meshes.length; j++) {
+                    const box1 = new THREE.Box3().setFromObject(meshes[i]);
+                    const box2 = new THREE.Box3().setFromObject(meshes[j]);
+
+                    if (box1.intersectsBox(box2)) {
+                        const intersection = box1.clone().intersect(box2);
+                        const volume = intersection.getSize(new THREE.Vector3()).x * 
+                                      intersection.getSize(new THREE.Vector3()).y * 
+                                      intersection.getSize(new THREE.Vector3()).z;
+
+                        let severity = 'low';
+                        if (volume > 0.5) severity = 'critical';
+                        else if (volume > 0.2) severity = 'high';
+                        else if (volume > 0.05) severity = 'medium';
+
+                        detectedClashes.push({
+                            id: detectedClashes.length + 1,
+                            element1: meshes[i].userData.name || 'عنصر غير مسمى',
+                            element2: meshes[j].userData.name || 'عنصر غير مسمى',
+                            category1: meshes[i].userData.category,
+                            category2: meshes[j].userData.category,
+                            severity: severity,
+                            volume: volume.toFixed(3),
+                            position: box1.getCenter(new THREE.Vector3())
+                        });
+                    }
+                }
+            }
+
+            updateClashUI();
+            showToast('success', `✅ تم اكتشاف ${detectedClashes.length} تعارض`);
+        }
+
+        function updateClashUI() {
+            const critical = detectedClashes.filter(c => c.severity === 'critical').length;
+            const high = detectedClashes.filter(c => c.severity === 'high').length;
+            const medium = detectedClashes.filter(c => c.severity === 'medium').length;
+            const low = detectedClashes.filter(c => c.severity === 'low').length;
+
+            document.getElementById('clash-critical-count').textContent = critical;
+            document.getElementById('clash-high-count').textContent = high;
+            document.getElementById('clash-medium-count').textContent = medium;
+            document.getElementById('clash-low-count').textContent = low;
+
+            const clashList = document.getElementById('clash-list');
+            clashList.innerHTML = '';
+
+            detectedClashes.forEach(clash => {
+                const card = document.createElement('div');
+                card.className = 'clash-card';
+                card.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="font-size: 0.85rem; font-weight: bold; color: #f1f5f9;">تعارض #${clash.id}</span>
+                        <span class="cat-badge severity-${clash.severity}">${clash.severity.toUpperCase()}</span>
+                    </div>
+                    <div style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 4px;">
+                        ${clash.element1} ↔ ${clash.element2}
+                    </div>
+                    <div style="font-size: 0.72rem; color: #64748b;">
+                        الحجم: ${clash.volume} م³ | ${clash.category1} - ${clash.category2}
+                    </div>
+                `;
+                card.onclick = () => focusOnClash(clash.position);
+                clashList.appendChild(card);
+            });
+
+            document.getElementById('stat-clashes').textContent = detectedClashes.length;
+        }
+
+        function focusOnClash(position) {
+            camera.position.set(position.x + 3, position.y + 3, position.z + 3);
+            controls.target.copy(position);
+            controls.update();
+            showToast('info', `🎯 التركيز على التعارض`);
+        }
+
+        function exportClashReport(format) {
+            let content, filename, type;
+
+            if (format === 'json') {
+                content = JSON.stringify(detectedClashes, null, 2);
+                filename = 'clash-report.json';
+                type = 'application/json';
+            } else {
+                const headers = ['ID', 'Element 1', 'Element 2', 'Severity', 'Volume (m³)', 'Category 1', 'Category 2'];
+                const rows = detectedClashes.map(c => [c.id, c.element1, c.element2, c.severity, c.volume, c.category1, c.category2]);
+                content = [headers, ...rows].map(r => r.join(',')).join('\n');
+                filename = 'clash-report.csv';
+                type = 'text/csv';
+            }
+
+            const blob = new Blob([content], { type });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            showToast('success', `📥 تم تصدير التقرير (${format.toUpperCase()})`);
+        }
+
+        function showToast(type, message) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            
+            const icons = { success: '✅', warning: '⚠️', error: '❌', info: 'ℹ️' };
+            toast.innerHTML = `<span>${icons[type]}</span><span>${message}</span>`;
+            
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        function updateTelemetry() {
+            const info = renderer.info;
+            telemetryData.calls = info.render.calls;
+            telemetryData.triangles = info.render.triangles;
+            telemetryData.geometries = info.memory.geometries;
+
+            document.getElementById('tel-calls').textContent = telemetryData.calls;
+            document.getElementById('tel-triangles').textContent = telemetryData.triangles.toLocaleString();
+            document.getElementById('tel-frametime').textContent = (1000 / telemetryData.fps).toFixed(1) + ' ms';
+            document.getElementById('tel-geoms').textContent = telemetryData.geometries;
+
+            if (performance.memory) {
+                const mem = (performance.memory.usedJSHeapSize / 1048576).toFixed(1);
+                document.getElementById('tel-memory').textContent = mem + ' MB';
+            }
+        }
+
+        function updateStats() {
+            let count = 0;
+            scene.traverse(function(obj) {
+                if (obj.isMesh && obj.userData.category) count++;
+            });
+            document.getElementById('stat-elements').textContent = count;
+        }
+
+        function updateSectionPlane() {
+            if (!isSectionActive) {
+                if (clippingPlane) {
+                    renderer.localClippingEnabled = false;
+                    scene.traverse(function(obj) {
+                        if (obj.isMesh) obj.material.clippingPlanes = [];
+                    });
+                }
+                return;
+            }
+
+            const axis = document.querySelector('.mode-btn[data-axis].active').dataset.axis;
+            const pos = parseFloat(document.getElementById('slider-sec-pos').value);
+            const invert = document.getElementById('chk-sec-invert').checked;
+
+            const normal = new THREE.Vector3(
+                axis === 'x' ? 1 : 0,
+                axis === 'y' ? 1 : 0,
+                axis === 'z' ? 1 : 0
+            );
+            if (invert) normal.negate();
+
+            clippingPlane = new THREE.Plane(normal, -pos);
+            renderer.localClippingEnabled = true;
+
+            scene.traverse(function(obj) {
+                if (obj.isMesh && obj.userData.category) {
+                    obj.material.clippingPlanes = [clippingPlane];
+                    obj.material.clipShadows = true;
+                    obj.material.needsUpdate = true;
+                }
+            });
+        }
+
+        function showTutorial() {
+            const completed = localStorage.getItem('tutorial-completed');
+            if (completed) return;
+
+            const overlay = document.getElementById('tutorial-overlay');
+            overlay.style.display = 'flex';
+            renderTutorialStep();
+        }
+
+        function renderTutorialStep() {
+            const step = tutorialSteps[currentTutorialStep];
+            document.getElementById('tutorial-icon').textContent = step.icon;
+            document.getElementById('tutorial-title').textContent = step.title;
+            document.getElementById('tutorial-text').textContent = step.text;
+
+            const progress = document.getElementById('tutorial-progress');
+            progress.innerHTML = '';
+            tutorialSteps.forEach((_, i) => {
+                const dot = document.createElement('div');
+                dot.className = 'tutorial-dot';
+                if (i < currentTutorialStep) dot.classList.add('completed');
+                if (i === currentTutorialStep) dot.classList.add('active');
+                progress.appendChild(dot);
+            });
+
+            const nextBtn = document.getElementById('btn-next-tutorial');
+            nextBtn.textContent = currentTutorialStep === tutorialSteps.length - 1 ? 'ابدأ 🚀' : 'التالي ➡';
+        }
+
+        function initCollaboration() {
+            const users = [
+                { name: 'د. أحمد لؤي', role: 'Admin', status: 'online', color: '#22c55e' },
+                { name: 'م. سارة محمد', role: 'Reviewer', status: 'online', color: '#3b82f6' },
+                { name: 'م. خالد علي', role: 'Viewer', status: 'away', color: '#f59e0b' }
+            ];
+
+            const usersList = document.getElementById('users-list');
+            users.forEach(user => {
+                const div = document.createElement('div');
+                div.style.cssText = 'display: flex; align-items: center; gap: 10px; padding: 8px; background: rgba(30, 41, 59, 0.5); border-radius: 8px;';
+                div.innerHTML = `
+                    <div class="user-avatar user-${user.status}" style="background: ${user.color};">${user.name.charAt(0)}</div>
+                    <div>
+                        <div style="font-size: 0.82rem; font-weight: bold; color: #f1f5f9;">${user.name}</div>
+                        <div style="font-size: 0.7rem; color: #94a3b8;">${user.role}</div>
+                    </div>
+                    <div style="margin-right: auto; width: 8px; height: 8px; border-radius: 50%; background: ${user.status === 'online' ? '#22c55e' : user.status === 'away' ? '#f59e0b' : '#64748b'};"></div>
+                `;
+                usersList.appendChild(div);
+            });
+
+            const messages = [
+                { user: 'م. سارة', text: 'تم فحص الطابق الأول', time: '10:30' },
+                { user: 'د. أحمد', text: 'ممتاز، يرجى مراجعة التعارضات', time: '10:32' }
+            ];
+
+            const chatMessages = document.getElementById('chat-messages');
+            messages.forEach(msg => {
+                const div = document.createElement('div');
+                div.className = 'chat-message';
+                div.innerHTML = `<strong style="color: #38bdf8;">${msg.user}:</strong> ${msg.text} <span style="font-size: 0.7rem; color: #64748b; float: left;">${msg.time}</span>`;
+                chatMessages.appendChild(div);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            init();
+
+            document.getElementById('login-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const username = document.getElementById('login-username').value;
+                const password = document.getElementById('login-password').value;
+
+                if (username && password) {
+                    sessionUser.name = username;
+                    sessionUser.role = username.toLowerCase().includes('admin') ? 'Admin' : 'Student';
+                    document.getElementById('user-session-name').textContent = `👨‍🏫 ${username} (${sessionUser.role})`;
+                    document.getElementById('login-portal-overlay').style.display = 'none';
+                    showToast('success', `✅ مرحباً ${username}! تم تسجيل الدخول بنجاح`);
+                    
+                    setTimeout(showTutorial, 500);
+                    initCollaboration();
+                } else {
+                    document.getElementById('login-error-msg').textContent = '❌ يرجى إدخال اسم المستخدم وكلمة المرور';
+                    document.getElementById('login-error-msg').style.display = 'block';
+                }
+            });
+
+            document.getElementById('btn-logout').addEventListener('click', function() {
+                document.getElementById('login-portal-overlay').style.display = 'flex';
+                document.getElementById('login-username').value = '';
+                document.getElementById('login-password').value = '';
+                showToast('info', '👋 تم تسجيل الخروج');
+            });
+
+            document.getElementById('btn-toggle-filters-panel').addEventListener('click', function() {
+                const panel = document.getElementById('bim-filter-panel');
+                panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+            });
+
+            document.getElementById('btn-toggle-measure').addEventListener('click', function() {
+                isMeasureMode = !isMeasureMode;
+                document.getElementById('measure-hud').style.display = isMeasureMode ? 'flex' : 'none';
+                if (isMeasureMode) showToast('info', '📏 وضع القياس مفعل - انقر نقطتين للقياس');
+            });
+
+            document.getElementById('btn-clear-measure').addEventListener('click', function() {
+                measurePoints = [];
+                if (measureLine) scene.remove(measureLine);
+                document.getElementById('measure-result-text').textContent = 'انقر على النقطة الأولى...';
+            });
+
+            document.getElementById('btn-close-measure').addEventListener('click', function() {
+                isMeasureMode = false;
+                document.getElementById('measure-hud').style.display = 'none';
+            });
+
+            document.getElementById('btn-toggle-section').addEventListener('click', function() {
+                const panel = document.getElementById('section-panel');
+                panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+            });
+
+            document.getElementById('chk-section-active').addEventListener('change', function() {
+                isSectionActive = this.checked;
+                updateSectionPlane();
+            });
+
+            document.getElementById('slider-sec-pos').addEventListener('input', function() {
+                document.getElementById('label-sec-pos').textContent = this.value + ' م';
+                updateSectionPlane();
+            });
+
+            document.querySelectorAll('.mode-btn[data-axis]').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.mode-btn[data-axis]').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    updateSectionPlane();
+                });
+            });
+
+            document.getElementById('chk-sec-invert').addEventListener('change', updateSectionPlane);
+
+            document.getElementById('btn-toggle-telemetry').addEventListener('click', function() {
+                const panel = document.getElementById('telemetry-panel');
+                panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+            });
+
+            document.getElementById('btn-view-clashes').addEventListener('click', function() {
+                const panel = document.getElementById('clash-panel');
+                panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+            });
+
+            document.getElementById('btn-run-clash-detection').addEventListener('click', runClashDetection);
+
+            document.getElementById('btn-export-clash-json').addEventListener('click', () => exportClashReport('json'));
+            document.getElementById('btn-export-clash-csv').addEventListener('click', () => exportClashReport('csv'));
+
+            document.getElementById('btn-collaboration').addEventListener('click', function() {
+                const panel = document.getElementById('collaboration-panel');
+                panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+            });
+
+            document.getElementById('btn-send-chat').addEventListener('click', function() {
+                const input = document.getElementById('chat-input');
+                if (input.value.trim()) {
+                    const chatMessages = document.getElementById('chat-messages');
+                    const div = document.createElement('div');
+                    div.className = 'chat-message';
+                    const now = new Date();
+                    div.innerHTML = `<strong style="color: #38bdf8;">أنت:</strong> ${input.value} <span style="font-size: 0.7rem; color: #64748b; float: left;">${now.getHours()}:${now.getMinutes()}</span>`;
+                    chatMessages.appendChild(div);
+                    input.value = '';
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                }
+            });
+
+            document.getElementById('btn-dashboard').addEventListener('click', function() {
+                const panel = document.getElementById('dashboard-panel');
+                panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+            });
+
+            document.getElementById('btn-trigger-upload').addEventListener('click', function() {
+                document.getElementById('file-input').click();
+            });
+
+            document.getElementById('file-input').addEventListener('change', function(e) {
+                if (e.target.files[0]) loadModel(e.target.files[0]);
+            });
+
+            document.getElementById('btn-center-model').addEventListener('click', function() {
+                camera.position.set(5, 5, 5);
+                controls.target.set(0, 0, 0);
+                controls.update();
+                showToast('info', '🎯 تم توسيط الكاميرا');
+            });
+
+            document.getElementById('btn-vr-guide').addEventListener('click', function() {
+                document.getElementById('vr-guide-modal').style.display = 'block';
+            });
+
+            document.getElementById('btn-close-vr-guide').addEventListener('click', function() {
+                document.getElementById('vr-guide-modal').style.display = 'none';
+            });
+
+            document.getElementById('btn-toggle-topbar').addEventListener('click', function() {
+                document.getElementById('header-bar').classList.add('ui-hidden');
+                document.getElementById('floating-ui-dock').style.display = 'flex';
+            });
+
+            document.getElementById('dock-btn-show-topbar').addEventListener('click', function() {
+                document.getElementById('header-bar').classList.remove('ui-hidden');
+                document.getElementById('floating-ui-dock').style.display = 'none';
+            });
+
+            document.getElementById('btn-toggle-sidebars').addEventListener('click', function() {
+                document.querySelectorAll('.sidebar-right-panel, .sidebar-left-panel').forEach(p => {
+                    p.classList.toggle('ui-sidebar-hidden');
+                });
+            });
+
+            document.getElementById('btn-toggle-zen').addEventListener('click', function() {
+                document.getElementById('header-bar').classList.add('ui-hidden');
+                document.querySelectorAll('.sidebar-right-panel, .sidebar-left-panel').forEach(p => {
+                    p.classList.add('ui-sidebar-hidden');
+                });
+                document.getElementById('instructions').style.display = 'none';
+                document.getElementById('floating-ui-dock').style.display = 'flex';
+            });
+
+            document.getElementById('dock-btn-toggle-zen').addEventListener('click', function() {
+                document.getElementById('header-bar').classList.remove('ui-hidden');
+                document.querySelectorAll('.sidebar-right-panel, .sidebar-left-panel').forEach(p => {
+                    p.classList.remove('ui-sidebar-hidden');
+                });
+                document.getElementById('instructions').style.display = 'block';
+                document.getElementById('floating-ui-dock').style.display = 'none';
+            });
+
+            document.getElementById('floating-sidebar-toggle-right').addEventListener('click', function() {
+                document.querySelectorAll('.sidebar-right-panel').forEach(p => {
+                    p.classList.toggle('ui-sidebar-hidden');
+                });
+            });
+
+            document.getElementById('floating-sidebar-toggle-left').addEventListener('click', function() {
+                document.querySelectorAll('.sidebar-left-panel').forEach(p => {
+                    p.classList.toggle('ui-sidebar-hidden');
+                });
+                document.getElementById('instructions').style.toggle('ui-sidebar-hidden');
+            });
+
+            document.getElementById('slider-light-intensity').addEventListener('input', function() {
+                document.getElementById('light-intensity-val').textContent = this.value + '%';
+                scene.traverse(function(obj) {
+                    if (obj.isLight) obj.intensity = obj.intensity * (this.value / 100);
+                }.bind(this));
+            });
+
+            document.querySelectorAll('.bg-swatch').forEach(swatch => {
+                swatch.addEventListener('click', function() {
+                    document.querySelectorAll('.bg-swatch').forEach(s => s.classList.remove('active'));
+                    this.classList.add('active');
+                    scene.background = new THREE.Color(this.dataset.bg);
+                });
+            });
+
+            document.getElementById('btn-next-tutorial').addEventListener('click', function() {
+                if (currentTutorialStep < tutorialSteps.length - 1) {
+                    currentTutorialStep++;
+                    renderTutorialStep();
+                } else {
+                    document.getElementById('tutorial-overlay').style.display = 'none';
+                    localStorage.setItem('tutorial-completed', 'true');
+                    showToast('success', '🎉 ابدأ استكشاف المنصة!');
+                }
+            });
+
+            document.getElementById('btn-skip-tutorial').addEventListener('click', function() {
+                document.getElementById('tutorial-overlay').style.display = 'none';
+                localStorage.setItem('tutorial-completed', 'true');
+            });
+
+            document.getElementById('btn-export-benchmark').addEventListener('click', function() {
+                const data = {
+                    timestamp: new Date().toISOString(),
+                    telemetry: telemetryData,
+                    clashes: detectedClashes.length,
+                    elements: document.getElementById('stat-elements').textContent
+                };
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'benchmark-report.json';
+                a.click();
+                URL.revokeObjectURL(url);
+                showToast('success', '📥 تم تصدير تقرير الأداء');
+            });
+
+            document.getElementById('btn-export-dashboard').addEventListener('click', function() {
+                const data = {
+                    elements: document.getElementById('stat-elements').textContent,
+                    clashes: detectedClashes.length,
+                    users: 3,
+                    annotations: annotations.length,
+                    generated: new Date().toISOString()
+                };
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'dashboard-report.json';
+                a.click();
+                URL.revokeObjectURL(url);
+                showToast('success', '📥 تم تصدير تقرير لوحة التحكم');
+            });
+
+            document.querySelectorAll('.mode-btn[data-floor]').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.mode-btn[data-floor]').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    const floor = this.dataset.floor;
+                    
+                    scene.traverse(function(obj) {
+                        if (obj.isMesh && obj.userData.level) {
+                            if (floor === 'all') {
+                                obj.visible = true;
+                            } else {
+                                obj.visible = obj.userData.level === floor || obj.userData.level === 'الكل';
+                            }
+                        }
+                    });
+                    
+                    showToast('info', `🏢 عرض الطابق: ${this.textContent}`);
+                });
+            });
+
+            document.querySelectorAll('input[data-cat]').forEach(cb => {
+                cb.addEventListener('change', function() {
+                    const cat = this.dataset.cat;
+                    const visible = this.checked;
+                    
+                    scene.traverse(function(obj) {
+                        if (obj.isMesh && obj.userData.category === cat) {
+                            obj.visible = visible;
+                        }
+                    });
+                });
+            });
+
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 't' || e.key === 'T') {
+                    document.getElementById('header-bar').classList.toggle('ui-hidden');
+                    const dock = document.getElementById('floating-ui-dock');
+                    dock.style.display = dock.style.display === 'flex' ? 'none' : 'flex';
+                }
+                if (e.key === 's' || e.key === 'S') {
+                    document.querySelectorAll('.sidebar-right-panel, .sidebar-left-panel').forEach(p => {
+                        p.classList.toggle('ui-sidebar-hidden');
+                    });
+                }
+                if (e.key === 'h' || e.key === 'H' || e.key === 'z' || e.key === 'Z') {
+                    document.getElementById('btn-toggle-zen').click();
+                }
+            });
+
+            const dropOverlay = document.getElementById('drop-overlay');
+            document.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                dropOverlay.style.display = 'flex';
+            });
+
+            document.addEventListener('dragleave', function(e) {
+                if (e.target === document) dropOverlay.style.display = 'none';
+            });
+
+            document.addEventListener('drop', function(e) {
+                e.preventDefault();
+                dropOverlay.style.display = 'none';
+                if (e.dataTransfer.files[0]) loadModel(e.dataTransfer.files[0]);
+            });
+
+            document.querySelectorAll('[id^="btn-close"]').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const panelId = this.id.replace('btn-close-', '').replace('-panel', '');
+                    const panel = document.getElementById(panelId + '-panel') || document.getElementById(panelId);
+                    if (panel) panel.style.display = 'none';
+                });
+            });
+        });
     </script>
 </body>
 </html>
