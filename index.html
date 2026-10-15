@@ -1442,83 +1442,70 @@
         function loadModel(file) {
             const toast = document.getElementById('loading-toast');
             if (toast) toast.style.display = 'block';
-            const toastStatus = document.getElementById('toast-status');
-            if (toastStatus) toastStatus.textContent = 'جاري تحميل...';
-            
-            const reader = new FileReader();
+            if (document.getElementById('toast-status')) document.getElementById('toast-status').textContent = 'جاري التحميل...';
             const name = (file.name || '').toLowerCase();
-            
+
+            const reader = new FileReader();
             reader.onload = function(e) {
+                const arrayBuffer = e.target.result;
+
                 if (name.endsWith('.glb') || name.endsWith('.gltf')) {
                     const loader = new THREE.GLTFLoader();
-                    loader.parse(e.target.result, '', function(gltf) {
-                        if (currentModel) scene.remove(currentModel);
-                        currentModel = gltf.scene;
+                    loader.parse(arrayBuffer, '', function(gltf) {
                         try {
+                            if (currentModel) scene.remove(currentModel);
+                            currentModel = gltf.scene || gltf;
+                            scene.add(currentModel);
                             const box = new THREE.Box3().setFromObject(currentModel);
                             const center = box.getCenter(new THREE.Vector3());
                             const size = box.getSize(new THREE.Vector3());
-                            const maxDim = Math.max(size.x, size.y, size.z) || 1;
-                            const scale = 5 / maxDim;
-                            currentModel.scale.setScalar(scale);
-                            currentModel.position.copy(center).multiplyScalar(-scale);
-                        } catch (err) {}
-                        scene.add(currentModel);
+                            const maxDim = Math.max(size.x, size.y, size.z);
+                            if (maxDim > 0) {
+                                const s = 5 / maxDim;
+                                currentModel.scale.setScalar(s);
+                                currentModel.position.copy(center).multiplyScalar(-s);
+                            }
+                        } catch (err) { console.error(err); }
                         if (toast) toast.style.display = 'none';
                         if (typeof showToast === 'function') showToast('success', '✅ تم تحميل النموذج بنجاح');
                         if (typeof updateStats === 'function') updateStats();
-                        console.log('Model loaded');
-                    }, function(err) {
-                        if (toast) toast.style.display = 'none';
-                        if (typeof showToast === 'function') showToast('error', '❌ فشل تحميل النموذج');
-                        console.error('GLTF load error:', err);
                     });
                     return;
-                } else if (name.endsWith('.ifc')) {
+                }
+                if (name.endsWith('.ifc')) {
                     if (typeof THREE.IFCLoader === 'function') {
-                        try {
-                            const loader = new THREE.IFCLoader();
-                            loader.load(e.target.result, function(model) {
+                        const loader = new THREE.IFCLoader();
+                        loader.load(arrayBuffer, function(model) {
+                            try {
                                 if (currentModel) scene.remove(currentModel);
                                 currentModel = model;
-                                try {
-                                    const box = new THREE.Box3().setFromObject(currentModel);
-                                    const center = box.getCenter(new THREE.Vector3());
-                                    const size = box.getSize(new THREE.Vector3());
-                                    const maxDim = Math.max(size.x, size.y, size.z) || 1;
-                                    const scale = 5 / maxDim;
-                                    currentModel.scale.setScalar(scale);
-                                    currentModel.position.copy(center).multiplyScalar(-scale);
-                                } catch (err) {}
                                 scene.add(currentModel);
-                                if (toast) toast.style.display = 'none';
-                                if (typeof showToast === 'function') showToast('success', '✅ تم تحميل IFC بنجاح');
-                                if (typeof updateStats === 'function') updateStats();
-                            }, undefined, function(err) {
-                                if (toast) toast.style.display = 'none';
-                                if (typeof showToast === 'function') showToast('error', '❌ فشل تحميل IFC');
-                                console.error('IFC load error:', err);
-                            });
-                        } catch (err) {
+                                const box = new THREE.Box3().setFromObject(currentModel);
+                                const center = box.getCenter(new THREE.Vector3());
+                                const size = box.getSize(new THREE.Vector3());
+                                const maxDim = Math.max(size.x, size.y, size.z);
+                                if (maxDim > 0) {
+                                    const s = 5 / maxDim;
+                                    currentModel.scale.setScalar(s);
+                                    currentModel.position.copy(center).multiplyScalar(-s);
+                                }
+                            } catch (err) { console.error(err); }
                             if (toast) toast.style.display = 'none';
-                            if (typeof showToast === 'function') showToast('error', '❌ خطأ في محمل IFC');
-                            console.error(err);
-                        }
-                    } else {
-                        if (toast) toast.style.display = 'none';
-                        if (typeof showToast === 'function') showToast('error', '❌ محمل IFC غير متوفر');
+                            if (typeof showToast === 'function') showToast('success', '✅ تم تحميل IFC بنجاح');
+                            if (typeof updateStats === 'function') updateStats();
+                        }, function(){}, function() {});
+                        return;
                     }
+                    if (toast) toast.style.display = 'none';
+                    if (typeof showToast === 'function') showToast('error', '❌ محمل IFC غير متوفر');
                     return;
                 }
                 if (toast) toast.style.display = 'none';
                 if (typeof showToast === 'function') showToast('error', '❌ نوع الملف غير مدعوم');
             };
-            try {
-                reader.readAsArrayBuffer(file);
-            } catch (e) {
+            try { reader.readAsArrayBuffer(file); } catch(e) {
                 if (toast) toast.style.display = 'none';
                 if (typeof showToast === 'function') showToast('error', '❌ فشل قراءة الملف');
-                console.error(e);
             }
         }
 
