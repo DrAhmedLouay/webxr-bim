@@ -1622,23 +1622,45 @@
         document.addEventListener('DOMContentLoaded', function() {
             init();
 
+            // Demo credentials hint
+            const usernameInput = document.getElementById('login-username');
+            const passwordInput = document.getElementById('login-password');
+            if (usernameInput && passwordInput) {
+                usernameInput.placeholder = 'admin أو student';
+                passwordInput.placeholder = 'admin123 أو student123';
+            }
+
             document.getElementById('login-form').addEventListener('submit', function(e) {
                 e.preventDefault();
-                const username = document.getElementById('login-username').value;
+                const username = document.getElementById('login-username').value.trim();
                 const password = document.getElementById('login-password').value;
 
-                if (username && password) {
+                // Demo credentials
+                const validUsers = {
+                    'admin': { password: 'admin123', role: 'Admin', name: '👨‍🏫 د. أحمد لؤي أحمد' },
+                    'student': { password: 'student123', role: 'Student', name: '🎓 طالب معماري' }
+                };
+
+                if (username && password && validUsers[username] && validUsers[username].password === password) {
                     sessionUser.name = username;
-                    sessionUser.role = username.toLowerCase().includes('admin') ? 'Admin' : 'Student';
-                    document.getElementById('user-session-name').textContent = `👨‍🏫 ${username} (${sessionUser.role})`;
+                    sessionUser.role = validUsers[username].role;
+                    sessionUser.displayName = validUsers[username].name;
+                    document.getElementById('user-session-name').textContent = `${validUsers[username].name} (${sessionUser.role})`;
                     document.getElementById('login-portal-overlay').style.display = 'none';
                     showToast('success', `✅ مرحباً ${username}! تم تسجيل الدخول بنجاح`);
                     
                     setTimeout(showTutorial, 500);
                     initCollaboration();
                 } else {
-                    document.getElementById('login-error-msg').textContent = '❌ يرجى إدخال اسم المستخدم وكلمة المرور';
-                    document.getElementById('login-error-msg').style.display = 'block';
+                    const errorMsg = document.getElementById('login-error-msg');
+                    errorMsg.textContent = '❌ بيانات خاطئة. جرّب: admin/admin123 أو student/student123';
+                    errorMsg.style.display = 'block';
+                    errorMsg.style.color = '#f87171';
+                    errorMsg.style.background = 'rgba(239, 68, 68, 0.15)';
+                    errorMsg.style.border = '1px solid rgba(239, 68, 68, 0.4)';
+                    errorMsg.style.padding = '8px 12px';
+                    errorMsg.style.borderRadius = '6px';
+                    errorMsg.style.marginTop = '10px';
                 }
             });
 
