@@ -1442,34 +1442,74 @@
             document.getElementById('toast-status').textContent = 'جاري قراءة الملف...';
 
             const reader = new FileReader();
+            const fileName = file.name.toLowerCase();
+            
             reader.onload = function(e) {
-                const loader = new THREE.GLTFLoader();
-                loader.parse(e.target.result, '', function(gltf) {
-                    if (currentModel) scene.remove(currentModel);
-                    
-                    currentModel = gltf.scene;
-                    
-                    const box = new THREE.Box3().setFromObject(currentModel);
-                    const center = box.getCenter(new THREE.Vector3());
-                    const size = box.getSize(new THREE.Vector3());
-                    const maxDim = Math.max(size.x, size.y, size.z);
-                    const scale = 5 / maxDim;
-                    currentModel.scale.multiplyScalar(scale);
-                    currentModel.position.sub(center.multiplyScalar(scale));
-
-                    scene.add(currentModel);
-                    
+                if (fileName.endsWith('.ifc')) {
+                    // Handle IFC files
+                    try {
+                        const ifcLoader = new THREE.IFCLoader();
+                        // Initialize ifcAPI if needed
+                        if (typeof IfcAPI !== 'undefined' && ifcLoader.ifcManager) {
+                            ifcLoader.ifcManager.setWasmPath('https://unpkg.com/web-ifc@0.0.57/');
+                        }
+                        ifcLoader.load(e.target.result, function(model) {
+                            if (currentModel) scene.remove(currentModel);
+                            currentModel = model;
+                            // Center model
+                            const box = new THREE.Box3().setFromObject(currentModel);
+                            const center = box.getCenter(new THREE.Vector3());
+                            const size = box.getSize(new THREE.Vector3());
+                            const maxDim = Math.max(size.x, size.y, size.z);
+                            const scale = 5 / (maxDim || 5);
+                            currentModel.scale.multiplyScalar(scale);
+                            currentModel.position.sub(center.multiplyScalar(scale));
+                            scene.add(currentModel);
+                            loadingToast.style.display = 'none';
+                            showToast('success', '✅ تم تحميل نموذج IFC بنجاح');
+                            updateStats();
+                        }, function(progress) {
+                            document.getElementById('toast-status').textContent = `جاري المعالجة...`;
+                        }, function(error) {
+                            loadingToast.style.display = 'none';
+                            showToast('error', '❌ فشل تحميل نموذج IFC');
+                            console.error(error);
+                        });
+                    } catch (error) {
+                        loadingToast.style.display = 'none';
+                        showToast('error', '❌ خطأ في تحميل IFC');
+                        console.error(error);
+                    }
+                } else if (fileName.endsWith('.glb') || fileName.endsWith('.gltf')) {
+                    const loader = new THREE.GLTFLoader();
+                    loader.parse(e.target.result, '', function(gltf) {
+                        if (currentModel) scene.remove(currentModel);
+                        currentModel = gltf.scene;
+                        const box = new THREE.Box3().setFromObject(currentModel);
+                        const center = box.getCenter(new THREE.Vector3());
+                        const size = box.getSize(new THREE.Vector3());
+                        const maxDim = Math.max(size.x, size.y, size.z);
+                        const scale = 5 / (maxDim || 5);
+                        currentModel.scale.multiplyScalar(scale);
+                        currentModel.position.sub(center.multiplyScalar(scale));
+                        scene.add(currentModel);
+                        loadingToast.style.display = 'none';
+                        showToast('success', '✅ تم تحميل النموذج بنجاح');
+                        updateStats();
+                    }, function(error) {
+                        loadingToast.style.display = 'none';
+                        showToast('error', '❌ فشل تحميل النموذج');
+                        console.error(error);
+                    });
+                } else {
+                    showToast('error', '❌ نوع الملف غير مدعوم');
                     loadingToast.style.display = 'none';
-                    showToast('success', '✅ تم تحميل النموذج بنجاح');
-                    updateStats();
-                }, function(error) {
-                    loadingToast.style.display = 'none';
-                    showToast('error', '❌ فشل تحميل النموذج');
-                    console.error(error);
-                });
+                }
             };
 
-            if (file.name.endsWith('.glb') || file.name.endsWith('.gltf')) {
+            if (fileName.endsWith('.glb') || fileName.endsWith('.gltf')) {
+                reader.readAsArrayBuffer(file);
+            } else if (fileName.endsWith('.ifc')) {
                 reader.readAsArrayBuffer(file);
             } else {
                 showToast('error', '❌ نوع الملف غير مدعوم');
