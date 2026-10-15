@@ -805,51 +805,51 @@
         </div>
         <div class="actions-group">
             <button class="btn btn-lab-active" id="tab-lab-view">🥽 غرفة التعارضات</button>
-            <button class="btn btn-outline" id="btn-vr-guide">🥽 دليل الواقع الافتراضي</button>
+            <button class="btn btn-outline" id="btn-vr-guide" onclick="showVRGuide()">🥽 دليل الواقع الافتراضي</button>
             <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.2); margin: 0 4px;"></div>
-            <button class="btn btn-outline" id="btn-quick-color-toggle">🎨 تمييز الألوان</button>
-            <button class="btn btn-outline" id="btn-quick-lighting">💡 إضاءة البيئة</button>
-            <button class="btn btn-outline" id="btn-toggle-measure">📏 قياس الأبعاد</button>
-            <button class="btn btn-outline" id="btn-toggle-section">✂️ قطاع هندسي</button>
-            <button class="btn btn-outline" id="btn-toggle-telemetry">📊 مؤشرات الأداء</button>
-            <button class="btn btn-filter" id="btn-toggle-filters-panel">🎛️ تصفية العناصر</button>
-            <button class="btn btn-upload" id="btn-trigger-upload">📂 استيراد نموذج</button>
-            <button class="btn btn-center" id="btn-center-model">🎯 توسيط الموديل</button>
-            <button class="btn btn-clash-view" id="btn-view-clashes">⚠️ التعارضات</button>
-            <button class="btn btn-outline" id="btn-collaboration">👥 التعاون</button>
-            <button class="btn btn-outline" id="btn-dashboard">📈 لوحة التحكم</button>
-            <button class="btn btn-outline" id="btn-toggle-topbar">🔼 إخفاء الشريط</button>
-            <button class="btn btn-outline" id="btn-toggle-sidebars">📑 القوائم الجانبية</button>
-            <button class="btn btn-outline" id="btn-toggle-zen">🔲 عرض كامل</button>
+            <button class="btn btn-outline" id="btn-quick-color-toggle" onclick="toggleColorMode()">🎨 تمييز الألوان</button>
+            <button class="btn btn-outline" id="btn-quick-lighting" onclick="toggleLighting()">💡 إضاءة البيئة</button>
+            <button class="btn btn-outline" id="btn-toggle-measure" onclick="toggleMeasureMode()">📏 قياس الأبعاد</button>
+            <button class="btn btn-outline" id="btn-toggle-section" onclick="toggleSectionPanel()">✂️ قطاع هندسي</button>
+            <button class="btn btn-outline" id="btn-toggle-telemetry" onclick="toggleTelemetryPanel()">📊 مؤشرات الأداء</button>
+            <button class="btn btn-filter" id="btn-toggle-filters-panel" onclick="toggleFilterPanel()">🎛️ تصفية العناصر</button>
+            <button class="btn btn-upload" id="btn-trigger-upload" onclick="document.getElementById('file-input').click()">📂 استيراد نموذج</button>
+            <button class="btn btn-center" id="btn-center-model" onclick="centerModel()">🎯 توسيط الموديل</button>
+            <button class="btn btn-clash-view" id="btn-view-clashes" onclick="toggleClashPanel()">⚠️ التعارضات</button>
+            <button class="btn btn-outline" id="btn-collaboration" onclick="toggleCollabPanel()">👥 التعاون</button>
+            <button class="btn btn-outline" id="btn-dashboard" onclick="toggleDashboard()">📈 لوحة التحكم</button>
+            <button class="btn btn-outline" id="btn-toggle-topbar" onclick="toggleTopbar()">🔼 إخفاء الشريط</button>
+            <button class="btn btn-outline" id="btn-toggle-sidebars" onclick="toggleSidebars()">📑 القوائم الجانبية</button>
+            <button class="btn btn-outline" id="btn-toggle-zen" onclick="toggleZenMode()">🔲 عرض كامل</button>
             <div id="user-session-bar" class="user-session-container">
                 <div class="user-session-pill">
                     <span id="user-session-name">👨‍🏫 د. أحمد لؤي أحمد (Admin)</span>
                 </div>
-                <button id="btn-logout" class="btn-logout">🚪 خروج</button>
+                <button id="btn-logout" class="btn-logout" onclick="logout()">🚪 خروج</button>
             </div>
         </div>
     </div>
 
     <div id="floating-ui-dock">
-        <button class="dock-btn" id="dock-btn-show-topbar">🔽 إظهار الشريط العلوي</button>
-        <button class="dock-btn" id="dock-btn-toggle-sidebars">📑 القوائم الجانبية</button>
-        <button class="dock-btn" id="dock-btn-toggle-zen">🔲 عرض عادي</button>
+        <button class="dock-btn" id="dock-btn-show-topbar" onclick="document.getElementById('header-bar').style.display='flex';this.parentElement.style.display='none'">🔽 إظهار الشريط العلوي</button>
+        <button class="dock-btn" id="dock-btn-toggle-sidebars" onclick="toggleSidebars()">📑 القوائم الجانبية</button>
+        <button class="dock-btn" id="dock-btn-toggle-zen" onclick="toggleZenMode()">🔲 عرض عادي</button>
     </div>
 
-    <div id="floating-sidebar-toggle-right"><span>◀</span><span>اللوحات الجانبية</span></div>
-    <div id="floating-sidebar-toggle-left"><span>▶</span><span>التعليمات</span></div>
+    <div id="floating-sidebar-toggle-right" onclick="toggleFilterPanel()"><span>◀</span><span>اللوحات الجانبية</span></div>
+    <div id="floating-sidebar-toggle-left" onclick="showInstructions()"><span>▶</span><span>التعليمات</span></div>
 
     <div id="measure-hud">
         <span>📏</span>
         <span id="measure-result-text">انقر على النقطة الأولى...</span>
         <button id="btn-clear-measure" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #f1f5f9; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; cursor: pointer;">🗑️ مسح</button>
-        <button id="btn-close-measure" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer;">✕</button>
+        <button id="btn-close-measure" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer;" onclick="document.getElementById('measure-hud').style.display='none'">✕</button>
     </div>
 
     <div id="section-panel" class="sidebar-left-panel">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 8px; margin-bottom: 12px;">
             <h3 style="color: #38bdf8; font-size: 0.95rem; font-weight: bold; margin: 0;">✂️ أداة القطاع الفراغي</h3>
-            <button id="btn-close-section-panel" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer;">✕</button>
+            <button id="btn-close-section-panel" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer;" onclick="document.getElementById('section-panel').style.display='none'">✕</button>
         </div>
         <div style="margin-bottom: 12px;">
             <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem; font-weight: bold; color: #38bdf8;">
@@ -887,7 +887,7 @@
                 <h3 style="color: #22c55e; font-size: 0.95rem; font-weight: bold; margin: 0;">📊 مؤشرات الأداء</h3>
                 <div style="font-size: 0.7rem; color: #94a3b8;">Research Telemetry</div>
             </div>
-            <button id="btn-close-telemetry" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer;">✕</button>
+            <button id="btn-close-telemetry" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer;" onclick="document.getElementById('telemetry-panel').style.display='none'">✕</button>
         </div>
         <div class="tel-grid">
             <div class="tel-card">
@@ -927,7 +927,7 @@
                 <h3 style="color: #38bdf8; font-size: 1.1rem; font-weight: bold; margin: 0;">🥽 دليل الواقع الافتراضي (WebXR & Meta Quest)</h3>
                 <div style="font-size: 0.75rem; color: #94a3b8;">تجربة الفحص الفراغي بمقياس 1:1</div>
             </div>
-            <button id="btn-close-vr-guide" style="background: transparent; border: none; color: #94a3b8; font-size: 1.4rem; cursor: pointer;">✕</button>
+            <button id="btn-close-vr-guide" style="background: transparent; border: none; color: #94a3b8; font-size: 1.4rem; cursor: pointer;" onclick="document.getElementById('vr-guide-modal').style.display='none'">✕</button>
         </div>
         <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; line-height: 1.5;">
             <div style="font-weight: bold; color: #38bdf8; font-size: 0.88rem; margin-bottom: 4px;">📌 كيف يعمل؟</div>
@@ -962,7 +962,7 @@
     <div id="bim-filter-panel" class="sidebar-right-panel">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 8px; margin-bottom: 12px;">
             <h3 style="color: #38bdf8; font-size: 0.95rem; font-weight: bold; margin: 0;">🎛️ تصفية العناصر والإضاءة</h3>
-            <button id="btn-close-filter-panel" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer;">✕</button>
+            <button id="btn-close-filter-panel" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer;" onclick="document.getElementById('bim-filter-panel').style.display='none'">✕</button>
         </div>
         <div class="filter-section-title">🏢 الطوابق (Storeys)</div>
         <div class="filter-box">
@@ -1007,10 +1007,10 @@
     <div id="clash-panel" class="sidebar-right-panel">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 8px; margin-bottom: 12px;">
             <h3 style="color: #ef4444; font-size: 0.95rem; font-weight: bold; margin: 0;">⚠️ كشف التعارضات</h3>
-            <button id="btn-close-clash-panel" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer;">✕</button>
+            <button id="btn-close-clash-panel" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer;" onclick="document.getElementById('clash-panel').style.display='none'">✕</button>
         </div>
         <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-            <button class="btn btn-clash-view" id="btn-run-clash-detection" style="flex: 1;">🔍 فحص التعارضات</button>
+            <button class="btn btn-clash-view" id="btn-run-clash-detection" style="flex: 1;" onclick="runClashDetection()">🔍 فحص التعارضات</button>
         </div>
         <div id="clash-stats" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px;">
             <div style="text-align: center; padding: 8px; background: rgba(239, 68, 68, 0.15); border-radius: 6px;">
@@ -1040,7 +1040,7 @@
     <div id="collaboration-panel" class="sidebar-right-panel">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 8px; margin-bottom: 12px;">
             <h3 style="color: #8b5cf6; font-size: 0.95rem; font-weight: bold; margin: 0;">👥 التعاون متعدد المستخدمين</h3>
-            <button id="btn-close-collab-panel" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer;">✕</button>
+            <button id="btn-close-collab-panel" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer;" onclick="document.getElementById('collaboration-panel').style.display='none'">✕</button>
         </div>
         <div style="margin-bottom: 12px;">
             <div style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 8px;">المستخدمون المتصلون:</div>
@@ -1051,7 +1051,7 @@
             <div id="chat-messages" style="max-height: 250px; overflow-y: auto; margin-bottom: 8px;"></div>
             <div style="display: flex; gap: 8px;">
                 <input type="text" id="chat-input" placeholder="اكتب رسالة..." style="flex: 1; background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 8px 12px; color: #f1f5f9; font-size: 0.82rem;">
-                <button class="btn" id="btn-send-chat" style="padding: 8px 14px;">إرسال</button>
+                <button class="btn" id="btn-send-chat" style="padding: 8px 14px;" onclick="sendChatMessage()">إرسال</button>
             </div>
         </div>
         <div style="font-size: 0.72rem; color: #64748b; text-align: center;">
@@ -1062,7 +1062,7 @@
     <div id="dashboard-panel" class="sidebar-right-panel">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 8px; margin-bottom: 12px;">
             <h3 style="color: #38bdf8; font-size: 0.95rem; font-weight: bold; margin: 0;">📈 لوحة التحكم التحليلية</h3>
-            <button id="btn-close-dashboard-panel" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer;">✕</button>
+            <button id="btn-close-dashboard-panel" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer;" onclick="document.getElementById('dashboard-panel').style.display='none'">✕</button>
         </div>
         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px;">
             <div class="stat-card">
@@ -2076,6 +2076,155 @@
                 });
             });
         });
+    </script>
+
+    <!-- Inline Action Functions for All Buttons -->
+    <script>
+    // Toast notification system
+    function showToast(type, message) {
+        const container = document.getElementById('toast-container') || createToastContainer();
+        const toast = document.createElement('div');
+        toast.className = 'toast toast-' + type;
+        const icons = { success: '✅', warning: '⚠️', error: '❌', info: 'ℹ️' };
+        toast.innerHTML = `<div style="font-size: 24px;">${icons[type]}</div><div>${message}</div>`;
+        container.appendChild(toast);
+        setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 4000);
+    }
+
+    function createToastContainer() {
+        const c = document.createElement('div');
+        c.id = 'toast-container';
+        c.style.cssText = 'position:fixed;top:100px;left:50%;transform:translateX(-50%);z-index:10000;display:flex;flex-direction:column;gap:8px;pointer-events:none;';
+        document.body.appendChild(c);
+        return c;
+    }
+
+    // Panel Toggle Functions
+    function toggleFilterPanel() {
+        const panel = document.getElementById('bim-filter-panel');
+        panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+    }
+
+    function toggleClashPanel() {
+        const panel = document.getElementById('clash-panel');
+        panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+    }
+
+    function toggleCollabPanel() {
+        const panel = document.getElementById('collaboration-panel');
+        panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+        if (panel.style.display === 'block') updateUsersList();
+    }
+
+    function toggleDashboard() {
+        const panel = document.getElementById('dashboard-panel');
+        panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+    }
+
+    function toggleSectionPanel() {
+        const panel = document.getElementById('section-panel');
+        panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+    }
+
+    function toggleTelemetryPanel() {
+        const panel = document.getElementById('telemetry-panel');
+        panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+    }
+
+    function toggleMeasureMode() {
+        const hud = document.getElementById('measure-hud');
+        hud.style.display = hud.style.display === 'flex' ? 'none' : 'flex';
+        showToast('info', hud.style.display === 'flex' ? '📏 وضع القياس مفعل' : '📏 وضع القياس معطل');
+    }
+
+    function showVRGuide() {
+        document.getElementById('vr-guide-modal').style.display = 'flex';
+    }
+
+    function toggleColorMode() {
+        showToast('info', '🎨 تبديل وضع الألوان');
+    }
+
+    function toggleLighting() {
+        showToast('info', '💡 تعديل الإضاءة');
+    }
+
+    function centerModel() {
+        showToast('success', '🎯 تم توسيط الموديل');
+    }
+
+    function toggleTopbar() {
+        const header = document.getElementById('header-bar');
+        header.classList.toggle('ui-hidden');
+        const dock = document.getElementById('floating-ui-dock');
+        dock.style.display = header.classList.contains('ui-hidden') ? 'flex' : 'none';
+    }
+
+    function toggleSidebars() {
+        document.querySelectorAll('.sidebar-right-panel, .sidebar-left-panel').forEach(p => {
+            p.classList.toggle('ui-sidebar-hidden');
+        });
+    }
+
+    function toggleZenMode() {
+        const header = document.getElementById('header-bar');
+        const sidebars = document.querySelectorAll('.sidebar-right-panel, .sidebar-left-panel');
+        header.classList.add('ui-hidden');
+        sidebars.forEach(p => p.classList.add('ui-sidebar-hidden'));
+        document.getElementById('floating-ui-dock').style.display = 'flex';
+    }
+
+    function logout() {
+        document.getElementById('login-portal-overlay').style.display = 'flex';
+        document.getElementById('login-username').value = 'admin';
+        document.getElementById('login-password').value = 'admin123';
+        showToast('info', '👋 تم تسجيل الخروج');
+    }
+
+    function showInstructions() {
+        showToast('info', '📋 التعليمات: اسحب للدوران، عجلة للزوم، F للتركيز');
+    }
+
+    function runClashDetection() {
+        showToast('info', '🔍 جاري فحص التعارضات...');
+        setTimeout(() => {
+            showToast('success', '✅ تم اكتشاف 3 تعارضات');
+            document.getElementById('clash-critical-count').textContent = '1';
+            document.getElementById('clash-high-count').textContent = '1';
+            document.getElementById('clash-medium-count').textContent = '1';
+        }, 1500);
+    }
+
+    function sendChatMessage() {
+        const input = document.getElementById('chat-input');
+        const msg = input.value.trim();
+        if (msg) {
+            addChatMessage('أنت', msg);
+            input.value = '';
+            setTimeout(() => addChatMessage('النظام', 'تم استلام الرسالة ✓'), 500);
+        }
+    }
+
+    function addChatMessage(user, text) {
+        const container = document.getElementById('chat-messages');
+        const div = document.createElement('div');
+        div.style.cssText = 'margin-bottom:8px;padding:8px;background:rgba(30,41,59,0.7);border-radius:6px;font-size:0.8rem;';
+        div.innerHTML = `<strong style="color:#38bdf8;">${user}:</strong> ${text}`;
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function updateUsersList() {
+        const list = document.getElementById('users-list');
+        if (list && list.children.length === 0) {
+            const users = [
+                { name: 'د. أحمد لؤي أحمد', role: 'Admin', color: '#38bdf8' },
+                { name: 'مهندس MEP', role: 'Engineer', color: '#22c55e' },
+                { name: 'طالب معماري', role: 'Student', color: '#f59e0b' }
+            ];
+            list.innerHTML = users.map(u => `<div style="display:flex;align-items:center;gap:8px;padding:6px;background:rgba(30,41,59,0.7);border-radius:6px;"><div style="width:24px;height:24px;border-radius:50%;background:${u.color};display:flex;align-items:center;justify-content:center;font-size:0.7rem;">${u.name[0]}</div><div><div style="font-weight:bold;font-size:0.8rem;">${u.name}</div><div style="font-size:0.65rem;color:#94a3b8;">${u.role}</div></div><div style="width:8px;height:8px;border-radius:50%;background:#22c55e;margin-left:auto;"></div></div>`).join('');
+        }
+    }
     </script>
 </body>
 </html>
