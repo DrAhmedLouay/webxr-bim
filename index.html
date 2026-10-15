@@ -713,6 +713,9 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/webxr/VRButton.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+    <!-- Web-IFC for IFC Model Support -->
+    <script src="https://unpkg.com/web-ifc@0.0.57/web-ifc-api-iife.js"></script>
+    <script src="https://unpkg.com/web-ifc-three@0.0.126/IFCLoader.umd.cjs"></script>
 </head>
 <body>
     <div id="login-portal-overlay">
@@ -791,13 +794,13 @@
     </div>
 
     <div id="webgl-container"></div>
-    <div id="drop-overlay">📥 أفلت ملف النموذج (.GLB / .GLTF) هنا</div>
+    <div id="drop-overlay">📥 أفلت ملف النموذج (.GLB / .GLTF / .IFC) هنا</div>
     <div id="loading-toast">
         <div style="font-weight: bold; color: #38bdf8; font-size: 0.95rem; margin-bottom: 6px;">جاري معالجة النموذج...</div>
         <div id="toast-status" style="font-size: 0.82rem; color: #e2e8f0;">يرجى الانتظار...</div>
     </div>
     
-    <input type="file" id="file-input" accept=".glb,.gltf" style="display: none;">
+    <input type="file" id="file-input" accept=".ifc,.glb,.gltf" style="display: none;">
 
     <div id="header-bar">
         <div class="title-group">
@@ -1469,8 +1472,51 @@
                     });
                     return;
                 }
+
+                if (name.endsWith('.ifc')) {
+                    if (typeof window.IFCLoader === 'function' || typeof IFCLoader !== 'undefined') {
+                        try {
+                            const loader = new window.IFCLoader || IFCLoader;
+                            const ifcLoaderInstance = new loader();
+                            ifcLoaderInstance.setWasmPath('https://unpkg.com/web-ifc@0.0.57/');
+                            ifcLoaderInstance.load(arrayBuffer, function(model) {
+                                try {
+                                    if (currentModel) scene.remove(currentModel);
+                                    currentModel = model;
+                                    scene.add(currentModel);
+                                    const box = new THREE.Box3().setFromObject(currentModel);
+                                    const center = box.getCenter(new THREE.Vector3());
+                                    const size = box.getSize(new THREE.Vector3());
+                                    const maxDim = Math.max(size.x, size.y, size.z);
+                                    if (maxDim > 0) {
+                                        const s = 5 / maxDim;
+                                        currentModel.scale.setScalar(s);
+                                        currentModel.position.copy(center).multiplyScalar(-s);
+                                    }
+                                } catch (err) { console.error(err); }
+                                if (toast) toast.style.display = 'none';
+                                if (typeof showToast === 'function') showToast('success', '✅ تم تحميل نموذج IFC بنجاح');
+                                if (typeof updateStats === 'function') updateStats();
+                            }, function(progress) {
+                                if (document.getElementById('toast-status'))
+                                    document.getElementById('toast-status').textContent = 'جاري معالجة IFC... ' + Math.round(progress.loaded / progress.total * 100) + '%';
+                            }, function(error) {
+                                if (toast) toast.style.display = 'none';
+                                if (typeof showToast === 'function') showToast('error', '❌ فشل تحميل IFC');
+                                console.error('IFC load error:', error);
+                            });
+                            return;
+                        } catch (err) {
+                            console.error(err);
+                        }
+                    }
+                    if (toast) toast.style.display = 'none';
+                    if (typeof showToast === 'function') showToast('error', '❌ مكتبة IFC غير متاحة');
+                    return;
+                }
+
                 if (toast) toast.style.display = 'none';
-                if (typeof showToast === 'function') showToast('error', '❌ نوع الملف غير مدعوم (استخدم GLB/GLTF)');
+                if (typeof showToast === 'function') showToast('error', '❌ نوع الملف غير مدعوم (استخدم GLB/GLTF/IFC)');
             };
             try { reader.readAsArrayBuffer(file); } catch(e) {
                 if (toast) toast.style.display = 'none';
