@@ -765,7 +765,8 @@
                     if (validUsers[username] && validUsers[username].password === password) {
                         console.log('Login successful:', username);
                         document.getElementById('login-portal-overlay').style.display = 'none';
-                        // Call the main init if available
+                        // Ensure 3D scene is initialized
+                        if (typeof init === 'function') init();
                         if (typeof showToast === 'function') {
                             showToast('success', `✅ مرحباً ${username}!`);
                         }
@@ -1248,6 +1249,14 @@
         let annotations = [];
         let directionalLight = null;
 
+        // Three.js core globals (declared explicitly, initialized in init())
+        var scene = null;
+        var camera = null;
+        var renderer = null;
+        var controls = null;
+        var raycaster = null;
+        var mouse = null;
+
         // ===== BIM Categories & PBR Materials (matching original platform) =====
         var BIM_CATEGORIES = [
             { id: 'doors', label: 'الأبواب (Doors)', hex: '#d97706', types: ['IFCDOOR', 'IFCDOORSTANDARDCASE'], icon: '🚪', badge: 'Arch', badgeBg: '#d97706', isMEP: false },
@@ -1303,6 +1312,7 @@
         let currentTutorialStep = 0;
 
         function init() {
+            if (scene) return; // Already initialized
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x0b0f19);
 
@@ -2512,10 +2522,8 @@
                 if (e.target.closest('.btn, #file-input')) return;
             });
 
-            // Ensure init() runs even if DOMContentLoaded already fired before this script loaded
-            if (typeof scene === 'undefined' || scene === null) {
-                try { init(); } catch (e) { console.error('Direct init() failed:', e); }
-            }
+            // Ensure init() runs (unconditional, with early return if already initialized)
+            try { init(); } catch (e) { console.error('Direct init() failed:', e); showToast('error', 'فشل تهيئة المشهد ثلاثي الأبعاد: ' + (e.message || e)); }
         });
     </script>
 
