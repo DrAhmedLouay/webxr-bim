@@ -2757,8 +2757,12 @@
                             showPlatformNotification('✅ تم استيراد وتوسيط نموذج الـ IFC بنجاح! انقر على أي جزء بالمبنى لفتح بياناته وتسجيل التعارضات.');
                         } catch (err) {
                             console.error('IFC Error:', err);
+                            console.error('IFC Error stack:', err.stack);
+                            console.error('IFC Error name:', err.name);
+                            console.error('IFC Error message:', err.message);
                             toastError.style.display = 'block';
                             toastError.innerText = 'خطأ في معالجة ملف الـ IFC: ' + (err.message || err);
+                            toastStatus.innerText = '❌ فشل التحميل - راجع وحدة التحكم (Console) للتفاصيل';
                         }
                     };
 
