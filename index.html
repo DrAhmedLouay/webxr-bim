@@ -1279,7 +1279,9 @@
 
             createDemoBuilding();
 
-            document.body.appendChild(VRButton.createButton(renderer));
+            if (typeof VRButton !== 'undefined' && VRButton.createButton) {
+                document.body.appendChild(VRButton.createButton(renderer));
+            }
 
             renderer.setAnimationLoop(animate);
 
