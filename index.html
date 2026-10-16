@@ -4931,7 +4931,13 @@
         });
 
         // Initialize scene directly (script runs at end of body)
-        initScene();
+        try {
+            initScene();
+            console.log('initScene() completed successfully');
+        } catch(e) {
+            console.error('initScene() failed:', e);
+            console.error(e.stack);
+        }
     </script>
     <!-- ===================================================================== -->
     <!-- Authentication & Role-Based Access Control JavaScript -->
