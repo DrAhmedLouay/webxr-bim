@@ -1407,7 +1407,7 @@
         raycaster = null;
         mouse = null;
 
-        window.addEventListener('DOMContentLoaded', function() {
+        function initScene() {
             if (typeof THREE === 'undefined') {
                 alert('تنبيه: تعذر تحميل مكتبة Three.js. يرجى التأكد من اتصال الإنترنت ثم إعادة تحديث الصفحة.');
                 return;
@@ -5068,6 +5068,9 @@
                 showLoginOverlay();
             }
         }
+
+        // Initialize scene directly (script runs at end of body, DOMContentLoaded may have passed)
+        initScene();
 
         // Initialize auth on page load
         if (document.readyState === 'loading') {
