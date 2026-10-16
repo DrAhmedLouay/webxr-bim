@@ -116,6 +116,8 @@
             border: 1px solid rgba(56, 189, 248, 0.3);
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
             transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+            flex-wrap: wrap;
+            gap: 8px;
         }
         
         #header-bar.ui-hidden { transform: translateY(-140%) !important; opacity: 0 !important; pointer-events: none !important; }
@@ -189,10 +191,10 @@
         .btn-logout:hover { background: #ef4444; color: #ffffff; border-color: #ef4444; }
         
         #floating-ui-dock {
-            position: absolute;
-            top: 12px;
+            position: fixed;
+            bottom: 20px;
             left: 50%;
-            transform: translateX(-50%) translateY(0);
+            transform: translateX(-50%);
             display: none;
             align-items: center;
             gap: 6px;
@@ -841,8 +843,8 @@
         <button class="dock-btn" id="dock-btn-toggle-zen" onclick="toggleZenMode()">🔲 عرض عادي</button>
     </div>
 
-    <div id="floating-sidebar-toggle-right" onclick="toggleFilterPanel()"><span>◀</span><span>اللوحات الجانبية</span></div>
-    <div id="floating-sidebar-toggle-left" onclick="showInstructions()"><span>▶</span><span>التعليمات</span></div>
+    <div id="floating-sidebar-toggle-right"><span>◀</span><span>اللوحات الجانبية</span></div>
+    <div id="floating-sidebar-toggle-left"><span>▶</span><span>التعليمات</span></div>
 
     <div id="measure-hud">
         <span>📏</span>
@@ -1229,6 +1231,7 @@
         let sessionUser = { name: 'د. أحمد لؤي أحمد', role: 'Admin' };
         let telemetryData = { fps: 60, calls: 0, triangles: 0, geometries: 0, memory: 0 };
         let annotations = [];
+        let directionalLight = null;
 
         const tutorialSteps = [
             { icon: '🥽', title: 'مرحباً بك في غرفة فحص التعارضات', text: 'هذه المنصة تمكنك من مراجعة نماذج BIM في بيئة ثلاثية الأبعاد تفاعلية.' },
@@ -1267,7 +1270,7 @@
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
             scene.add(ambientLight);
 
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
             directionalLight.position.set(10, 20, 10);
             directionalLight.castShadow = true;
             directionalLight.shadow.mapSize.width = 2048;
@@ -1982,12 +1985,13 @@
                 }
             });
 
-            document.getElementById('btn-dashboard').addEventListener('click', function() {
-                const panel = document.getElementById('dashboard-panel');
-                panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+            document.getElementById('btn-dashboard').addEventListener('click', function(e) {
+                e.stopPropagation();
+                toggleDashboard();
             });
 
-            document.getElementById('btn-trigger-upload').addEventListener('click', function() {
+            document.getElementById('btn-trigger-upload').addEventListener('click', function(e) {
+                e.stopPropagation();
                 document.getElementById('file-input').click();
             });
 
@@ -1995,66 +1999,68 @@
                 if (e.target.files[0]) loadModel(e.target.files[0]);
             });
 
-            document.getElementById('btn-center-model').addEventListener('click', function() {
-                camera.position.set(5, 5, 5);
-                controls.target.set(0, 0, 0);
-                controls.update();
-                showToast('info', '🎯 تم توسيط الكاميرا');
+            document.getElementById('btn-center-model').addEventListener('click', function(e) {
+                e.stopPropagation();
+                centerModel();
             });
 
-            document.getElementById('btn-vr-guide').addEventListener('click', function() {
-                document.getElementById('vr-guide-modal').style.display = 'block';
+            document.getElementById('btn-vr-guide').addEventListener('click', function(e) {
+                e.stopPropagation();
+                showVRGuide();
             });
 
-            document.getElementById('btn-close-vr-guide').addEventListener('click', function() {
+            document.getElementById('btn-close-vr-guide').addEventListener('click', function(e) {
+                e.stopPropagation();
                 document.getElementById('vr-guide-modal').style.display = 'none';
+                showFloatingToggles();
             });
 
-            document.getElementById('btn-toggle-topbar').addEventListener('click', function() {
-                document.getElementById('header-bar').classList.add('ui-hidden');
-                document.getElementById('floating-ui-dock').style.display = 'flex';
+            document.getElementById('btn-toggle-topbar').addEventListener('click', function(e) {
+                e.stopPropagation();
+                toggleTopbar();
             });
 
-            document.getElementById('dock-btn-show-topbar').addEventListener('click', function() {
+            document.getElementById('dock-btn-show-topbar').addEventListener('click', function(e) {
+                e.stopPropagation();
                 document.getElementById('header-bar').classList.remove('ui-hidden');
                 document.getElementById('floating-ui-dock').style.display = 'none';
+                showFloatingToggles();
             });
 
-            document.getElementById('btn-toggle-sidebars').addEventListener('click', function() {
-                document.querySelectorAll('.sidebar-right-panel, .sidebar-left-panel').forEach(p => {
-                    p.classList.toggle('ui-sidebar-hidden');
-                });
+            document.getElementById('btn-toggle-sidebars').addEventListener('click', function(e) {
+                e.stopPropagation();
+                toggleSidebars();
             });
 
-            document.getElementById('btn-toggle-zen').addEventListener('click', function() {
-                document.getElementById('header-bar').classList.add('ui-hidden');
-                document.querySelectorAll('.sidebar-right-panel, .sidebar-left-panel').forEach(p => {
-                    p.classList.add('ui-sidebar-hidden');
-                });
-                document.getElementById('instructions').style.display = 'none';
-                document.getElementById('floating-ui-dock').style.display = 'flex';
+            document.getElementById('btn-toggle-zen').addEventListener('click', function(e) {
+                e.stopPropagation();
+                toggleZenMode();
             });
 
-            document.getElementById('dock-btn-toggle-zen').addEventListener('click', function() {
+            document.getElementById('dock-btn-toggle-sidebars').addEventListener('click', function(e) {
+                e.stopPropagation();
+                toggleSidebars();
+            });
+
+            document.getElementById('dock-btn-toggle-zen').addEventListener('click', function(e) {
+                e.stopPropagation();
                 document.getElementById('header-bar').classList.remove('ui-hidden');
                 document.querySelectorAll('.sidebar-right-panel, .sidebar-left-panel').forEach(p => {
                     p.classList.remove('ui-sidebar-hidden');
                 });
                 document.getElementById('instructions').style.display = 'block';
                 document.getElementById('floating-ui-dock').style.display = 'none';
+                showFloatingToggles();
             });
 
-            document.getElementById('floating-sidebar-toggle-right').addEventListener('click', function() {
-                document.querySelectorAll('.sidebar-right-panel').forEach(p => {
-                    p.classList.toggle('ui-sidebar-hidden');
-                });
+            document.getElementById('floating-sidebar-toggle-right').addEventListener('click', function(e) {
+                e.stopPropagation();
+                toggleFilterPanel();
             });
 
-            document.getElementById('floating-sidebar-toggle-left').addEventListener('click', function() {
-                document.querySelectorAll('.sidebar-left-panel').forEach(p => {
-                    p.classList.toggle('ui-sidebar-hidden');
-                });
-                document.getElementById('instructions').style.toggle('ui-sidebar-hidden');
+            document.getElementById('floating-sidebar-toggle-left').addEventListener('click', function(e) {
+                e.stopPropagation();
+                showInstructions();
             });
 
             document.getElementById('slider-light-intensity').addEventListener('input', function() {
@@ -2189,11 +2195,34 @@
             });
 
             document.querySelectorAll('[id^="btn-close"]').forEach(btn => {
-                btn.addEventListener('click', function() {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
                     const panelId = this.id.replace('btn-close-', '').replace('-panel', '');
                     const panel = document.getElementById(panelId + '-panel') || document.getElementById(panelId);
-                    if (panel) panel.style.display = 'none';
+                    if (panel) {
+                        panel.style.display = 'none';
+                        showFloatingToggles();
+                    }
                 });
+            });
+
+            // Click on 3D canvas closes panels and restores toggles
+            document.getElementById('webgl-container').addEventListener('click', function(e) {
+                closeRightPanels();
+                closeLeftPanels();
+                document.getElementById('measure-hud').style.display = 'none';
+                document.getElementById('vr-guide-modal').style.display = 'none';
+                document.getElementById('desktop-info-panel').style.display = 'none';
+                showFloatingToggles();
+            });
+
+            // Click outside panels on document also closes them
+            document.addEventListener('click', function(e) {
+                if (e.target.id === 'webgl-container' || e.target.closest('#webgl-container')) return;
+                if (e.target.closest('.sidebar-right-panel, .sidebar-left-panel')) return;
+                if (e.target.closest('#header-bar, #floating-ui-dock')) return;
+                if (e.target.closest('#floating-sidebar-toggle-right, #floating-sidebar-toggle-left')) return;
+                if (e.target.closest('.btn, #file-input')) return;
             });
         });
     </script>
@@ -2219,36 +2248,81 @@
         return c;
     }
 
-    // Panel Toggle Functions
+    // Panel Toggle Functions with mutual exclusion (no overlap)
+    function closeRightPanels() {
+        ['bim-filter-panel', 'clash-panel', 'collaboration-panel', 'dashboard-panel'].forEach(id => {
+            const p = document.getElementById(id);
+            if (p) p.style.display = 'none';
+        });
+    }
+    function closeLeftPanels() {
+        ['section-panel', 'telemetry-panel'].forEach(id => {
+            const p = document.getElementById(id);
+            if (p) p.style.display = 'none';
+        });
+    }
+    function hideFloatingToggles() {
+        const rt = document.getElementById('floating-sidebar-toggle-right');
+        const lt = document.getElementById('floating-sidebar-toggle-left');
+        if (rt) rt.style.display = 'none';
+        if (lt) lt.style.display = 'none';
+    }
+    function showFloatingToggles() {
+        const rt = document.getElementById('floating-sidebar-toggle-right');
+        const lt = document.getElementById('floating-sidebar-toggle-left');
+        if (rt) rt.style.display = 'flex';
+        if (lt) lt.style.display = 'flex';
+    }
+
     function toggleFilterPanel() {
         const panel = document.getElementById('bim-filter-panel');
-        panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+        const isOpen = panel.style.display === 'block';
+        closeRightPanels();
+        if (!isOpen) panel.style.display = 'block';
+        hideFloatingToggles();
     }
 
     function toggleClashPanel() {
         const panel = document.getElementById('clash-panel');
-        panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+        const isOpen = panel.style.display === 'block';
+        closeRightPanels();
+        if (!isOpen) panel.style.display = 'block';
+        hideFloatingToggles();
     }
 
     function toggleCollabPanel() {
         const panel = document.getElementById('collaboration-panel');
-        panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
-        if (panel.style.display === 'block') updateUsersList();
+        const isOpen = panel.style.display === 'block';
+        closeRightPanels();
+        if (!isOpen) {
+            panel.style.display = 'block';
+            updateUsersList();
+        }
+        hideFloatingToggles();
     }
 
     function toggleDashboard() {
         const panel = document.getElementById('dashboard-panel');
-        panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+        const isOpen = panel.style.display === 'block';
+        closeRightPanels();
+        if (!isOpen) panel.style.display = 'block';
+        hideFloatingToggles();
     }
 
     function toggleSectionPanel() {
         const panel = document.getElementById('section-panel');
-        panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+        const isOpen = panel.style.display === 'block';
+        closeLeftPanels();
+        if (!isOpen) panel.style.display = 'block';
+        hideFloatingToggles();
     }
 
     function toggleTelemetryPanel() {
         const panel = document.getElementById('telemetry-panel');
-        panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+        const isOpen = panel.style.display === 'block';
+        closeLeftPanels();
+        if (!isOpen) panel.style.display = 'block';
+        hideFloatingToggles();
     }
 
     function toggleMeasureMode() {
@@ -2259,18 +2333,43 @@
 
     function showVRGuide() {
         document.getElementById('vr-guide-modal').style.display = 'flex';
+        hideFloatingToggles();
     }
 
     function toggleColorMode() {
-        showToast('info', '🎨 تبديل وضع الألوان');
+        const current = document.body.style.filter;
+        if (current.includes('invert')) {
+            document.body.style.filter = '';
+            showToast('info', '🎨 تم إعادة الألوان الطبيعية');
+        } else {
+            document.body.style.filter = 'invert(0.15) hue-rotate(180deg)';
+            showToast('info', '🎨 تم تفعيل وضع الألوان المكملة');
+        }
     }
 
     function toggleLighting() {
-        showToast('info', '💡 تعديل الإضاءة');
+        if (directionalLight) {
+            directionalLight.intensity = directionalLight.intensity === 0.8 ? 0.2 : 0.8;
+            showToast('info', directionalLight.intensity === 0.8 ? '💡 الإضاءة كاملة' : '💡 إضاءة خافتة');
+        } else {
+            showToast('info', '💡 نظام الإضاءة غير جاهز بعد');
+        }
     }
 
     function centerModel() {
-        showToast('success', '🎯 تم توسيط الموديل');
+        if (currentModel) {
+            const box = new THREE.Box3().setFromObject(currentModel);
+            const center = box.getCenter(new THREE.Vector3());
+            camera.position.set(center.x + 5, center.y + 5, center.z + 5);
+            controls.target.copy(center);
+            controls.update();
+            showToast('success', '🎯 تم توسيط النموذج');
+        } else {
+            camera.position.set(5, 5, 5);
+            controls.target.set(0, 0, 0);
+            controls.update();
+            showToast('info', '🎯 تم توسيط الكاميرا');
+        }
     }
 
     function toggleTopbar() {
@@ -2291,18 +2390,26 @@
         const sidebars = document.querySelectorAll('.sidebar-right-panel, .sidebar-left-panel');
         header.classList.add('ui-hidden');
         sidebars.forEach(p => p.classList.add('ui-sidebar-hidden'));
+        closeRightPanels();
+        closeLeftPanels();
         document.getElementById('floating-ui-dock').style.display = 'flex';
+        hideFloatingToggles();
     }
 
     function logout() {
         document.getElementById('login-portal-overlay').style.display = 'flex';
         document.getElementById('login-username').value = 'admin';
         document.getElementById('login-password').value = 'admin123';
+        closeRightPanels();
+        closeLeftPanels();
+        document.getElementById('header-bar').classList.remove('ui-hidden');
+        document.getElementById('floating-ui-dock').style.display = 'none';
         showToast('info', '👋 تم تسجيل الخروج');
     }
 
     function showInstructions() {
-        showToast('info', '📋 التعليمات: اسحب للدوران، عجلة للزوم، F للتركيز');
+        const instr = document.getElementById('instructions');
+        instr.style.display = instr.style.display === 'block' ? 'none' : 'block';
     }
 
     function runClashDetection() {
