@@ -812,7 +812,7 @@
         </div>
         <div class="actions-group">
             <button class="btn btn-lab-active" id="tab-lab-view">🥽 غرفة التعارضات</button>
-            <button class="btn btn-outline" id="btn-vr-guide" onclick="showVRGuide()">🥽 دليل الواقع الافتراضي</button>
+            <button class="btn btn-outline" id="btn-vr-guide">🥽 دليل الواقع الافتراضي</button>
             <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.2); margin: 0 4px;"></div>
             <button class="btn btn-outline" id="btn-quick-color-toggle" onclick="toggleColorMode()">🎨 تمييز الألوان</button>
             <button class="btn btn-outline" id="btn-quick-lighting" onclick="toggleLighting()">💡 إضاءة البيئة</button>
@@ -820,14 +820,14 @@
             <button class="btn btn-outline" id="btn-toggle-section" onclick="toggleSectionPanel()">✂️ قطاع هندسي</button>
             <button class="btn btn-outline" id="btn-toggle-telemetry" onclick="toggleTelemetryPanel()">📊 مؤشرات الأداء</button>
             <button class="btn btn-filter" id="btn-toggle-filters-panel" onclick="toggleFilterPanel()">🎛️ تصفية العناصر</button>
-            <button class="btn btn-upload" id="btn-trigger-upload" onclick="document.getElementById('file-input').click()">📂 استيراد نموذج</button>
-            <button class="btn btn-center" id="btn-center-model" onclick="centerModel()">🎯 توسيط الموديل</button>
-            <button class="btn btn-clash-view" id="btn-view-clashes" onclick="toggleClashPanel()">⚠️ التعارضات</button>
-            <button class="btn btn-outline" id="btn-collaboration" onclick="toggleCollabPanel()">👥 التعاون</button>
-            <button class="btn btn-outline" id="btn-dashboard" onclick="toggleDashboard()">📈 لوحة التحكم</button>
-            <button class="btn btn-outline" id="btn-toggle-topbar" onclick="toggleTopbar()">🔼 إخفاء الشريط</button>
-            <button class="btn btn-outline" id="btn-toggle-sidebars" onclick="toggleSidebars()">📑 القوائم الجانبية</button>
-            <button class="btn btn-outline" id="btn-toggle-zen" onclick="toggleZenMode()">🔲 عرض كامل</button>
+            <button class="btn btn-upload" id="btn-trigger-upload">📂 استيراد نموذج</button>
+            <button class="btn btn-center" id="btn-center-model">🎯 توسيط الموديل</button>
+            <button class="btn btn-clash-view" id="btn-view-clashes">⚠️ التعارضات</button>
+            <button class="btn btn-outline" id="btn-collaboration">👥 التعاون</button>
+            <button class="btn btn-outline" id="btn-dashboard">📈 لوحة التحكم</button>
+            <button class="btn btn-outline" id="btn-toggle-topbar">🔼 إخفاء الشريط</button>
+            <button class="btn btn-outline" id="btn-toggle-sidebars">📑 القوائم الجانبية</button>
+            <button class="btn btn-outline" id="btn-toggle-zen">🔲 عرض كامل</button>
             <div id="user-session-bar" class="user-session-container">
                 <div class="user-session-pill">
                     <span id="user-session-name">👨‍🏫 د. أحمد لؤي أحمد (Admin)</span>
@@ -1221,6 +1221,16 @@
     </script>
 
     <script>
+        // Global error handler to catch silent JS failures
+        window.onerror = function(msg, url, line, col, error) {
+            console.error('GLOBAL JS ERROR:', msg, 'at', url + ':' + line + ':' + col);
+            if (error && error.stack) console.error(error.stack);
+            var toast = document.getElementById('loading-toast');
+            if (toast) toast.style.display = 'none';
+            if (typeof showToast === 'function') showToast('error', 'خطأ في JavaScript: ' + msg + ' (السطر ' + line + ')');
+            return true;
+        };
+
         let currentModel = null;
         let measurePoints = [];
         let measureLine = null;
@@ -1520,6 +1530,16 @@
         }
 
         function loadModel(file) {
+            // Safety check: ensure Three.js scene is initialized
+            if (typeof scene === 'undefined' || scene === null) {
+                if (typeof showToast === 'function') showToast('error', 'المشهد ثلاثي الأبعاد لم يتم تهيئته بعد. يرجى تحديث الصفحة والمحاولة مرة أخرى.');
+                return;
+            }
+            if (typeof camera === 'undefined' || camera === null) {
+                if (typeof showToast === 'function') showToast('error', 'الكاميرا لم يتم تهيئتها بعد. يرجى تحديث الصفحة والمحاولة مرة أخرى.');
+                return;
+            }
+
             var fileNameLower = (file.name || '').toLowerCase();
             var sizeMB = (file.size / (1024 * 1024)).toFixed(2);
 
@@ -2105,7 +2125,12 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            init();
+            try {
+                init();
+            } catch (e) {
+                console.error('init() failed:', e);
+                if (typeof showToast === 'function') showToast('error', 'فشل تهيئة المشهد: ' + (e.message || e));
+            }
 
             // Demo credentials hint
             const usernameInput = document.getElementById('login-username');
