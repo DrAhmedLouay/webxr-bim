@@ -2667,48 +2667,9 @@
                             currentIFCLoader = ifcLoader;
 
                             var wasmDir = 'https://unpkg.com/web-ifc@0.0.57/';
-                            var wasmUrl = wasmDir + 'web-ifc.wasm';
-
-                            // Initialize WASM using web-ifc standard pattern
-                            await new Promise(function(resolve, reject) {
-                                try {
-                                    ifcLoader.ifcManager.setWasmPath(wasmDir);
-                                } catch(e) {}
-
-                                var api = ifcLoader.ifcManager.state && ifcLoader.ifcManager.state.api;
-                                if (api && api.wasmModule) {
-                                    resolve();
-                                    return;
-                                }
-
-                                // Try direct Init with URL string (web-ifc standard)
-                                if (api && typeof api.Init === 'function') {
-                                    try {
-                                        api.Init(wasmUrl);
-                                        resolve();
-                                    } catch(e) {
-                                        // If Init doesn't accept URL directly, try callback form
-                                        try {
-                                            api.Init(function() { return wasmUrl; });
-                                            setTimeout(resolve, 2000);
-                                        } catch(e2) {
-                                            setTimeout(resolve, 2000);
-                                        }
-                                    }
-                                } else if (typeof ifcLoader.ifcManager.init === 'function') {
-                                    ifcLoader.ifcManager.init().then(resolve).catch(function() { resolve(); });
-                                } else {
-                                    resolve();
-                                }
-
-                                // Fallback timeout - proceed even if WASM not confirmed ready
-                                setTimeout(function() {
-                                    if (!api || !api.wasmModule) {
-                                        // Still try parse - IFCLoader may handle init internally
-                                        resolve();
-                                    }
-                                }, 3000);
-                            }).catch(function() {});
+                            try {
+                                ifcLoader.ifcManager.setWasmPath(wasmDir);
+                            } catch(e) {}
 
                             if (typeof ifcLoader.ifcManager.setOnProgress === 'function') {
                                 ifcLoader.ifcManager.setOnProgress(function(prog) {
