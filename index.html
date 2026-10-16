@@ -5294,6 +5294,39 @@
 
         // Run enhanced buttons
         setTimeout(wireEnhancedButtons, 500);
+
+    // Final init guarantee
+    if (!scene && typeof document !== 'undefined' && typeof THREE !== 'undefined') {
+        try {
+            var container = document.getElementById('webgl-container');
+            if (container) {
+                scene = new THREE.Scene();
+                scene.background = new THREE.Color(0x0b0f19);
+                camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.05, 500000);
+                camera.position.set(0, 2.2, 5.8);
+                renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+                renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.shadowMap.enabled = false;
+                renderer.toneMapping = THREE.ACESFilmicToneMapping;
+                renderer.toneMappingExposure = 1.0;
+                renderer.xr.enabled = true;
+                container.appendChild(renderer.domElement);
+                if (THREE.VRButton) {
+                    document.body.appendChild(THREE.VRButton.createButton(renderer));
+                }
+                controls = new THREE.OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.08;
+                controls.target.set(0, 1.8, 0);
+                var ambientLight = new THREE.AmbientLight(0xffffff, 0.45);
+                scene.add(ambientLight);
+                console.log('Fallback init() completed - scene ready');
+            }
+        } catch(e) {
+            console.error('Fallback init failed:', e);
+        }
+    }
     </script>
 </body>
 </html>
