@@ -2667,9 +2667,17 @@
                             currentIFCLoader = ifcLoader;
 
                             var wasmDir = 'https://unpkg.com/web-ifc@0.0.57/';
+                            console.log('IFC Loader available:', !!ifcLoader);
+                            console.log('IFC ifcManager available:', !!ifcLoader.ifcManager);
                             try {
                                 ifcLoader.ifcManager.setWasmPath(wasmDir);
-                            } catch(e) {}
+                                console.log('WASM path set to:', wasmDir);
+                            } catch(e) {
+                                console.error('setWasmPath error:', e);
+                                toastError.style.display = 'block';
+                                toastError.innerText = 'خطأ في تعيين مسار WASM: ' + (e.message || e);
+                                throw e;
+                            }
 
                             // Explicit WASM Init with retry
                             await new Promise(function(resolve, reject) {
