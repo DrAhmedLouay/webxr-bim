@@ -815,12 +815,12 @@
             <button class="btn btn-lab-active" id="tab-lab-view">🥽 غرفة التعارضات</button>
             <button class="btn btn-outline" id="btn-vr-guide">🥽 دليل الواقع الافتراضي</button>
             <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.2); margin: 0 4px;"></div>
-            <button class="btn btn-outline" id="btn-quick-color-toggle" onclick="toggleColorMode()">🎨 تمييز الألوان</button>
-            <button class="btn btn-outline" id="btn-quick-lighting" onclick="toggleLighting()">💡 إضاءة البيئة</button>
-            <button class="btn btn-outline" id="btn-toggle-measure" onclick="toggleMeasureMode()">📏 قياس الأبعاد</button>
-            <button class="btn btn-outline" id="btn-toggle-section" onclick="toggleSectionPanel()">✂️ قطاع هندسي</button>
-            <button class="btn btn-outline" id="btn-toggle-telemetry" onclick="toggleTelemetryPanel()">📊 مؤشرات الأداء</button>
-            <button class="btn btn-filter" id="btn-toggle-filters-panel" onclick="toggleFilterPanel()">🎛️ تصفية العناصر</button>
+            <button class="btn btn-outline" id="btn-quick-color-toggle">🎨 تمييز الألوان</button>
+            <button class="btn btn-outline" id="btn-quick-lighting">💡 إضاءة البيئة</button>
+            <button class="btn btn-outline" id="btn-toggle-measure">📏 قياس الأبعاد</button>
+            <button class="btn btn-outline" id="btn-toggle-section">✂️ قطاع هندسي</button>
+            <button class="btn btn-outline" id="btn-toggle-telemetry">📊 مؤشرات الأداء</button>
+            <button class="btn btn-filter" id="btn-toggle-filters-panel">🎛️ تصفية العناصر</button>
             <button class="btn btn-upload" id="btn-trigger-upload">📂 استيراد نموذج</button>
             <button class="btn btn-center" id="btn-center-model">🎯 توسيط الموديل</button>
             <button class="btn btn-clash-view" id="btn-view-clashes">⚠️ التعارضات</button>
@@ -833,7 +833,7 @@
                 <div class="user-session-pill">
                     <span id="user-session-name">👨‍🏫 د. أحمد لؤي أحمد (Admin)</span>
                 </div>
-                <button id="btn-logout" class="btn-logout" onclick="logout()">🚪 خروج</button>
+                <button id="btn-logout" class="btn-logout">🚪 خروج</button>
             </div>
         </div>
     </div>
@@ -851,7 +851,7 @@
         <span>📏</span>
         <span id="measure-result-text">انقر على النقطة الأولى...</span>
         <button id="btn-clear-measure" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #f1f5f9; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; cursor: pointer;">🗑️ مسح</button>
-        <button id="btn-close-measure" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer;" onclick="document.getElementById('measure-hud').style.display='none'">✕</button>
+        <button id="btn-close-measure" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer;">✕</button>
     </div>
 
     <div id="section-panel" class="sidebar-left-panel">
@@ -2497,6 +2497,24 @@
                         }
                     });
                 });
+            });
+
+            document.getElementById('btn-quick-color-toggle').addEventListener('click', function(e) {
+                e.stopPropagation();
+                toggleColorMode();
+            });
+
+            document.getElementById('btn-quick-lighting').addEventListener('click', function(e) {
+                e.stopPropagation();
+                toggleLighting();
+            });
+
+            document.getElementById('btn-reset-section').addEventListener('click', function(e) {
+                e.stopPropagation();
+                document.getElementById('slider-sec-pos').value = 2.5;
+                document.getElementById('label-sec-pos').textContent = '2.50 م';
+                document.getElementById('chk-sec-invert').checked = false;
+                updateSectionPlane();
             });
 
             document.addEventListener('keydown', function(e) {
