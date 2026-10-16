@@ -945,7 +945,7 @@
 
             <!-- BIM Filters & Storeys Button -->
             <button class="btn btn-filter" id="btn-toggle-filters-panel" title="فصل الطوابق وتصفية عناصر المبنى والتأسيسات وضبط الإضاءة">🎛️ تصفية العناصر والإضاءة</button>
-            <button class="btn btn-upload" id="btn-trigger-upload">📂 استيراد نموذج آخر (GLB / IFC)</button>
+            <button class="btn btn-upload" id="btn-trigger-upload" onclick="triggerUpload()">📂 استيراد نموذج آخر (GLB / IFC)</button>
             <button class="btn btn-center" id="btn-center-model" title="إعادة الكاميرا وتوسيط الموديل في منتصف الشاشة">🎯 وضع المجسم في المنتصف</button>
             <button class="btn btn-clash-view" id="btn-view-clashes" title="مشاهدة واستعراض التعارضات في المشهد الثلاثي الأبعاد">⚠️ مشاهدة التعارضات</button>
             <button class="btn btn-outline" id="btn-collaboration" title="لوحة التعاون المتعدد المستخدمين والمحادثة الفورية">👥 التعاون</button>
@@ -1415,15 +1415,19 @@
         };
 
         function initScene() {
+            console.log('initScene() started');
             if (typeof THREE === 'undefined') {
                 alert('تنبيه: تعذر تحميل مكتبة Three.js. يرجى التأكد من اتصال الإنترنت ثم إعادة تحديث الصفحة.');
                 return;
             }
+            console.log('Three.js version:', THREE.REVISION);
 
             // =====================================================================
             // 1. Scene, Camera, Renderer Setup (WebXR Ready)
             // =====================================================================
+            console.log('Getting container...');
             container = document.getElementById('webgl-container');
+            console.log('Container:', !!container);
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x0b0f19);
 
@@ -2571,6 +2575,12 @@
             var toastError = document.getElementById('toast-error');
 
             function triggerUpload() {
+                console.log('triggerUpload called');
+                if (!fileInput) {
+                    console.error('fileInput is null!');
+                    return;
+                }
+                console.log('Clicking fileInput...');
                 fileInput.click();
             }
             document.getElementById('btn-trigger-upload').addEventListener('click', triggerUpload);
@@ -2646,6 +2656,7 @@
             refreshStoreyDropdown();
 
             function loadFile(file) {
+                console.log('loadFile called with:', file.name);
                 // Safety check: ensure Three.js scene is initialized
                 if (!scene || !camera || !renderer || !controls) {
                     toastError.style.display = 'block';
@@ -4939,8 +4950,10 @@
 
         // Initialize scene directly (script runs at end of body)
         try {
+            console.log('About to call initScene()...');
             initScene();
             console.log('initScene() completed successfully');
+            console.log('Three.js globals:', {scene: !!scene, camera: !!camera, renderer: !!renderer, controls: !!controls});
         } catch(e) {
             console.error('initScene() failed:', e);
             console.error(e.stack);
