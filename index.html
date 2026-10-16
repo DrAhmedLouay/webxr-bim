@@ -4929,6 +4929,9 @@
                 }
             });
         });
+
+        // Initialize scene directly (script runs at end of body)
+        initScene();
     </script>
     <!-- ===================================================================== -->
     <!-- Authentication & Role-Based Access Control JavaScript -->
@@ -5070,7 +5073,6 @@
         }
 
         // Initialize scene directly (script runs at end of body, DOMContentLoaded may have passed)
-        initScene();
 
         // Initialize auth on page load
         if (document.readyState === 'loading') {
