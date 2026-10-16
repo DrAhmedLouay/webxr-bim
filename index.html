@@ -1231,6 +1231,11 @@
             return true;
         };
 
+        window.addEventListener('unhandledrejection', function(e) {
+            console.error('UNHANDLED PROMISE REJECTION:', e.reason);
+            if (typeof showToast === 'function') showToast('error', 'خطأ غير معالج: ' + (e.reason && e.reason.message ? e.reason.message : String(e.reason)));
+        });
+
         let currentModel = null;
         let measurePoints = [];
         let measureLine = null;
