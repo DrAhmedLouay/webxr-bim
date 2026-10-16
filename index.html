@@ -2671,6 +2671,41 @@
                                 ifcLoader.ifcManager.setWasmPath(wasmDir);
                             } catch(e) {}
 
+                            // Explicit WASM Init with retry
+                            await new Promise(function(resolve, reject) {
+                                var api = ifcLoader.ifcManager.state && ifcLoader.ifcManager.state.api;
+                                if (!api || typeof api.Init !== 'function') {
+                                    resolve(); // Let parse() handle init internally
+                                    return;
+                                }
+                                var attempts = 0;
+                                var tryInit = function() {
+                                    attempts++;
+                                    try {
+                                        // Try signature: Init(successCallback, errorCallback, wasmUrl)
+                                        api.Init(
+                                            function() { resolve(); },
+                                            function(err) { reject(err || new Error('Init failed')); },
+                                            wasmDir + 'web-ifc.wasm'
+                                        );
+                                    } catch(e) {
+                                        try {
+                                            // Try signature: Init(wasmUrl, successCallback, errorCallback)
+                                            api.Init(wasmDir + 'web-ifc.wasm', function() { resolve(); }, function(err) { reject(err || new Error('Init failed')); });
+                                        } catch(e2) {
+                                            if (attempts >= 3) {
+                                                resolve(); // Give up and let parse() handle it
+                                            } else {
+                                                setTimeout(tryInit, 500);
+                                            }
+                                        }
+                                    }
+                                };
+                                tryInit();
+                                // Timeout fallback
+                                setTimeout(function() { resolve(); }, 5000);
+                            }).catch(function() {});
+
                             if (typeof ifcLoader.ifcManager.setOnProgress === 'function') {
                                 ifcLoader.ifcManager.setOnProgress(function(prog) {
                                     if (prog && prog.total > 0) {
