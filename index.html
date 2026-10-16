@@ -1399,33 +1399,44 @@
 
         // ===== fitCameraToObject: Properly center and fit camera to model (from original platform) =====
         function fitCameraToObject(cam, obj, ctrl) {
-            if (!obj) return;
-            var box = new THREE.Box3().setFromObject(obj);
-            if (box.isEmpty()) return;
-            var size = box.getSize(new THREE.Vector3());
-            var center = box.getCenter(new THREE.Vector3());
-            var maxDim = Math.max(size.x, size.y, size.z);
-            if (maxDim <= 0 || !isFinite(maxDim)) return;
-            obj.position.x -= center.x;
-            obj.position.y -= center.y;
-            obj.position.z -= center.z;
-            box.setFromObject(obj);
-            var sphere = box.getBoundingSphere(new THREE.Sphere());
-            var radius = Math.max(1, sphere.radius);
-            var fov = cam.fov * (Math.PI / 180);
-            var distance = (radius / Math.sin(fov / 2)) * 1.35;
-            cam.near = Math.max(0.01, distance / 1000);
-            cam.far = Math.max(500000, distance * 50);
-            cam.updateProjectionMatrix();
-            cam.position.set(distance * 0.75, distance * 0.55, distance * 0.85);
-            cam.lookAt(0, 0, 0);
-            if (ctrl) {
-                ctrl.target.set(0, 0, 0);
-                ctrl.minDistance = Math.max(0.01, radius * 0.02);
-                ctrl.maxDistance = distance * 30;
-                ctrl.update();
+                if (!obj) return;
+                
+                var box = new THREE.Box3().setFromObject(obj);
+                if (box.isEmpty()) return;
+
+                var size = box.getSize(new THREE.Vector3());
+                var center = box.getCenter(new THREE.Vector3());
+                var maxDim = Math.max(size.x, size.y, size.z);
+
+                if (maxDim <= 0 || !isFinite(maxDim)) return;
+
+                obj.position.x -= center.x;
+                obj.position.y -= center.y;
+                obj.position.z -= center.z;
+
+                box.setFromObject(obj);
+                var sphere = box.getBoundingSphere(new THREE.Sphere());
+                var radius = Math.max(1, sphere.radius);
+
+                var fov = cam.fov * (Math.PI / 180);
+                var distance = (radius / Math.sin(fov / 2)) * 1.35;
+
+                cam.near = Math.max(0.01, distance / 1000);
+                cam.far = Math.max(500000, distance * 50);
+                cam.updateProjectionMatrix();
+
+                cam.position.set(distance * 0.75, distance * 0.55, distance * 0.85);
+                cam.lookAt(0, 0, 0);
+
+                if (ctrl) {
+                    ctrl.target.set(0, 0, 0);
+                    ctrl.minDistance = Math.max(0.01, radius * 0.02);
+                    ctrl.maxDistance = distance * 30;
+                    ctrl.update();
+                }
+
+                adjustLighting(radius);
             }
-        }
 
         function createDemoBuilding() {
             const floorGeom = new THREE.BoxGeometry(10, 0.3, 8);
@@ -1582,355 +1593,441 @@
         }
 
         function loadModel(file) {
-            // Auto-initialize scene if not ready
-            if (typeof scene === 'undefined' || scene === null) {
-                if (typeof init === 'function') {
-                    try { init(); } catch (e) {
-                        if (typeof showToast === 'function') showToast('error', 'فشل تهيئة المشهد: ' + (e.message || e));
-                        return;
-                    }
-                } else {
-                    if (typeof showToast === 'function') showToast('error', 'دالة التهيئة غير متوفرة. يرجى تحديث الصفحة.');
-                    return;
-                }
-                // Wait a frame for init to complete
-                setTimeout(function() { loadModel(file); }, 100);
-                return;
-            }
-            if (typeof camera === 'undefined' || camera === null) {
-                if (typeof showToast === 'function') showToast('error', 'الكاميرا لم يتم تهيئتها بعد. يرجى تحديث الصفحة والمحاولة مرة أخرى.');
-                return;
-            }
-
-            var fileNameLower = (file.name || '').toLowerCase();
-            var sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-
-            var toast = document.getElementById('loading-toast');
-            var toastStatus = document.getElementById('toast-status');
-
-            if (toast) { toast.style.display = 'block'; toast.style.opacity = '1'; }
-            if (toastStatus) toastStatus.textContent = 'جاري معالجة وتوسيط الموديل في الفراغ...';
-
-            console.log('loadModel called with file:', file.name, 'size:', file.size, 'type:', fileNameLower);
-
-            // ==================== IFC Loading ====================
-            if (fileNameLower.endsWith('.ifc')) {
-                if (toastStatus) toastStatus.textContent = '⏳ الخطوة 1 من 2: قراءة ملف الـ IFC من القرص... 0%';
-
-                var reader = new FileReader();
-                reader.onprogress = function(e) {
-                    if (e.lengthComputable && e.total > 0) {
-                        var pct = Math.round((e.loaded / e.total) * 100);
-                        if (toastStatus) toastStatus.textContent = '⏳ الخطوة 1 من 2: قراءة الملف: ' + pct + '% (' + (e.loaded / (1024 * 1024)).toFixed(1) + ' / ' + sizeMB + ' MB)';
-                    }
-                };
-
-                reader.onerror = function() {
-                    if (toast) toast.style.display = 'none';
-                    if (typeof showToast === 'function') showToast('error', 'فشل في قراءة الملف من القرص.');
-                };
-
-                reader.onload = async function(event) {
-                    var buffer = event.target.result;
-                    if (toastStatus) toastStatus.textContent = '⚙️ الخطوة 2 من 2: جاري تهيئة محرك WebAssembly الهندسي...';
-
-                    try {
-                        var LoaderClass = (window.IFCLoader && window.IFCLoader.IFCLoader) || window.IFCLoader;
-                        if (!LoaderClass) {
-                            throw new Error('محرك قراءة ملفات الـ IFC غير متوفر. تأكد من اتصال الإنترنت.');
-                        }
-                        var ifcLoader = new LoaderClass();
-                        currentIFCLoader = ifcLoader;
-
-                        var baseDir = window.location.href.split('?')[0].split('#')[0].replace(/\/[^\/]*$/, '/');
-                        var wasmUrl = baseDir + 'web-ifc.wasm';
-
-                        if (ifcLoader.ifcManager.state && ifcLoader.ifcManager.state.api) {
-                            if (!ifcLoader.ifcManager.state.api.wasmModule) {
-                                if (toastStatus) toastStatus.textContent = '⚙️ جاري تحميل WASM...';
-                                await ifcLoader.ifcManager.state.api.Init(function(path) {
-                                    return wasmUrl;
-                                });
-                            }
-                        } else {
-                            ifcLoader.ifcManager.setWasmPath(baseDir);
-                        }
-
-                        if (typeof ifcLoader.ifcManager.setOnProgress === 'function') {
-                            ifcLoader.ifcManager.setOnProgress(function(prog) {
-                                if (prog && prog.total > 0) {
-                                    var p = Math.round((prog.loaded / prog.total) * 100);
-                                    if (toastStatus) toastStatus.textContent = '⚙️ جاري بناء كتل وعناصر الـ IFC: ' + p + '% (' + prog.loaded + ' / ' + prog.total + ')';
-                                }
-                            });
-                        }
-
-                        if (toastStatus) toastStatus.textContent = '⚙️ جاري تحليل وهندسة مصفوفة الـ IFC ثلاثية الأبعاد... يرجى الانتظار';
-                        await new Promise(function(resolve) { setTimeout(resolve, 80); });
-
-                        var ifcModel = await ifcLoader.parse(buffer);
-
-                        clearCustomModel();
-                        currentCustomModel = ifcModel;
-                        scene.add(ifcModel);
-
-                        fitCameraToObject(camera, ifcModel, controls);
-
-                        if (toastStatus) toastStatus.textContent = '⚙️ جاري قراءة الهيكل الفضائي وفهرسة الطوابق والتخصصات...';
-                        await new Promise(function(resolve) { setTimeout(resolve, 30); });
-
-                        await indexIFCStructure(ifcModel, ifcLoader);
-                        refreshStoreyDropdown();
-
-                        if (toastStatus) toastStatus.textContent = '⚙️ جاري تجهيز طبقات الفرز السريع (60 FPS)...';
-                        await new Promise(function(resolve) { setTimeout(resolve, 30); });
-
-                        await buildIFCSubsets(ifcModel, ifcLoader);
-                        applyFilters();
-
-                        registerBIM(ifcModel, {
-                            elementId: file.name,
-                            category: 'نموذج IFC متكامل (OpenBIM)',
-                            system: 'Architectural / Structural / MEP',
-                            dimensions: 'أبعاد ومناسيب هندسية أصلية',
-                            clearance: 'جاهز للفحص والتصفية الفراغية السريعة (60 FPS)',
-                            status: 'تم التوسيط وتجهيز طبقات الفرز الفوري بنجاح'
-                        }, false);
-
-                        if (toast) toast.style.display = 'none';
-                        if (typeof showToast === 'function') showToast('success', '✅ تم استيراد وتوسيط نموذج الـ IFC بنجاح!');
-                        if (typeof updateStats === 'function') updateStats();
-                    } catch (err) {
-                        console.error('IFC Error:', err);
-                        if (toast) toast.style.display = 'none';
-                        if (typeof showToast === 'function') showToast('error', 'خطأ في معالجة ملف الـ IFC: ' + (err.message || err));
-                    }
-                };
-
-                reader.readAsArrayBuffer(file);
-            }
-            // ==================== GLB / GLTF Loading ====================
-            else if (fileNameLower.endsWith('.glb') || fileNameLower.endsWith('.gltf')) {
-                var reader = new FileReader();
-                reader.onprogress = function(e) {
-                    if (e.lengthComputable) {
-                        var p = Math.round((e.loaded / e.total) * 100);
-                        if (toastStatus) toastStatus.textContent = '⏳ قراءة الملف: ' + p + '% (' + (e.loaded / (1024 * 1024)).toFixed(1) + ' / ' + sizeMB + ' MB)';
-                    }
-                };
-
-                reader.onerror = function() {
-                    if (toast) toast.style.display = 'none';
-                    if (typeof showToast === 'function') showToast('error', 'فشل في قراءة الملف من القرص.');
-                };
-
-                reader.onload = function(event) {
-                    if (toastStatus) toastStatus.textContent = '⚙️ الخطوة 2 من 2: جاري فك وبناء الكتل وتوسيطها في منتصف الشاشة...';
-
-                    try {
-                        var loader = new THREE.GLTFLoader();
-                        loader.parse(event.target.result, '', function(gltf) {
-                            clearCustomModel();
-                            var model = gltf.scene;
-                            currentCustomModel = model;
-
-                            model.traverse(function(child) {
-                                if (child.isMesh) {
-                                    child.castShadow = true;
-                                    child.receiveShadow = true;
-                                    if (child.material) {
-                                        child.material.side = THREE.DoubleSide;
-                                    }
-                                    registerBIM(child, {
-                                        elementId: child.name || 'BIM-ELEM-' + Math.floor(Math.random() * 9000),
-                                        category: 'عنصر مستورد من النموذج',
-                                        system: 'Architectural / MEP',
-                                        dimensions: 'أبعاد هندسية حقيقية',
-                                        clearance: 'جاهز للمعاينة',
-                                        status: 'تم الاستيراد بنجاح'
-                                    }, false);
-                                }
-                            });
-
-                            scene.add(model);
-                            fitCameraToObject(camera, model, controls);
-                            refreshStoreyDropdown();
-
-                            if (toast) toast.style.display = 'none';
-                            if (typeof showToast === 'function') showToast('success', '✅ تم تحميل النموذج بنجاح!');
-                            if (typeof updateStats === 'function') updateStats();
-                        }, function(err) {
-                            if (toast) toast.style.display = 'none';
-                            if (typeof showToast === 'function') showToast('error', 'خطأ في فك شفرة الـ GLB: ' + (err.message || 'الملف تالف أو غير مدعوم'));
-                        });
-                    } catch (e) {
-                        if (toast) toast.style.display = 'none';
-                        if (typeof showToast === 'function') showToast('error', 'استثناء برمجى: ' + e.message);
-                    }
-                };
-
-                reader.readAsArrayBuffer(file);
-            }
-            else {
-                if (toast) toast.style.display = 'none';
-                if (typeof showToast === 'function') showToast('error', '❌ نوع الملف غير مدعوم (استخدم GLB/GLTF/IFC)');
-            }
+            loadFile(file);
         }
 
         // ===== clearCustomModel: Full cleanup of previous model with memory disposal =====
         function clearCustomModel() {
-            if (currentCustomModel) {
-                scene.remove(currentCustomModel);
-                currentCustomModel.traverse(function(child) {
+                if (typeof clearCurrentSelectionHighlight === 'function') clearCurrentSelectionHighlight();
+                clearCategorySubsets();
+                clearStoreySubsets();
+                clearExplodedSubsets();
+                if (activeSubsetMesh) {
+                    scene.remove(activeSubsetMesh);
+                    if (currentIFCLoader && currentCustomModel) {
+                        try {
+                            currentIFCLoader.ifcManager.removeSubset(currentCustomModel.modelID, null, 'user_active_subset');
+                        } catch(e) {}
+                    }
+                    if (activeSubsetMesh.geometry) activeSubsetMesh.geometry.dispose();
+                    activeSubsetMesh = null;
+                }
+                if (currentCustomModel) {
+                    scene.remove(currentCustomModel);
+                    currentCustomModel.traverse(function(child) {
+                        if (child.isMesh) {
+                            if (child.geometry) child.geometry.dispose();
+                            if (child.material) {
+                                if (Array.isArray(child.material)) {
+                                    child.material.forEach(function(m) { m.dispose(); });
+                                } else {
+                                    child.material.dispose();
+                                }
+                            }
+                        }
+                    });
+                    currentCustomModel = null;
+                }
+                bimElements = bimElements.filter(function(e) { return e.userData && e.userData.isLabElem; });
+                ifcStoreysList = [];
+                ifcStoreyElementMap = {};
+                ifcCategoryMap = {};
+                ifcAllIds.clear();
+                updateCategoryCounters();
+            }
+
+        // ===== registerBIM: Attach metadata to a BIM element mesh =====
+        function registerBIM(obj, data, isLabElem) {
+                obj.userData = data || {};
+                obj.userData.isBIM = true;
+                obj.userData.isLabElem = !!isLabElem;
+                obj.traverse(function(child) {
                     if (child.isMesh) {
-                        if (child.geometry) child.geometry.dispose();
-                        if (child.material) {
-                            if (Array.isArray(child.material)) {
-                                child.material.forEach(function(m) { m.dispose(); });
-                            } else {
-                                child.material.dispose();
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                        child.userData = child.userData || {};
+                        child.userData.isBIM = true;
+                        child.userData.parentBIM = obj;
+                    }
+                });
+                bimElements.push(obj);
+                return obj;
+            }
+
+        // ===== indexIFCStructure: Index storeys and categories from IFC model =====
+        function indexIFCStructure(model, loader) {
+                var modelID = model.modelID;
+                ifcAllIds.clear();
+                ifcStoreysList = [];
+                ifcStoreyElementMap = {};
+                ifcCategoryMap = {};
+                BIM_CATEGORIES.forEach(function(cat) {
+                    ifcCategoryMap[cat.id] = new Set();
+                });
+
+                function getCategoryForType(typeStr) {
+                    if (!typeStr) return 'other';
+                    var t = String(typeStr).toUpperCase();
+                    if (t.indexOf('DOOR') !== -1) return 'doors';
+                    if (t.indexOf('WINDOW') !== -1) return 'windows';
+                    if (t.indexOf('WALL') !== -1) return 'walls';
+                    if (t.indexOf('SLAB') !== -1 || t.indexOf('ROOF') !== -1 || t.indexOf('COVERING') !== -1 || t.indexOf('CEILING') !== -1) return 'slabs';
+                    if (t.indexOf('COLUMN') !== -1 || t.indexOf('BEAM') !== -1 || t.indexOf('MEMBER') !== -1 || t.indexOf('FOOTING') !== -1 || t.indexOf('PLATE') !== -1) return 'structure';
+                    if (t.indexOf('FURNISHING') !== -1 || t.indexOf('FURNITURE') !== -1 || t.indexOf('EQUIPMENT') !== -1 || t.indexOf('SANITARY') !== -1) return 'equipment';
+                    if (t.indexOf('PIPE') !== -1 || t.indexOf('VALVE') !== -1 || t.indexOf('FLOW') !== -1) return 'pipes';
+                    if (t.indexOf('DUCT') !== -1 || t.indexOf('AIRTERMINAL') !== -1 || t.indexOf('DAMPER') !== -1 || t.indexOf('FAN') !== -1) return 'hvac';
+                    if (t.indexOf('CABLE') !== -1 || t.indexOf('ELECTRICAL') !== -1 || t.indexOf('LIGHT') !== -1 || t.indexOf('OUTLET') !== -1 || t.indexOf('JUNCTION') !== -1) return 'electrical';
+                    return 'other';
+                }
+
+                // 1. Index via Spatial Structure (Direct string entity names from IFC tree)
+                try {
+                    var spatial = await loader.ifcManager.getSpatialStructure(modelID);
+
+                    async function traverseSpatial(node, currentStoreyId) {
+                        if (!node) return;
+
+                        var upperType = String(node.type || '').toUpperCase();
+                        var activeStoreyId = currentStoreyId;
+
+                        if (upperType === 'IFCBUILDINGSTOREY') {
+                            var sId = String(node.expressID);
+                            activeStoreyId = sId;
+                            if (!ifcStoreyElementMap[sId]) {
+                                ifcStoreyElementMap[sId] = new Set();
+                                var sName = 'طابق ' + (ifcStoreysList.length + 1);
+                                try {
+                                    var props = await loader.ifcManager.getItemProperties(modelID, node.expressID);
+                                    if (props && props.Name) sName = props.Name.value || props.Name;
+                                } catch(e) {}
+                                ifcStoreysList.push({ id: sId, name: sName, count: 0 });
+                            }
+                        } else if (node.expressID && upperType !== 'IFCPROJECT' && upperType !== 'IFCSITE' && upperType !== 'IFCBUILDING' && upperType !== 'IFCSPACE' && upperType !== 'IFCOPENINGELEMENT') {
+                            var elemId = node.expressID;
+                            ifcAllIds.add(elemId);
+
+                            var cat = getCategoryForType(upperType);
+                            if (ifcCategoryMap[cat]) {
+                                ifcCategoryMap[cat].add(elemId);
+                            }
+
+                            if (activeStoreyId && ifcStoreyElementMap[activeStoreyId]) {
+                                ifcStoreyElementMap[activeStoreyId].add(elemId);
+                            }
+                        }
+
+                        if (node.children && node.children.length > 0) {
+                            for (var c = 0; c < node.children.length; c++) {
+                                await traverseSpatial(node.children[c], activeStoreyId);
                             }
                         }
                     }
-                });
-                currentCustomModel = null;
-            }
-            ifcAllIds.clear();
-            ifcStoreysList = [];
-            ifcStoreyElementMap = {};
-            ifcCategoryMap = {};
-            BIM_CATEGORIES.forEach(function(cat) {
-                ifcCategoryMap[cat.id] = new Set();
-            });
-        }
 
-        // ===== registerBIM: Attach metadata to a BIM element mesh =====
-        function registerBIM(mesh, info, isLabElem) {
-            if (!mesh) return;
-            mesh.userData = mesh.userData || {};
-            mesh.userData.elementId = info.elementId;
-            mesh.userData.category = info.category;
-            mesh.userData.system = info.system;
-            mesh.userData.dimensions = info.dimensions;
-            mesh.userData.clearance = info.clearance;
-            mesh.userData.status = info.status;
-            mesh.userData.isLabElem = !!isLabElem;
-        }
+                    await traverseSpatial(spatial, null);
 
-        // ===== indexIFCStructure: Index storeys and categories from IFC model =====
-        async function indexIFCStructure(model, loader) {
-            var modelID = model.modelID;
-            ifcAllIds.clear();
-            ifcStoreysList = [];
-            ifcStoreyElementMap = {};
-            ifcCategoryMap = {};
-            BIM_CATEGORIES.forEach(function(cat) {
-                ifcCategoryMap[cat.id] = new Set();
-            });
-
-            function getCategoryForType(typeStr) {
-                if (!typeStr) return 'other';
-                var t = String(typeStr).toUpperCase();
-                if (t.indexOf('DOOR') !== -1) return 'doors';
-                if (t.indexOf('WINDOW') !== -1) return 'windows';
-                if (t.indexOf('WALL') !== -1) return 'walls';
-                if (t.indexOf('SLAB') !== -1 || t.indexOf('ROOF') !== -1 || t.indexOf('COVERING') !== -1) return 'slabs';
-                if (t.indexOf('COLUMN') !== -1 || t.indexOf('BEAM') !== -1 || t.indexOf('MEMBER') !== -1 || t.indexOf('FOOTING') !== -1 || t.indexOf('PLATE') !== -1) return 'structure';
-                if (t.indexOf('FURNISHING') !== -1 || t.indexOf('FURNITURE') !== -1 || t.indexOf('EQUIPMENT') !== -1 || t.indexOf('SANITARY') !== -1) return 'equipment';
-                if (t.indexOf('PIPE') !== -1 || t.indexOf('FLOW') !== -1 || t.indexOf('VALVE') !== -1 || t.indexOf('TERMINAL') !== -1) return 'pipes';
-                if (t.indexOf('DUCT') !== -1 || t.indexOf('AIR') !== -1 || t.indexOf('DAMPER') !== -1 || t.indexOf('FAN') !== -1) return 'hvac';
-                if (t.indexOf('CABLE') !== -1 || t.indexOf('ELECTRICAL') !== -1 || t.indexOf('LIGHT') !== -1 || t.indexOf('OUTLET') !== -1 || t.indexOf('BOX') !== -1) return 'electrical';
-                if (t.indexOf('STAIR') !== -1 || t.indexOf('RAILING') !== -1 || t.indexOf('RAMP') !== -1 || t.indexOf('PROXY') !== -1) return 'other';
-                return 'other';
-            }
-
-            try {
-                var api = loader.ifcManager.state.api;
-                if (!api) return;
-
-                var allItems = await api.GetLineIDs(modelID);
-                if (!allItems) return;
-
-                for (var i = 0; i < allItems.length; i++) {
-                    var id = allItems[i];
-                    ifcAllIds.add(id);
-                    var typeName = '';
-                    try { typeName = api.GetLineType(modelID, id); } catch(e) {}
-                    var cat = getCategoryForType(typeName);
-                    ifcCategoryMap[cat].add(id);
-                }
-
-                var spatial = await loader.ifcManager.getSpatialStructure(modelID);
-                if (spatial) {
-                    function walkStorey(node, depth) {
-                        if (!node) return;
-                        if (node.expressID && node.children) {
-                            var count = 0;
-                            node.children.forEach(function(child) {
-                                if (child.expressID) count++;
-                            });
-                            ifcStoreysList.push({ id: node.expressID, name: node.name || ('طابق ' + (ifcStoreysList.length + 1)), count: count, depth: depth });
-                            node.children.forEach(function(child) { walkStorey(child, depth + 1); });
+                    // Update storey element counts
+                    ifcStoreysList.forEach(function(s) {
+                        if (ifcStoreyElementMap[s.id]) {
+                            s.count = ifcStoreyElementMap[s.id].size;
                         }
-                    }
-                    walkStorey(spatial, 0);
+                    });
+
+                } catch (e) {
+                    console.warn('Could not extract spatial tree from IFC:', e);
                 }
-            } catch (e) {
-                console.error('indexIFCStructure error:', e);
+
+                // 2. Fallback query only if spatial tree returned 0 elements
+                if (ifcAllIds.size === 0) {
+                    try {
+                        var apiTypes = (window.WebIFC) || (loader.ifcManager && loader.ifcManager.state && loader.ifcManager.state.api) || {};
+                        for (var i = 0; i < BIM_CATEGORIES.length; i++) {
+                            var cat = BIM_CATEGORIES[i];
+                            for (var j = 0; j < cat.types.length; j++) {
+                                var typeName = cat.types[j];
+                                if (apiTypes[typeName] !== undefined) {
+                                    try {
+                                        var lines = await loader.ifcManager.getAllItemsOfType(modelID, apiTypes[typeName], false);
+                                        if (lines && lines.length > 0) {
+                                            for (var k = 0; k < lines.length; k++) {
+                                                ifcCategoryMap[cat.id].add(lines[k]);
+                                                ifcAllIds.add(lines[k]);
+                                            }
+                                        }
+                                    } catch (e) {}
+                                }
+                            }
+                        }
+                    } catch(e) {}
+                }
+
+                updateCategoryCounters();
             }
-        }
 
         // ===== buildIFCSubsets: Build pre-cached subsets for fast filtering =====
-        async function buildIFCSubsets(model, loader) {
-            if (!loader || !loader.ifcManager) return;
-            try {
-                var api = loader.ifcManager.state.api;
-                if (!api) return;
+        function buildIFCSubsets(model, loader) {
+                var modelID = model.modelID;
+                clearCategorySubsets();
+                clearStoreySubsets();
 
-                BIM_CATEGORIES.forEach(function(cat) {
-                    var ids = Array.from(ifcCategoryMap[cat.id]);
-                    if (ids.length > 0) {
+                // 1. Build Pre-cached Category Meshes for instant 0ms element toggle
+                for (var i = 0; i < BIM_CATEGORIES.length; i++) {
+                    var cat = BIM_CATEGORIES[i];
+                    var idsSet = ifcCategoryMap[cat.id];
+                    if (idsSet && idsSet.size > 0) {
+                        var idsArr = Array.from(idsSet);
                         try {
-                            loader.ifcManager.createSubset({
-                                modelID: model.modelID,
-                                ids: ids,
-                                category: 'cat_' + cat.id,
-                                removePrevious: true
+                            var catMesh = loader.ifcManager.createSubset({
+                                modelID: modelID,
+                                ids: idsArr,
+                                scene: scene,
+                                removePrevious: true,
+                                customID: 'cat_' + cat.id
                             });
-                        } catch(e) {}
+                            if (catMesh) {
+                                catMesh.position.copy(model.position);
+                                catMesh.rotation.copy(model.rotation);
+                                catMesh.scale.copy(model.scale);
+                                catMesh.visible = !!categoryState[cat.id];
+                                catMesh.userData.originalMaterial = catMesh.material;
+                                catMesh.userData.categoryColorMaterial = BIM_CATEGORY_MATERIALS[cat.id];
+
+                                // Apply active color coding mode (defaults to distinct BIM engineering colors)
+                                if (colorCodingMode === 'bim') {
+                                    catMesh.material = BIM_CATEGORY_MATERIALS[cat.id] || BIM_CATEGORY_MATERIALS.other;
+                                } else if (colorCodingMode === 'clay') {
+                                    catMesh.material = clayMaterial;
+                                }
+                                ifcCategoryMeshes[cat.id] = catMesh;
+                            }
+                        } catch(e) {
+                            console.warn('Error creating subset for category ' + cat.id, e);
+                        }
                     }
-                });
-            } catch (e) {
-                console.error('buildIFCSubsets error:', e);
+                }
+
+                // 2. Build Pre-cached Storey Meshes for smooth 60 FPS exploded view & storey isolation
+                if (ifcStoreysList && ifcStoreysList.length > 0) {
+                    ifcStoreysList.forEach(function(s) {
+                        var sIds = ifcStoreyElementMap[s.id];
+                        if (sIds && sIds.size > 0) {
+                            var sArr = Array.from(sIds);
+                            try {
+                                var sMesh = loader.ifcManager.createSubset({
+                                    modelID: modelID,
+                                    ids: sArr,
+                                    scene: scene,
+                                    removePrevious: true,
+                                    customID: 'storey_' + s.id
+                                });
+                                if (sMesh) {
+                                    sMesh.position.copy(model.position);
+                                    sMesh.rotation.copy(model.rotation);
+                                    sMesh.scale.copy(model.scale);
+                                    sMesh.visible = false;
+                                    sMesh.userData = {
+                                        storeyId: s.id,
+                                        storeyName: s.name,
+                                        basePosY: model.position.y,
+                                        originalMaterial: sMesh.material
+                                    };
+                                    if (colorCodingMode === 'clay') {
+                                        sMesh.material = clayMaterial;
+                                    }
+                                    ifcStoreyMeshes[s.id] = sMesh;
+                                }
+                            } catch(e) {
+                                console.warn('Error creating subset for storey ' + s.id, e);
+                            }
+                        }
+                    });
+                }
+
+                // 3. Switch main model off since category meshes now render the entire scene
+                var hasAnyCategoryMesh = Object.keys(ifcCategoryMeshes).length > 0;
+                if (hasAnyCategoryMesh) {
+                    model.visible = false;
+                } else {
+                    model.visible = true;
+                }
             }
-        }
 
         // ===== applyFilters: Apply category visibility filters =====
         function applyFilters() {
-            if (!currentCustomModel) return;
-            scene.traverse(function(obj) {
-                if (obj.isMesh && obj.userData.category) {
-                    var cat = obj.userData.category;
-                    var visible = categoryState[cat] !== undefined ? categoryState[cat] : true;
-                    obj.visible = visible;
+                var selectedStorey = selectStoreyFilter.value;
+                var explodeVal = parseFloat(document.getElementById('slider-explode').value) || 0;
+
+                // Case A: User uploaded custom IFC model
+                if (currentCustomModel && currentIFCLoader) {
+                    var hasCategoryMeshes = Object.keys(ifcCategoryMeshes).length > 0;
+                    var hasStoreyMeshes = Object.keys(ifcStoreyMeshes).length > 0;
+
+                    // Sub-case A1: Exploded View by Storeys
+                    if (explodeVal > 0 && selectedStorey === 'all' && hasStoreyMeshes && ifcStoreysList.length > 1) {
+                        currentCustomModel.visible = false;
+                        if (activeSubsetMesh) activeSubsetMesh.visible = false;
+                        
+                        // Hide all category meshes
+                        for (var cId in ifcCategoryMeshes) {
+                            if (ifcCategoryMeshes[cId]) ifcCategoryMeshes[cId].visible = false;
+                        }
+
+                        // Show and displace storey meshes vertically in real-time
+                        ifcStoreysList.forEach(function(st, idx) {
+                            var sMesh = ifcStoreyMeshes[st.id];
+                            if (sMesh) {
+                                sMesh.visible = true;
+                                var baseY = (sMesh.userData && sMesh.userData.basePosY !== undefined) ? sMesh.userData.basePosY : currentCustomModel.position.y;
+                                sMesh.position.y = baseY + (idx * explodeVal);
+                            }
+                        });
+                        return;
+                    }
+
+                    // Reset storey meshes vertical displacement when explodeVal is 0
+                    for (var sKey in ifcStoreyMeshes) {
+                        var stm = ifcStoreyMeshes[sKey];
+                        if (stm && stm.userData && stm.userData.basePosY !== undefined) {
+                            stm.position.y = stm.userData.basePosY;
+                        }
+                    }
+
+                    // Sub-case A2: Single Storey Isolated
+                    if (selectedStorey !== 'all') {
+                        var isAllCatsChecked = BIM_CATEGORIES.every(function(cat) { return categoryState[cat.id]; });
+
+                        // If all categories checked and storey mesh exists, instant 0ms isolation
+                        if (isAllCatsChecked && ifcStoreyMeshes[selectedStorey]) {
+                            currentCustomModel.visible = false;
+                            if (activeSubsetMesh) activeSubsetMesh.visible = false;
+                            for (var cId in ifcCategoryMeshes) {
+                                if (ifcCategoryMeshes[cId]) ifcCategoryMeshes[cId].visible = false;
+                            }
+                            for (var sid in ifcStoreyMeshes) {
+                                if (ifcStoreyMeshes[sid]) {
+                                    ifcStoreyMeshes[sid].visible = (sid === selectedStorey);
+                                }
+                            }
+                            return;
+                        }
+
+                        // Specific categories unchecked within that single storey
+                        for (var cId in ifcCategoryMeshes) {
+                            if (ifcCategoryMeshes[cId]) ifcCategoryMeshes[cId].visible = false;
+                        }
+                        for (var sid in ifcStoreyMeshes) {
+                            if (ifcStoreyMeshes[sid]) ifcStoreyMeshes[sid].visible = false;
+                        }
+                        currentCustomModel.visible = false;
+
+                        var allowedStoreyIds = [];
+                        var targetStoreySet = ifcStoreyElementMap[selectedStorey];
+                        if (targetStoreySet) {
+                            for (var catId in categoryState) {
+                                if (categoryState[catId] && ifcCategoryMap[catId]) {
+                                    ifcCategoryMap[catId].forEach(function(elemId) {
+                                        if (targetStoreySet.has(elemId)) {
+                                            allowedStoreyIds.push(elemId);
+                                        }
+                                    });
+                                }
+                            }
+                        }
+
+                        if (allowedStoreyIds.length > 0) {
+                            try {
+                                var subset = currentIFCLoader.ifcManager.createSubset({
+                                    modelID: currentCustomModel.modelID,
+                                    ids: allowedStoreyIds,
+                                    scene: scene,
+                                    removePrevious: true,
+                                    customID: 'user_active_subset'
+                                });
+                                activeSubsetMesh = subset;
+                                if (activeSubsetMesh) {
+                                    activeSubsetMesh.position.copy(currentCustomModel.position);
+                                    activeSubsetMesh.rotation.copy(currentCustomModel.rotation);
+                                    activeSubsetMesh.scale.copy(currentCustomModel.scale);
+                                    activeSubsetMesh.visible = true;
+                                }
+                            } catch(e) {
+                                console.error('Error creating filtered storey subset:', e);
+                            }
+                        } else {
+                            if (activeSubsetMesh) activeSubsetMesh.visible = false;
+                        }
+                        return;
+                    }
+
+                    // Sub-case A3: All storeys, explode = 0 -> Category visibility toggles
+                    for (var sid in ifcStoreyMeshes) {
+                        if (ifcStoreyMeshes[sid]) ifcStoreyMeshes[sid].visible = false;
+                    }
+                    if (activeSubsetMesh) activeSubsetMesh.visible = false;
+
+                    if (hasCategoryMeshes) {
+                        currentCustomModel.visible = false;
+                        // Instant 0ms toggle for every category (no WASM recomputation)
+                        for (var catId in categoryState) {
+                            if (ifcCategoryMeshes[catId]) {
+                                ifcCategoryMeshes[catId].visible = !!categoryState[catId];
+                            }
+                        }
+                    } else {
+                        // Fallback if category meshes were not created
+                        currentCustomModel.visible = true;
+                    }
                 }
-            });
-        }
+                // Case B: Default WebXR Lab Environment
+                else if (webxrLabGroup.visible) {
+                    wallGroup.visible = categoryState.walls && (selectedStorey !== 'lab_upper');
+                    floorMesh.visible = categoryState.slabs && (selectedStorey !== 'lab_upper');
+                    door.visible = categoryState.doors && (selectedStorey !== 'lab_upper');
+                    if (structureGroup) structureGroup.visible = categoryState.structure && (selectedStorey !== 'lab_upper');
+                    
+                    ceilingGroup.visible = categoryState.slabs && (selectedStorey !== 'lab_lower');
+                    mainDuct.visible = categoryState.hvac && (selectedStorey !== 'lab_lower');
+                    oxygenPipe.visible = categoryState.pipes && (selectedStorey !== 'lab_lower');
+                    chwPipe.visible = categoryState.pipes && (selectedStorey !== 'lab_lower');
+                    valve.visible = categoryState.pipes && (selectedStorey !== 'lab_lower');
+                    sprPipe.visible = categoryState.pipes && (selectedStorey !== 'lab_lower');
+                    if (cableTray) cableTray.visible = categoryState.electrical && (selectedStorey !== 'lab_lower');
+                    clashBeacon.visible = (categoryState.hvac && categoryState.pipes) && (selectedStorey !== 'lab_lower');
+
+                    // Exploded View movement in WebXR Lab
+                    ceilingGroup.position.y = 3.2 + explodeVal;
+                    if (structureGroup) structureGroup.position.y = explodeVal * 0.25;
+                    mainDuct.position.y = 2.5 + explodeVal * 0.55;
+                    oxygenPipe.position.y = 2.52 + explodeVal * 0.55;
+                    clashBeacon.position.y = 2.52 + explodeVal * 0.55;
+                    chwPipe.position.y = 2.7 + explodeVal * 0.65;
+                    valve.position.y = 2.7 + explodeVal * 0.65;
+                    sprPipe.position.y = 2.85 + explodeVal * 0.75;
+                    if (cableTray) cableTray.position.y = 2.75 + explodeVal * 0.70;
+                }
+            }
 
         // ===== refreshStoreyDropdown: Refresh the storey filter dropdown =====
         function refreshStoreyDropdown() {
-            var selectStoreyFilter = document.getElementById('select-storey-filter');
-            if (!selectStoreyFilter) return;
-            selectStoreyFilter.innerHTML = '<option value="all">🏢 عرض المبنى كاملاً (جميع الطوابق)</option>';
-            if (ifcStoreysList.length > 0) {
-                ifcStoreysList.forEach(function(s, idx) {
-                    var opt = document.createElement('option');
-                    opt.value = s.id;
-                    opt.innerText = '📍 ' + (s.name || ('طابق ' + (idx + 1))) + ' (' + s.count + ' عنصر)';
-                    selectStoreyFilter.appendChild(opt);
-                });
+                selectStoreyFilter.innerHTML = '<option value="all">🏢 عرض المبنى كاملاً (جميع الطوابق)</option>';
+                if (ifcStoreysList.length > 0) {
+                    ifcStoreysList.forEach(function(s, idx) {
+                        var opt = document.createElement('option');
+                        opt.value = s.id;
+                        opt.innerText = '📍 ' + (s.name || ('طابق ' + (idx + 1))) + ' (' + s.count + ' عنصر)';
+                        selectStoreyFilter.appendChild(opt);
+                    });
+                } else if (webxrLabGroup.visible) {
+                    var opt1 = document.createElement('option');
+                    opt1.value = 'lab_lower';
+                    opt1.innerText = '📍 المستوى السفلي (الأرضية وجدران الفراغ)';
+                    selectStoreyFilter.appendChild(opt1);
+
+                    var opt2 = document.createElement('option');
+                    opt2.value = 'lab_upper';
+                    opt2.innerText = '📍 المستوى العلوي (السقف المعلق والـ MEP)';
+                    selectStoreyFilter.appendChild(opt2);
+                }
             }
-        }
 
         function runClashDetection() {
             showToast('info', '🔍 جاري فحص التعارضات...');
