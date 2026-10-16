@@ -1527,9 +1527,13 @@
         }
 
         function animate() {
-            controls.update();
-            updateTelemetry();
-            renderer.render(scene, camera);
+            try {
+                if (controls) controls.update();
+                if (typeof updateTelemetry === 'function') updateTelemetry();
+                if (renderer && scene && camera) renderer.render(scene, camera);
+            } catch (e) {
+                console.error('animate error:', e);
+            }
         }
 
         function onWindowResize() {
