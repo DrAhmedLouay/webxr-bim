@@ -1546,6 +1546,7 @@
         }
 
         function onCanvasClick(event) {
+            if (!scene) return;
             if (!isMeasureMode) return;
 
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -2087,6 +2088,7 @@
         }
 
         function updateSectionPlane() {
+            if (!scene) { try { init(); } catch(e) { return; } }
             if (!isSectionActive) {
                 if (clippingPlane) {
                     renderer.localClippingEnabled = false;
@@ -2697,12 +2699,14 @@
     }
 
     function toggleMeasureMode() {
+        if (!scene) { try { init(); } catch(e) { showToast('error', 'فشل تهيئة المشهد: ' + (e.message || e)); return; } }
         const hud = document.getElementById('measure-hud');
         hud.style.display = hud.style.display === 'flex' ? 'none' : 'flex';
         showToast('info', hud.style.display === 'flex' ? '📏 وضع القياس مفعل' : '📏 وضع القياس معطل');
     }
 
     function showVRGuide() {
+        if (!scene) { try { init(); } catch(e) { showToast('error', 'فشل تهيئة المشهد: ' + (e.message || e)); return; } }
         document.getElementById('vr-guide-modal').style.display = 'flex';
         hideFloatingToggles();
     }
@@ -2719,6 +2723,7 @@
     }
 
     function toggleLighting() {
+        if (!scene) { try { init(); } catch(e) { showToast('error', 'فشل تهيئة المشهد: ' + (e.message || e)); return; } }
         if (directionalLight) {
             directionalLight.intensity = directionalLight.intensity === 0.8 ? 0.2 : 0.8;
             showToast('info', directionalLight.intensity === 0.8 ? '💡 الإضاءة كاملة' : '💡 إضاءة خافتة');
@@ -2728,6 +2733,7 @@
     }
 
     function centerModel() {
+        if (!scene) { try { init(); } catch(e) { showToast('error', 'فشل تهيئة المشهد: ' + (e.message || e)); return; } }
         if (currentCustomModel) {
             fitCameraToObject(camera, currentCustomModel, controls);
             showToast('success', '🎯 تم توسيط النموذج');
