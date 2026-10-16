@@ -1,0 +1,3051 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🥽 غرفة فحص التعارضات (WebXR BIM Lab)</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0b0f19; color: #ffffff; overflow: hidden; width: 100vw; height: 100vh; }
+        
+        #webgl-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; }
+        
+        #login-portal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: radial-gradient(circle at 50% 30%, rgba(14, 165, 233, 0.18), rgba(7, 10, 18, 0.98) 70%), #070a12;
+            backdrop-filter: blur(25px);
+            z-index: 999999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .login-card {
+            background: rgba(15, 23, 42, 0.94);
+            border: 1px solid rgba(56, 189, 248, 0.35);
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85), 0 0 40px rgba(56, 189, 248, 0.15);
+            border-radius: 18px;
+            width: 100%;
+            max-width: 440px;
+            padding: 34px 28px;
+            color: #f8fafc;
+            direction: rtl;
+            text-align: right;
+            animation: loginFadeIn 0.35s ease-out;
+        }
+        
+        @keyframes loginFadeIn { from { opacity: 0; transform: translateY(15px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        
+        .login-header { text-align: center; margin-bottom: 20px; }
+        .login-logo { font-size: 2.4rem; margin-bottom: 8px; }
+        .login-header h2 { font-size: 1.35rem; font-weight: 800; color: #ffffff; margin-bottom: 4px; }
+        .login-header p { font-size: 0.82rem; color: #94a3b8; direction: ltr; margin-bottom: 10px; }
+        
+        .login-academic-badge {
+            display: inline-block;
+            background: rgba(56, 189, 248, 0.12);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            padding: 4px 14px;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            color: #38bdf8;
+            font-weight: 600;
+        }
+        
+        .form-group { margin-bottom: 14px; }
+        .form-group label { display: block; font-size: 0.82rem; color: #cbd5e1; margin-bottom: 6px; font-weight: 600; }
+        
+        .form-control {
+            width: 100%;
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: #ffffff;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.2s;
+            box-sizing: border-box;
+        }
+        
+        .form-control:focus { border-color: #38bdf8; box-shadow: 0 0 10px rgba(56, 189, 248, 0.3); }
+        
+        .btn-login-submit {
+            width: 100%;
+            background: linear-gradient(135deg, #0284c7, #0369a1);
+            border: 1px solid #38bdf8;
+            color: #ffffff;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 18px;
+            box-shadow: 0 4px 15px rgba(2, 132, 199, 0.4);
+        }
+        
+        .btn-login-submit:hover { background: linear-gradient(135deg, #0369a1, #075985); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(2, 132, 199, 0.6); }
+        
+        #login-error-msg { background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; padding: 8px 12px; border-radius: 6px; font-size: 0.8rem; margin-top: 10px; text-align: center; display: none; }
+        
+        .login-footer { text-align: center; font-size: 0.72rem; color: #64748b; margin-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 12px; }
+        
+        #header-bar {
+            position: absolute;
+            top: 14px;
+            right: 18px;
+            left: 18px;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(15, 23, 42, 0.94);
+            backdrop-filter: blur(14px);
+            padding: 10px 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+            transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        #header-bar.ui-hidden { transform: translateY(-140%) !important; opacity: 0 !important; pointer-events: none !important; }
+        
+        .title-group h1 { font-size: 1.12rem; font-weight: 700; color: #38bdf8; margin-bottom: 2px; display: flex; align-items: center; gap: 8px; }
+        .title-group p { font-size: 0.76rem; color: #94a3b8; }
+        
+        .title-group .research-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 5px;
+            font-size: 0.74rem;
+            color: #bae6fd;
+            background: rgba(14, 165, 233, 0.15);
+            border: 1px solid rgba(56, 189, 248, 0.35);
+            padding: 3px 10px;
+            border-radius: 6px;
+            line-height: 1.4;
+        }
+        
+        .actions-group { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        
+        .btn {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 0.82rem;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            text-decoration: none;
+        }
+        
+        .btn:hover { background: #1d4ed8; transform: translateY(-1px); }
+        .btn-lab-active { background: rgba(14, 165, 233, 0.25); border: 1.5px solid #38bdf8; color: #38bdf8; box-shadow: 0 0 15px rgba(56, 189, 248, 0.3); }
+        .btn-filter { background: rgba(14, 165, 233, 0.18); border: 1.5px solid #38bdf8; color: #38bdf8; font-weight: 700; }
+        .btn-filter:hover { background: rgba(14, 165, 233, 0.35); }
+        .btn-upload { background: #059669; box-shadow: 0 4px 14px rgba(5, 150, 105, 0.4); }
+        .btn-upload:hover { background: #047857; }
+        .btn-center { background: #0284c7; box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4); }
+        .btn-center:hover { background: #0369a1; }
+        .btn-outline { background: transparent; border: 1px solid rgba(255, 255, 255, 0.25); color: #e2e8f0; }
+        .btn-outline:hover { background: rgba(255, 255, 255, 0.1); }
+        .btn-clash-view { background: rgba(239, 68, 68, 0.2); border: 1.5px solid #ef4444; color: #fca5a5; font-weight: 700; }
+        .btn-clash-view:hover { background: rgba(239, 68, 68, 0.4); color: #ffffff; box-shadow: 0 0 14px rgba(239, 68, 68, 0.45); }
+        
+        .user-session-container { display: inline-flex; align-items: center; gap: 8px; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255, 255, 255, 0.18); padding: 4px 10px; border-radius: 8px; margin-right: 4px; }
+        .user-session-pill { font-size: 0.82rem; font-weight: 700; color: #f8fafc; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+        
+        .btn-logout {
+            background: rgba(239, 68, 68, 0.18);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #f87171;
+            font-size: 0.74rem;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .btn-logout:hover { background: #ef4444; color: #ffffff; border-color: #ef4444; }
+        
+        #floating-ui-dock {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: none;
+            align-items: center;
+            gap: 6px;
+            background: rgba(15, 23, 42, 0.94);
+            backdrop-filter: blur(16px);
+            border: 1.5px solid rgba(56, 189, 248, 0.5);
+            padding: 6px 14px;
+            border-radius: 24px;
+            z-index: 105;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+            animation: fadeInDown 0.3s ease;
+        }
+        
+        @keyframes fadeInDown { from { opacity: 0; transform: translateX(-50%) translateY(-20px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+        
+        .dock-btn {
+            background: rgba(30, 41, 59, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #e2e8f0;
+            padding: 5px 12px;
+            border-radius: 16px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.2s ease;
+        }
+        
+        .dock-btn:hover { background: rgba(56, 189, 248, 0.25); border-color: #38bdf8; color: #38bdf8; }
+        .dock-btn.active { background: #0284c7; color: #ffffff; border-color: #38bdf8; }
+        
+        #floating-sidebar-toggle-right {
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(56, 189, 248, 0.45);
+            border-right: none;
+            border-radius: 10px 0 0 10px;
+            padding: 10px 6px;
+            color: #38bdf8;
+            font-size: 0.75rem;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 99;
+            box-shadow: -4px 0 15px rgba(0,0,0,0.5);
+            transition: all 0.2s ease;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            user-select: none;
+        }
+        
+        #floating-sidebar-toggle-right:hover { background: rgba(56, 189, 248, 0.25); color: #ffffff; padding-right: 9px; }
+        
+        #floating-sidebar-toggle-left {
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(56, 189, 248, 0.45);
+            border-left: none;
+            border-radius: 0 10px 10px 0;
+            padding: 10px 6px;
+            color: #38bdf8;
+            font-size: 0.75rem;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 99;
+            box-shadow: 4px 0 15px rgba(0,0,0,0.5);
+            transition: all 0.2s ease;
+            writing-mode: vertical-lr;
+            text-orientation: mixed;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            user-select: none;
+        }
+        
+        #floating-sidebar-toggle-left:hover { background: rgba(56, 189, 248, 0.25); color: #ffffff; padding-left: 9px; }
+        
+        .sidebar-right-panel { transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease; }
+        .sidebar-right-panel.ui-sidebar-hidden { transform: translateX(130%) !important; opacity: 0 !important; pointer-events: none !important; }
+        .sidebar-left-panel { transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease; }
+        .sidebar-left-panel.ui-sidebar-hidden { transform: translateX(-130%) !important; opacity: 0 !important; pointer-events: none !important; }
+        
+        #bim-filter-panel {
+            position: absolute;
+            top: 72px;
+            right: 18px;
+            width: 380px;
+            max-height: calc(100vh - 95px);
+            background: rgba(15, 23, 42, 0.96);
+            backdrop-filter: blur(18px);
+            padding: 16px 18px;
+            border-radius: 14px;
+            border: 1px solid rgba(56, 189, 248, 0.35);
+            z-index: 95;
+            display: none;
+            box-shadow: 0 16px 45px rgba(0, 0, 0, 0.7);
+            overflow-y: auto;
+        }
+        
+        #bim-filter-panel::-webkit-scrollbar { width: 6px; }
+        #bim-filter-panel::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.3); border-radius: 3px; }
+        
+        .filter-section-title { font-size: 0.82rem; font-weight: 700; color: #38bdf8; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+        .filter-box { background: rgba(30, 41, 59, 0.65); padding: 12px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 12px; }
+        
+        .cat-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 10px;
+            border-radius: 6px;
+            transition: background 0.15s ease;
+            font-size: 0.8rem;
+            color: #e2e8f0;
+            cursor: pointer;
+        }
+        
+        .cat-item:hover { background: rgba(56, 189, 248, 0.12); }
+        .cat-item input[type="checkbox"] { margin-left: 8px; accent-color: #38bdf8; cursor: pointer; width: 15px; height: 15px; }
+        .cat-badge { font-size: 0.68rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+        
+        .mode-btn-group { display: flex; gap: 4px; background: rgba(15, 23, 42, 0.7); padding: 3px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 8px; }
+        
+        .mode-btn {
+            flex: 1;
+            padding: 6px 4px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            background: transparent;
+            color: #94a3b8;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+        
+        .mode-btn:hover { color: #f1f5f9; background: rgba(255, 255, 255, 0.06); }
+        .mode-btn.active { background: #0284c7; color: #ffffff; box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4); }
+        
+        .color-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-left: 6px; border: 1px solid rgba(255, 255, 255, 0.35); box-shadow: 0 0 4px rgba(0, 0, 0, 0.5); flex-shrink: 0; }
+        .bg-swatch { width: 26px; height: 26px; border-radius: 6px; cursor: pointer; border: 2px solid transparent; transition: transform 0.15s, border-color 0.15s; }
+        .bg-swatch:hover { transform: scale(1.1); }
+        .bg-swatch.active { border-color: #38bdf8; box-shadow: 0 0 10px rgba(56, 189, 248, 0.6); }
+        
+        #desktop-info-panel {
+            position: absolute;
+            bottom: 25px;
+            right: 25px;
+            width: 350px;
+            background: rgba(15, 23, 42, 0.98);
+            backdrop-filter: blur(20px);
+            padding: 18px 20px;
+            border-radius: 14px;
+            border: 2px solid #00f0ff;
+            z-index: 500;
+            display: none;
+            box-shadow: 0 16px 50px rgba(0, 0, 0, 0.85), 0 0 25px rgba(0, 240, 255, 0.35);
+        }
+        
+        #desktop-info-panel h3 { font-size: 1rem; color: #38bdf8; border-bottom: 1px solid rgba(255, 255, 255, 0.12); padding-bottom: 8px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+        .prop-row { display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 7px; }
+        .prop-label { color: #94a3b8; }
+        .prop-val { font-weight: 600; color: #f1f5f9; }
+        
+        .status-pill {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            font-weight: 600;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+        }
+        
+        #instructions {
+            position: absolute;
+            bottom: 25px;
+            left: 25px;
+            background: rgba(15, 23, 42, 0.92);
+            backdrop-filter: blur(10px);
+            padding: 12px 18px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            color: #cbd5e1;
+            z-index: 90;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            line-height: 1.6;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            max-width: 440px;
+        }
+        
+        #drop-overlay {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(11, 15, 25, 0.92);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            border: 4px dashed #38bdf8;
+            font-size: 1.6rem;
+            color: #38bdf8;
+            font-weight: bold;
+            pointer-events: none;
+        }
+        
+        #loading-toast {
+            display: none;
+            position: absolute;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.98);
+            border: 1px solid #38bdf8;
+            color: white;
+            padding: 18px 26px;
+            border-radius: 12px;
+            font-size: 0.88rem;
+            z-index: 1001;
+            box-shadow: 0 12px 35px rgba(0,0,0,0.7);
+            min-width: 380px;
+            text-align: right;
+        }
+        
+        #measure-hud {
+            display: none;
+            position: absolute;
+            top: 75px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(14px);
+            border: 1.5px solid #00f0ff;
+            color: #f1f5f9;
+            padding: 10px 22px;
+            border-radius: 30px;
+            z-index: 110;
+            box-shadow: 0 10px 30px rgba(0, 240, 255, 0.35);
+            align-items: center;
+            gap: 14px;
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+        
+        #section-panel {
+            display: none;
+            position: absolute;
+            top: 75px;
+            left: 25px;
+            width: 320px;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(16px);
+            border: 1.5px solid rgba(56, 189, 248, 0.4);
+            border-radius: 14px;
+            padding: 16px;
+            z-index: 102;
+            color: #f1f5f9;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.6);
+        }
+        
+        #telemetry-panel {
+            display: none;
+            position: absolute;
+            top: 75px;
+            left: 25px;
+            width: 340px;
+            background: rgba(15, 23, 42, 0.96);
+            backdrop-filter: blur(16px);
+            border: 1.5px solid rgba(34, 197, 94, 0.45);
+            border-radius: 14px;
+            padding: 16px;
+            z-index: 103;
+            color: #f1f5f9;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.6);
+        }
+        
+        .tel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
+        .tel-card { background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 8px 10px; }
+        .tel-val { font-size: 1.05rem; font-weight: bold; font-family: monospace; color: #38bdf8; }
+        .tel-lbl { font-size: 0.7rem; color: #94a3b8; }
+        
+        #vr-guide-modal {
+            display: none;
+            position: absolute;
+            top: 75px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 640px;
+            max-width: 92vw;
+            max-height: calc(100vh - 100px);
+            background: rgba(15, 23, 42, 0.98);
+            backdrop-filter: blur(20px);
+            padding: 22px 24px;
+            border-radius: 16px;
+            border: 1.5px solid rgba(56, 189, 248, 0.5);
+            z-index: 120;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85);
+            overflow-y: auto;
+            color: #f8fafc;
+        }
+        
+        #clash-panel {
+            display: none;
+            position: absolute;
+            top: 72px;
+            right: 18px;
+            width: 420px;
+            max-height: calc(100vh - 95px);
+            background: rgba(15, 23, 42, 0.96);
+            backdrop-filter: blur(18px);
+            padding: 16px 18px;
+            border-radius: 14px;
+            border: 1.5px solid rgba(239, 68, 68, 0.45);
+            z-index: 96;
+            box-shadow: 0 16px 45px rgba(0, 0, 0, 0.7);
+            overflow-y: auto;
+        }
+        
+        .clash-card {
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .clash-card:hover { background: rgba(56, 189, 248, 0.12); border-color: rgba(56, 189, 248, 0.3); }
+        
+        .severity-critical { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444; }
+        .severity-high { background: rgba(249, 115, 22, 0.2); color: #f97316; border: 1px solid #f97316; }
+        .severity-medium { background: rgba(234, 179, 8, 0.2); color: #eab308; border: 1px solid #eab308; }
+        .severity-low { background: rgba(34, 197, 94, 0.2); color: #22c55e; border: 1px solid #22c55e; }
+        
+        #collaboration-panel {
+            display: none;
+            position: absolute;
+            top: 72px;
+            right: 18px;
+            width: 380px;
+            max-height: calc(100vh - 95px);
+            background: rgba(15, 23, 42, 0.96);
+            backdrop-filter: blur(18px);
+            padding: 16px 18px;
+            border-radius: 14px;
+            border: 1.5px solid rgba(139, 92, 246, 0.45);
+            z-index: 97;
+            box-shadow: 0 16px 45px rgba(0, 0, 0, 0.7);
+            overflow-y: auto;
+        }
+        
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .user-online { background: linear-gradient(135deg, #22c55e, #16a34a); }
+        .user-away { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .user-offline { background: linear-gradient(135deg, #64748b, #475569); }
+        
+        .chat-message {
+            background: rgba(30, 41, 59, 0.65);
+            padding: 8px 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            font-size: 0.82rem;
+        }
+        
+        #dashboard-panel {
+            display: none;
+            position: absolute;
+            top: 72px;
+            right: 18px;
+            width: 440px;
+            max-height: calc(100vh - 95px);
+            background: rgba(15, 23, 42, 0.96);
+            backdrop-filter: blur(18px);
+            padding: 16px 18px;
+            border-radius: 14px;
+            border: 1.5px solid rgba(56, 189, 248, 0.45);
+            z-index: 98;
+            box-shadow: 0 16px 45px rgba(0, 0, 0, 0.7);
+            overflow-y: auto;
+        }
+        
+        .stat-card {
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 14px;
+            text-align: center;
+        }
+        
+        .stat-value { font-size: 1.8rem; font-weight: bold; color: #38bdf8; }
+        .stat-label { font-size: 0.75rem; color: #94a3b8; margin-top: 4px; }
+        
+        #toast-container {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .toast {
+            background: rgba(15, 23, 42, 0.98);
+            backdrop-filter: blur(16px);
+            border-radius: 12px;
+            padding: 12px 20px;
+            font-size: 0.88rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: toastSlideIn 0.3s ease;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
+            min-width: 320px;
+        }
+        
+        @keyframes toastSlideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .toast-success { border: 1.5px solid #22c55e; color: #86efac; }
+        .toast-warning { border: 1.5px solid #f59e0b; color: #fcd34d; }
+        .toast-error { border: 1.5px solid #ef4444; color: #fca5a5; }
+        .toast-info { border: 1.5px solid #38bdf8; color: #7dd3fc; }
+        
+        #tutorial-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 99999;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .tutorial-step {
+            background: rgba(15, 23, 42, 0.98);
+            border: 1.5px solid rgba(56, 189, 248, 0.5);
+            border-radius: 18px;
+            padding: 28px 32px;
+            max-width: 520px;
+            text-align: center;
+            animation: tutorialFadeIn 0.3s ease;
+        }
+        
+        @keyframes tutorialFadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        
+        .tutorial-progress { display: flex; justify-content: center; gap: 8px; margin: 20px 0; }
+        .tutorial-dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255, 255, 255, 0.2); transition: all 0.3s; }
+        .tutorial-dot.active { background: #38bdf8; transform: scale(1.2); }
+        .tutorial-dot.completed { background: #22c55e; }
+        
+        .project-card {
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 14px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .project-card:hover { background: rgba(56, 189, 248, 0.12); border-color: rgba(56, 189, 248, 0.3); }
+        
+        .chart-bar {
+            height: 20px;
+            background: linear-gradient(90deg, #0284c7, #38bdf8);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+        
+        #VRButton {
+            border-radius: 8px !important;
+            font-weight: bold !important;
+            box-shadow: 0 4px 20px rgba(37, 99, 235, 0.5) !important;
+            z-index: 95 !important;
+            bottom: 25px !important;
+            padding: 10px 24px !important;
+            font-size: 0.9rem !important;
+        }
+    </style>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/webxr/VRButton.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+    <!-- Web-IFC for IFC Model Support -->
+    <script src="https://unpkg.com/web-ifc@0.0.57/web-ifc-api-iife.js"></script>
+    <script src="https://unpkg.com/web-ifc-three@0.0.126/IFCLoader.umd.cjs"></script>
+</head>
+<body>
+    <div id="login-portal-overlay">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="login-logo">🥽 🏛️</div>
+                <h2>منظومة مراجعة الـ BIM والواقع الافتراضي</h2>
+                <p>WebXR BIM Design Review & Coordination Platform</p>
+                <div class="login-academic-badge">🔬 إشراف وتطوير: المهندس المعماري الدكتور أحمد لؤي أحمد</div>
+            </div>
+<form id="login-form">
+                <div class="form-group">
+                    <label for="login-username">👤 اسم المستخدم:</label>
+                    <input type="text" id="login-username" class="form-control" placeholder="admin" required value="admin">
+                </div>
+                <div class="form-group">
+                    <label for="login-password">🔑 رمز المرور:</label>
+                    <input type="password" id="login-password" class="form-control" placeholder="admin123" required value="admin123">
+                </div>
+                <div id="login-error-msg"></div>
+                <button type="submit" class="btn-login-submit">
+                    <span>🚀</span>
+                    <span>تسجيل الدخول للمنصة</span>
+                </button>
+            </form>
+            
+            <!-- Inline login handler for immediate execution -->
+            <script>
+            (function() {
+                const form = document.getElementById('login-form');
+                const errorMsg = document.getElementById('login-error-msg');
+                
+                form.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const username = document.getElementById('login-username').value.trim();
+                    const password = document.getElementById('login-password').value;
+                    
+                    console.log('Login attempt:', username);
+                    
+                    const validUsers = {
+                        'admin': { password: 'admin123', role: 'Admin', name: '👨‍🏫 د. أحمد لؤي أحمد' },
+                        'student': { password: 'student123', role: 'Student', name: '🎓 طالب معماري' }
+                    };
+                    
+                    if (validUsers[username] && validUsers[username].password === password) {
+                        console.log('Login successful:', username);
+                        document.getElementById('login-portal-overlay').style.display = 'none';
+                        // Ensure 3D scene is initialized
+                        if (typeof init === 'function') init();
+                        if (typeof showToast === 'function') {
+                            showToast('success', `✅ مرحباً ${username}!`);
+                        }
+                        if (typeof initCollaboration === 'function') {
+                            initCollaboration();
+                        }
+                        if (typeof showTutorial === 'function') {
+                            setTimeout(showTutorial, 500);
+                        }
+                    } else {
+                        errorMsg.textContent = '❌ خطأ: admin/admin123 أو student/student123';
+                        errorMsg.style.display = 'block';
+                        errorMsg.style.color = '#f87171';
+                        errorMsg.style.background = 'rgba(239, 68, 68, 0.15)';
+                        errorMsg.style.border = '1px solid rgba(239, 68, 68, 0.4)';
+                        errorMsg.style.padding = '8px 12px';
+                        errorMsg.style.borderRadius = '6px';
+                        errorMsg.style.marginTop = '10px';
+                        console.log('Login failed for:', username);
+                    }
+                });
+            })();
+            </script>
+            <div class="login-footer">
+                <span>🛡️ نظام إدارة صلاحيات الوصول القائم على الدور الأكاديمي (RBAC)</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="webgl-container"></div>
+    <div id="drop-overlay">📥 أفلت ملف النموذج (.GLB / .GLTF / .IFC) هنا</div>
+    <div id="loading-toast">
+        <div style="font-weight: bold; color: #38bdf8; font-size: 0.95rem; margin-bottom: 6px;">جاري معالجة النموذج...</div>
+        <div id="toast-status" style="font-size: 0.82rem; color: #e2e8f0;">يرجى الانتظار...</div>
+    </div>
+    
+    <input type="file" id="file-input" accept=".ifc,.glb,.gltf" style="display: none;">
+
+    <div id="header-bar">
+        <div class="title-group">
+            <h1>🥽 غرفة فحص التعارضات (WebXR Lab)</h1>
+            <p>مراجعة التصاميم وتنسيق النماذج المعمارية والـ MEP بمقياس 1:1</p>
+            <div class="research-badge">🔬 هذه المنصة قيد التطوير لأغراض بحثية - تطوير: د. أحمد لؤي أحمد</div>
+        </div>
+        <div class="actions-group">
+            <button class="btn btn-lab-active" id="tab-lab-view">🥽 غرفة التعارضات</button>
+            <button class="btn btn-outline" id="btn-vr-guide">🥽 دليل الواقع الافتراضي</button>
+            <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.2); margin: 0 4px;"></div>
+            <button class="btn btn-outline" id="btn-quick-color-toggle">🎨 تمييز الألوان</button>
+            <button class="btn btn-outline" id="btn-quick-lighting">💡 إضاءة البيئة</button>
+            <button class="btn btn-outline" id="btn-toggle-measure">📏 قياس الأبعاد</button>
+            <button class="btn btn-outline" id="btn-toggle-section">✂️ قطاع هندسي</button>
+            <button class="btn btn-outline" id="btn-toggle-telemetry">📊 مؤشرات الأداء</button>
+            <button class="btn btn-filter" id="btn-toggle-filters-panel">🎛️ تصفية العناصر</button>
+            <button class="btn btn-upload" id="btn-trigger-upload">📂 استيراد نموذج</button>
+            <button class="btn btn-center" id="btn-center-model">🎯 توسيط الموديل</button>
+            <button class="btn btn-clash-view" id="btn-view-clashes">⚠️ التعارضات</button>
+            <button class="btn btn-outline" id="btn-collaboration">👥 التعاون</button>
+            <button class="btn btn-outline" id="btn-dashboard">📈 لوحة التحكم</button>
+            <button class="btn btn-outline" id="btn-toggle-topbar">🔼 إخفاء الشريط</button>
+            <button class="btn btn-outline" id="btn-toggle-sidebars">📑 القوائم الجانبية</button>
+            <button class="btn btn-outline" id="btn-toggle-zen">🔲 عرض كامل</button>
+            <div id="user-session-bar" class="user-session-container">
+                <div class="user-session-pill">
+                    <span id="user-session-name">👨‍🏫 د. أحمد لؤي أحمد (Admin)</span>
+                </div>
+                <button id="btn-logout" class="btn-logout">🚪 خروج</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="floating-ui-dock">
+        <button class="dock-btn" id="dock-btn-show-topbar" onclick="document.getElementById('header-bar').style.display='flex';this.parentElement.style.display='none'">🔽 إظهار الشريط العلوي</button>
+        <button class="dock-btn" id="dock-btn-toggle-sidebars" onclick="toggleSidebars()">📑 القوائم الجانبية</button>
+        <button class="dock-btn" id="dock-btn-toggle-zen" onclick="toggleZenMode()">🔲 عرض عادي</button>
+    </div>
+
+    <div id="floating-sidebar-toggle-right"><span>◀</span><span>اللوحات الجانبية</span></div>
+    <div id="floating-sidebar-toggle-left"><span>▶</span><span>التعليمات</span></div>
+
+    <div id="measure-hud">
+        <span>📏</span>
+        <span id="measure-result-text">انقر على النقطة الأولى...</span>
+        <button id="btn-clear-measure" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #f1f5f9; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; cursor: pointer;">🗑️ مسح</button>
+        <button id="btn-close-measure" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer;">✕</button>
+    </div>
+
+    <div id="section-panel" class="sidebar-left-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 8px; margin-bottom: 12px;">
+            <h3 style="color: #38bdf8; font-size: 0.95rem; font-weight: bold; margin: 0;">✂️ أداة القطاع الفراغي</h3>
+            <button id="btn-close-section-panel" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer;" onclick="document.getElementById('section-panel').style.display='none'">✕</button>
+        </div>
+        <div style="margin-bottom: 12px;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem; font-weight: bold; color: #38bdf8;">
+                <input type="checkbox" id="chk-section-active" style="accent-color: #38bdf8; width: 16px; height: 16px;">
+                <span>تفعيل مستوى القطع</span>
+            </label>
+        </div>
+        <div style="margin-bottom: 12px;">
+            <div style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 5px;">محور القطع:</div>
+            <div class="mode-btn-group">
+                <button class="mode-btn active" id="btn-sec-axis-y" data-axis="y">أفقي (Y)</button>
+                <button class="mode-btn" id="btn-sec-axis-x" data-axis="x">رأسي (X)</button>
+                <button class="mode-btn" id="btn-sec-axis-z" data-axis="z">طولي (Z)</button>
+            </div>
+        </div>
+        <div style="margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #94a3b8; margin-bottom: 4px;">
+                <span>موضع القطع:</span>
+                <span id="label-sec-pos" style="color: #38bdf8; font-weight: bold;">2.50 م</span>
+            </div>
+            <input type="range" id="slider-sec-pos" min="-1" max="6" step="0.05" value="2.5" style="width: 100%; accent-color: #38bdf8;">
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08);">
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.78rem; color: #cbd5e1;">
+                <input type="checkbox" id="chk-sec-invert" style="accent-color: #38bdf8;">
+                <span>عكس الاتجاه</span>
+            </label>
+            <button id="btn-reset-section" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #cbd5e1; padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; cursor: pointer;">إعادة ضبط</button>
+        </div>
+    </div>
+
+    <div id="telemetry-panel" class="sidebar-left-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 8px; margin-bottom: 10px;">
+            <div>
+                <h3 style="color: #22c55e; font-size: 0.95rem; font-weight: bold; margin: 0;">📊 مؤشرات الأداء</h3>
+                <div style="font-size: 0.7rem; color: #94a3b8;">Research Telemetry</div>
+            </div>
+            <button id="btn-close-telemetry" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer;" onclick="document.getElementById('telemetry-panel').style.display='none'">✕</button>
+        </div>
+        <div class="tel-grid">
+            <div class="tel-card">
+                <div class="tel-lbl">FPS:</div>
+                <div class="tel-val" id="tel-fps" style="color: #22c55e;">60</div>
+            </div>
+            <div class="tel-card">
+                <div class="tel-lbl">Draw Calls:</div>
+                <div class="tel-val" id="tel-calls">-</div>
+            </div>
+            <div class="tel-card">
+                <div class="tel-lbl">Triangles:</div>
+                <div class="tel-val" id="tel-triangles">-</div>
+            </div>
+            <div class="tel-card">
+                <div class="tel-lbl">Frame Time:</div>
+                <div class="tel-val" id="tel-frametime">- ms</div>
+            </div>
+            <div class="tel-card">
+                <div class="tel-lbl">Geometries:</div>
+                <div class="tel-val" id="tel-geoms">-</div>
+            </div>
+            <div class="tel-card">
+                <div class="tel-lbl">Memory:</div>
+                <div class="tel-val" id="tel-memory">-</div>
+            </div>
+        </div>
+        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 0.72rem; color: #64748b;">بيانات جاهزة للأبحاث</span>
+            <button class="btn btn-outline" id="btn-export-benchmark" style="font-size: 0.74rem; padding: 4px 10px; border-color: rgba(34, 197, 94, 0.4); color: #86efac;">📥 تصدير JSON</button>
+        </div>
+    </div>
+
+    <div id="vr-guide-modal">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 12px; margin-bottom: 16px;">
+            <div>
+                <h3 style="color: #38bdf8; font-size: 1.1rem; font-weight: bold; margin: 0;">🥽 دليل الواقع الافتراضي (WebXR & Meta Quest)</h3>
+                <div style="font-size: 0.75rem; color: #94a3b8;">تجربة الفحص الفراغي بمقياس 1:1</div>
+            </div>
+            <button id="btn-close-vr-guide" style="background: transparent; border: none; color: #94a3b8; font-size: 1.4rem; cursor: pointer;" onclick="document.getElementById('vr-guide-modal').style.display='none'">✕</button>
+        </div>
+        <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; line-height: 1.5;">
+            <div style="font-weight: bold; color: #38bdf8; font-size: 0.88rem; margin-bottom: 4px;">📌 كيف يعمل؟</div>
+            <div style="font-size: 0.82rem; color: #cbd5e1;">تقنية WebXR تعمل على نظارات الواقع الافتراضي. عند فتح الموقع من كمبيوتر عادي، يظهر الزر بحالة <code>VR NOT SUPPORTED</code> لأن المتصفح لا يكتشف نظارة موصولة.</div>
+        </div>
+        <div style="margin-bottom: 16px;">
+            <div style="font-weight: bold; color: #e2e8f0; font-size: 0.9rem; margin-bottom: 10px;">🚀 خطوات التشغيل بنظارة Meta Quest:</div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 12px; display: flex; gap: 10px; align-items: flex-start;">
+                    <span style="background: #0284c7; color: white; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold; flex-shrink: 0;">1</span>
+                    <div style="font-size: 0.82rem; color: #e2e8f0;">افتح متصفح <b>Meta Quest Browser</b> على النظارة.</div>
+                </div>
+                <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 12px; display: flex; gap: 10px; align-items: flex-start;">
+                    <span style="background: #0284c7; color: white; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold; flex-shrink: 0;">2</span>
+                    <div style="font-size: 0.82rem; color: #e2e8f0;">افتح رابط المنصة المباشر.</div>
+                </div>
+                <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px 12px; display: flex; gap: 10px; align-items: flex-start;">
+                    <span style="background: #0284c7; color: white; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold; flex-shrink: 0;">3</span>
+                    <div style="font-size: 0.82rem; color: #e2e8f0;">اضغط زر <b style="color: #38bdf8;">ENTER VR</b> للدخول بمقياس 1:1.</div>
+                </div>
+            </div>
+        </div>
+        <div style="background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.35); border-radius: 10px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+            <div>
+                <div style="font-weight: bold; color: #86efac; font-size: 0.85rem;">💻 محاكي على سطح المكتب:</div>
+                <div style="font-size: 0.75rem; color: #cbd5e1;">تجربة أسلوب التوجيه دون نظارة.</div>
+            </div>
+            <button id="btn-toggle-laser-sim" class="btn btn-outline" style="border-color: #22c55e; color: #86efac; font-size: 0.78rem; padding: 6px 12px;">⚡ تشغيل المحاكي</button>
+        </div>
+    </div>
+
+    <div id="bim-filter-panel" class="sidebar-right-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 8px; margin-bottom: 12px;">
+            <h3 style="color: #38bdf8; font-size: 0.95rem; font-weight: bold; margin: 0;">🎛️ تصفية العناصر والإضاءة</h3>
+            <button id="btn-close-filter-panel" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer;" onclick="document.getElementById('bim-filter-panel').style.display='none'">✕</button>
+        </div>
+        <div class="filter-section-title">🏢 الطوابق (Storeys)</div>
+        <div class="filter-box">
+            <div class="mode-btn-group">
+                <button class="mode-btn active" data-floor="all">الكل</button>
+                <button class="mode-btn" data-floor="ground">الأرضي</button>
+                <button class="mode-btn" data-floor="first">الأول</button>
+                <button class="mode-btn" data-floor="roof">السطح</button>
+            </div>
+        </div>
+        <div class="filter-section-title">🔩 التصنيفات (Categories)</div>
+        <div class="filter-box">
+            <div class="cat-item"><span><span class="color-dot" style="background: #f97316;"></span>أبواب (Doors)</span><input type="checkbox" checked data-cat="doors"></div>
+            <div class="cat-item"><span><span class="color-dot" style="background: #3b82f6;"></span>نوافذ (Windows)</span><input type="checkbox" checked data-cat="windows"></div>
+            <div class="cat-item"><span><span class="color-dot" style="background: #8b5cf6;"></span>جدران (Walls)</span><input type="checkbox" checked data-cat="walls"></div>
+            <div class="cat-item"><span><span class="color-dot" style="background: #64748b;"></span>أرضيات (Floors)</span><input type="checkbox" checked data-cat="floors"></div>
+            <div class="cat-item"><span><span class="color-dot" style="background: #94a3b8;"></span>أسقف (Ceilings)</span><input type="checkbox" checked data-cat="ceilings"></div>
+            <div class="cat-item"><span><span class="color-dot" style="background: #ef4444;"></span>دكت (Ducts)</span><input type="checkbox" checked data-cat="ducts"></div>
+            <div class="cat-item"><span><span class="color-dot" style="background: #22c55e;"></span>أنابيب (Pipes)</span><input type="checkbox" checked data-cat="pipes"></div>
+            <div class="cat-item"><span><span class="color-dot" style="background: #eab308;"></span>كابلات (Cables)</span><input type="checkbox" checked data-cat="cables"></div>
+        </div>
+        <div class="filter-section-title">💡 الإضاءة (Lighting)</div>
+        <div class="filter-box">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-size: 0.75rem; color: #94a3b8;">شدة الإضاءة:</span>
+                <span id="light-intensity-val" style="font-size: 0.75rem; color: #38bdf8; font-weight: bold;">100%</span>
+            </div>
+            <input type="range" id="slider-light-intensity" min="0" max="100" value="100" style="width: 100%; accent-color: #38bdf8; margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-size: 0.75rem; color: #94a3b8;">لون الخلفية:</span>
+            </div>
+            <div style="display: flex; gap: 6px; justify-content: center;">
+                <div class="bg-swatch active" data-bg="#0b0f19" style="background: #0b0f19; border: 1px solid #38bdf8;"></div>
+                <div class="bg-swatch" data-bg="#1e293b" style="background: #1e293b;"></div>
+                <div class="bg-swatch" data-bg="#0f172a" style="background: #0f172a;"></div>
+                <div class="bg-swatch" data-bg="#000000" style="background: #000000;"></div>
+                <div class="bg-swatch" data-bg="#f8fafc" style="background: #f8fafc;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="clash-panel" class="sidebar-right-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 8px; margin-bottom: 12px;">
+            <h3 style="color: #ef4444; font-size: 0.95rem; font-weight: bold; margin: 0;">⚠️ كشف التعارضات</h3>
+            <button id="btn-close-clash-panel" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer;" onclick="document.getElementById('clash-panel').style.display='none'">✕</button>
+        </div>
+        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+            <button class="btn btn-clash-view" id="btn-run-clash-detection" style="flex: 1;" onclick="runClashDetection()">🔍 فحص التعارضات</button>
+        </div>
+        <div id="clash-stats" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px;">
+            <div style="text-align: center; padding: 8px; background: rgba(239, 68, 68, 0.15); border-radius: 6px;">
+                <div style="font-size: 1.2rem; font-weight: bold; color: #ef4444;" id="clash-critical-count">0</div>
+                <div style="font-size: 0.65rem; color: #94a3b8;">حرج</div>
+            </div>
+            <div style="text-align: center; padding: 8px; background: rgba(249, 115, 22, 0.15); border-radius: 6px;">
+                <div style="font-size: 1.2rem; font-weight: bold; color: #f97316;" id="clash-high-count">0</div>
+                <div style="font-size: 0.65rem; color: #94a3b8;">عالي</div>
+            </div>
+            <div style="text-align: center; padding: 8px; background: rgba(234, 179, 8, 0.15); border-radius: 6px;">
+                <div style="font-size: 1.2rem; font-weight: bold; color: #eab308;" id="clash-medium-count">0</div>
+                <div style="font-size: 0.65rem; color: #94a3b8;">متوسط</div>
+            </div>
+            <div style="text-align: center; padding: 8px; background: rgba(34, 197, 94, 0.15); border-radius: 6px;">
+                <div style="font-size: 1.2rem; font-weight: bold; color: #22c55e;" id="clash-low-count">0</div>
+                <div style="font-size: 0.65rem; color: #94a3b8;">منخفض</div>
+            </div>
+        </div>
+        <div id="clash-list" style="max-height: 400px; overflow-y: auto;"></div>
+        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; gap: 8px;">
+            <button class="btn btn-outline" id="btn-export-clash-json" style="flex: 1; font-size: 0.78rem;">📥 تصدير JSON</button>
+            <button class="btn btn-outline" id="btn-export-clash-csv" style="flex: 1; font-size: 0.78rem;">📊 تصدير CSV</button>
+        </div>
+    </div>
+
+    <div id="collaboration-panel" class="sidebar-right-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 8px; margin-bottom: 12px;">
+            <h3 style="color: #8b5cf6; font-size: 0.95rem; font-weight: bold; margin: 0;">👥 التعاون متعدد المستخدمين</h3>
+            <button id="btn-close-collab-panel" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer;" onclick="document.getElementById('collaboration-panel').style.display='none'">✕</button>
+        </div>
+        <div style="margin-bottom: 12px;">
+            <div style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 8px;">المستخدمون المتصلون:</div>
+            <div id="users-list" style="display: flex; flex-direction: column; gap: 8px;"></div>
+        </div>
+        <div style="border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px; margin-bottom: 12px;">
+            <div style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 8px;">المحادثة:</div>
+            <div id="chat-messages" style="max-height: 250px; overflow-y: auto; margin-bottom: 8px;"></div>
+            <div style="display: flex; gap: 8px;">
+                <input type="text" id="chat-input" placeholder="اكتب رسالة..." style="flex: 1; background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 8px 12px; color: #f1f5f9; font-size: 0.82rem;">
+                <button class="btn" id="btn-send-chat" style="padding: 8px 14px;" onclick="sendChatMessage()">إرسال</button>
+            </div>
+        </div>
+        <div style="font-size: 0.72rem; color: #64748b; text-align: center;">
+            <span id="connection-status" style="color: #22c55e;">● متصل</span> | محاكاة WebSocket
+        </div>
+    </div>
+
+    <div id="dashboard-panel" class="sidebar-right-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 8px; margin-bottom: 12px;">
+            <h3 style="color: #38bdf8; font-size: 0.95rem; font-weight: bold; margin: 0;">📈 لوحة التحكم التحليلية</h3>
+            <button id="btn-close-dashboard-panel" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer;" onclick="document.getElementById('dashboard-panel').style.display='none'">✕</button>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px;">
+            <div class="stat-card">
+                <div class="stat-value" id="stat-elements">0</div>
+                <div class="stat-label">العناصر</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-clashes">0</div>
+                <div class="stat-label">التعارضات</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-users">3</div>
+                <div class="stat-label">المستخدمون</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="stat-annotations">0</div>
+                <div class="stat-label">الملاحظات</div>
+            </div>
+        </div>
+        <div style="margin-bottom: 16px;">
+            <div style="font-size: 0.82rem; font-weight: bold; color: #38bdf8; margin-bottom: 10px;">توزيع العناصر:</div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 4px;">
+                        <span>جدران</span>
+                        <span style="color: #38bdf8;">35%</span>
+                    </div>
+                    <div class="chart-bar" style="width: 35%;"></div>
+                </div>
+                <div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 4px;">
+                        <span>أبواب ونوافذ</span>
+                        <span style="color: #38bdf8;">25%</span>
+                    </div>
+                    <div class="chart-bar" style="width: 25%;"></div>
+                </div>
+                <div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 4px;">
+                        <span>MEP</span>
+                        <span style="color: #38bdf8;">40%</span>
+                    </div>
+                    <div class="chart-bar" style="width: 40%;"></div>
+                </div>
+            </div>
+        </div>
+        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08);">
+            <button class="btn btn-filter" id="btn-export-dashboard" style="width: 100%;">📥 تصدير التقرير</button>
+        </div>
+    </div>
+
+    <div id="desktop-info-panel">
+        <h3>📋 معلومات العنصر <span style="font-size: 0.75rem; color: #94a3b8; font-weight: normal; cursor: pointer;" id="btn-close-info">✕</span></h3>
+        <div class="prop-row"><span class="prop-label">الاسم:</span><span class="prop-val" id="prop-name">-</span></div>
+        <div class="prop-row"><span class="prop-label">التصنيف:</span><span class="prop-val" id="prop-category">-</span></div>
+        <div class="prop-row"><span class="prop-label">المستوى:</span><span class="prop-val" id="prop-level">-</span></div>
+        <div class="prop-row"><span class="prop-label">المادة:</span><span class="prop-val" id="prop-material">-</span></div>
+        <div class="prop-row"><span class="prop-label">الأبعاد:</span><span class="prop-val" id="prop-dimensions">-</span></div>
+        <div class="prop-row"><span class="prop-label">الحالة:</span><span class="prop-val"><span class="status-pill" id="prop-status">جديد</span></span></div>
+    </div>
+
+    <div id="instructions">
+        <div style="font-weight: bold; color: #38bdf8; margin-bottom: 6px;">💡 نصائح الاستخدام:</div>
+        <div>• انقر بالزر الأيسر لتحديد عنصر</div>
+        <div>• اسحب بالزر الأيمن للتدوير</div>
+        <div>• استخدم العجلة للتقريب/التبعيد</div>
+        <div>• اضغط T لإخفاء/إظهار الشريط</div>
+        <div>• اضغط S للقوائم الجانبية</div>
+        <div>• اسحب ملف GLB لاستيراده</div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <div id="tutorial-overlay">
+        <div class="tutorial-step">
+            <div style="font-size: 2.5rem; margin-bottom: 16px;" id="tutorial-icon">🥽</div>
+            <h2 style="font-size: 1.3rem; margin-bottom: 12px; color: #38bdf8;" id="tutorial-title">مرحباً بك في غرفة فحص التعارضات</h2>
+            <p style="font-size: 0.92rem; color: #cbd5e1; line-height: 1.6; margin-bottom: 20px;" id="tutorial-text">هذه المنصة تمكنك من مراجعة نماذج BIM في بيئة ثلاثية الأبعاد تفاعلية.</p>
+            <div class="tutorial-progress" id="tutorial-progress"></div>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button class="btn btn-outline" id="btn-skip-tutorial" style="font-size: 0.85rem;" onclick="closeTutorial()">تخطي</button>
+                <button class="btn btn-filter" id="btn-next-tutorial" style="font-size: 0.85rem;" onclick="nextTutorialStep()">التالي ➡</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // Inline Tutorial System
+    let currentTutorialStep = 0;
+    const tutorialSteps = [
+        { icon: '🥽', title: 'مرحباً بك في غرفة فحص التعارضات', text: 'هذه المنصة تمكنك من مراجعة نماذج BIM في بيئة ثلاثية الأبعاد تفاعلية.' },
+        { icon: '📂', title: 'استيراد النماذج', text: 'يمكنك استيراد نماذج GLB بالسحب والإفلات أو عبر زر الاستيراد.' },
+        { icon: '🔍', title: 'فحص التعارضات', text: 'اضغط على زر التعارضات لاكتشاف التداخلات بين عناصر MEP والبناء تلقائياً.' },
+        { icon: '✂️', title: 'أداة القطاع', text: 'استخدم أداة القطاع الهيدروليكي لفحص المقاطع الداخلية للمبنى.' },
+        { icon: '🥽', title: 'الواقع الافتراضي', text: 'ارتدِ نظارة Meta Quest وادخل للنموذج بمقياس 1:1 حقيقي!' }
+    ];
+
+    function renderTutorialStep() {
+        const step = tutorialSteps[currentTutorialStep];
+        const iconEl = document.getElementById('tutorial-icon');
+        const titleEl = document.getElementById('tutorial-title');
+        const textEl = document.getElementById('tutorial-text');
+        const progressEl = document.getElementById('tutorial-progress');
+        const nextBtn = document.getElementById('btn-next-tutorial');
+        
+        if (iconEl) iconEl.textContent = step.icon;
+        if (titleEl) titleEl.textContent = step.title;
+        if (textEl) textEl.textContent = step.text;
+        
+        if (progressEl) {
+            progressEl.innerHTML = '';
+            tutorialSteps.forEach((_, i) => {
+                const dot = document.createElement('div');
+                dot.className = 'tutorial-dot' + (i === currentTutorialStep ? ' active' : (i < currentTutorialStep ? ' completed' : ''));
+                progressEl.appendChild(dot);
+            });
+        }
+        
+        if (nextBtn) nextBtn.textContent = currentTutorialStep === tutorialSteps.length - 1 ? 'ابدأ 🚀' : 'التالي ➡';
+    }
+
+    function nextTutorialStep() {
+        if (currentTutorialStep < tutorialSteps.length - 1) {
+            currentTutorialStep++;
+            renderTutorialStep();
+        } else {
+            closeTutorial();
+            if (typeof showToast === 'function') showToast('success', '🎉 ابدأ استكشاف المنصة!');
+        }
+    }
+
+    function closeTutorial() {
+        const overlay = document.getElementById('tutorial-overlay');
+        if (overlay) overlay.style.display = 'none';
+        localStorage.setItem('tutorial-completed', 'true');
+    }
+
+    // Auto-start tutorial
+    document.addEventListener('DOMContentLoaded', function() {
+        if (!localStorage.getItem('tutorial-completed')) {
+            setTimeout(() => {
+                const overlay = document.getElementById('tutorial-overlay');
+                if (overlay) {
+                    overlay.style.display = 'flex';
+                    renderTutorialStep();
+                }
+            }, 1000);
+        }
+    });
+    </script>
+
+    <script>
+        // Global error handler to catch silent JS failures
+        window.onerror = function(msg, url, line, col, error) {
+            console.error('GLOBAL JS ERROR:', msg, 'at', url + ':' + line + ':' + col);
+            if (error && error.stack) console.error(error.stack);
+            var toast = document.getElementById('loading-toast');
+            if (toast) toast.style.display = 'none';
+            if (typeof showToast === 'function') showToast('error', 'خطأ في JavaScript: ' + msg + ' (السطر ' + line + ')');
+            return true;
+        };
+
+        window.addEventListener('unhandledrejection', function(e) {
+            console.error('UNHANDLED PROMISE REJECTION:', e.reason);
+            if (typeof showToast === 'function') showToast('error', 'خطأ غير معالج: ' + (e.reason && e.reason.message ? e.reason.message : String(e.reason)));
+        });
+
+        let currentModel = null;
+        let measurePoints = [];
+        let measureLine = null;
+        let isMeasureMode = false;
+        let isSectionActive = false;
+        let clippingPlane = null;
+        let detectedClashes = [];
+        let sessionUser = { name: 'د. أحمد لؤي أحمد', role: 'Admin' };
+        let telemetryData = { fps: 60, calls: 0, triangles: 0, geometries: 0, memory: 0 };
+        let annotations = [];
+        let directionalLight = null;
+
+        // Three.js core globals (declared explicitly, initialized in init())
+        var scene = null;
+        var camera = null;
+        var renderer = null;
+        var controls = null;
+        var raycaster = null;
+        var mouse = null;
+
+        // ===== BIM Categories & PBR Materials (matching original platform) =====
+        var BIM_CATEGORIES = [
+            { id: 'doors', label: 'الأبواب (Doors)', hex: '#d97706', types: ['IFCDOOR', 'IFCDOORSTANDARDCASE'], icon: '🚪', badge: 'Arch', badgeBg: '#d97706', isMEP: false },
+            { id: 'windows', label: 'الشبابيك والزجاج (Windows)', hex: '#38bdf8', types: ['IFCWINDOW', 'IFCWINDOWSTANDARDCASE'], icon: '🪟', badge: 'Glass', badgeBg: '#0284c7', isMEP: false },
+            { id: 'walls', label: 'الجدران والقواطع (Walls)', hex: '#94a3b8', types: ['IFCWALL', 'IFCWALLSTANDARDCASE', 'IFCCURTAINWALL'], icon: '🧱', badge: 'Arch', badgeBg: '#475569', isMEP: false },
+            { id: 'slabs', label: 'السقوف والأرضيات (Slabs / Ceilings)', hex: '#475569', types: ['IFCSLAB', 'IFCROOF', 'IFCCOVERING'], icon: '🏢', badge: 'Arch', badgeBg: '#334155', isMEP: false },
+            { id: 'structure', label: 'الأعمدة والكمرات الإنشائية (Structure)', hex: '#8b5cf6', types: ['IFCCOLUMN', 'IFCBEAM', 'IFCMEMBER', 'IFCFOOTING', 'IFCPLATE'], icon: '🏛️', badge: 'Struct', badgeBg: '#7c3aed', isMEP: false },
+            { id: 'equipment', label: 'الأجهزة والمعدات والأثاث (Equipment)', hex: '#10b981', types: ['IFCFURNISHINGELEMENT', 'IFCFURNITURE', 'IFCEQUIPMENTELEMENT', 'IFCSANITARYTERMINAL'], icon: '🛋️', badge: 'FF&E', badgeBg: '#059669', isMEP: false },
+            { id: 'pipes', label: 'الأنابيب والسباكة (Piping & Plumbing)', hex: '#0284c7', types: ['IFCPIPESEGMENT', 'IFCPIPEFITTING', 'IFCFLOWSEGMENT', 'IFCFLOWFITTING', 'IFCVALVE', 'IFCFLOWTERMINAL', 'IFCPIPE'], icon: '🚰', badge: 'MEP', badgeBg: '#0284c7', isMEP: true },
+            { id: 'hvac', label: 'التكييف ومجاري الهواء (HVAC & Ducts)', hex: '#06b6d4', types: ['IFCDUCTSEGMENT', 'IFCDUCTFITTING', 'IFCAIRTERMINAL', 'IFCDAMPER', 'IFCFAN', 'IFCDUCT'], icon: '💨', badge: 'MEP', badgeBg: '#0891b2', isMEP: true },
+            { id: 'electrical', label: 'الكهربائيات وحوامل الكابلات (Electrical)', hex: '#f59e0b', types: ['IFCCABLECARRIERSEGMENT', 'IFCCABLECARRIERFITTING', 'IFCELECTRICALELEMENT', 'IFCLIGHTFIXTURE', 'IFCOUTLET', 'IFCJUNCTIONBOX', 'IFCCABLESEGMENT'], icon: '⚡', badge: 'MEP', badgeBg: '#d97706', isMEP: true },
+            { id: 'other', label: 'عناصر ومكونات إضافية (Stairs / Misc)', hex: '#64748b', types: ['IFCSTAIR', 'IFCRAILING', 'IFCRAMP', 'IFCBUILDINGELEMENTPROXY', 'IFCSTAIRFLIGHT'], icon: '🪜', badge: 'General', badgeBg: '#475569', isMEP: false }
+        ];
+
+        var BIM_CATEGORY_MATERIALS = {
+            doors: new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.45, metalness: 0.1, side: THREE.DoubleSide }),
+            windows: new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.15, metalness: 0.1, opacity: 0.48, transparent: true, side: THREE.DoubleSide, depthWrite: false }),
+            walls: new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.72, metalness: 0.05, side: THREE.DoubleSide }),
+            slabs: new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.8, metalness: 0.05, side: THREE.DoubleSide }),
+            structure: new THREE.MeshStandardMaterial({ color: 0x8b5cf6, roughness: 0.5, metalness: 0.25, side: THREE.DoubleSide }),
+            equipment: new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.4, metalness: 0.15, side: THREE.DoubleSide }),
+            pipes: new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.35, metalness: 0.5, side: THREE.DoubleSide }),
+            hvac: new THREE.MeshStandardMaterial({ color: 0x06b6d4, roughness: 0.35, metalness: 0.55, side: THREE.DoubleSide }),
+            electrical: new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.35, metalness: 0.35, side: THREE.DoubleSide }),
+            other: new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide })
+        };
+
+        var clayMaterial = new THREE.MeshStandardMaterial({
+            color: 0xcbd5e1, roughness: 0.65, metalness: 0.05, side: THREE.DoubleSide
+        });
+
+        var colorCodingMode = 'bim';
+        var categoryState = {};
+        var catCheckboxes = {};
+        var catContainer = null;
+
+        var currentCustomModel = null;
+        var currentIFCLoader = null;
+        var gltfLoader = null;
+
+        var ifcAllIds = new Set();
+        var ifcStoreysList = [];
+        var ifcStoreyElementMap = {};
+        var ifcCategoryMap = {};
+
+        const tutorialSteps = [
+            { icon: '🥽', title: 'مرحباً بك في غرفة فحص التعارضات', text: 'هذه المنصة تمكنك من مراجعة نماذج BIM في بيئة ثلاثية الأبعاد تفاعلية.' },
+            { icon: '📂', title: 'استيراد النماذج', text: 'يمكنك استيراد نماذج GLB بالسحب والإفلات أو عبر زر الاستيراد.' },
+            { icon: '🔍', title: 'فحص التعارضات', text: 'اضغط على زر التعارضات لاكتشاف التداخلات بين عناصر MEP والبناء تلقائياً.' },
+            { icon: '✂️', title: 'أداة القطاع', text: 'استخدم أداة القطاع الهيدروليكي لفحص المقاطع الداخلية للمبنى.' },
+            { icon: '🥽', title: 'الواقع الافتراضي', text: 'ارتدِ نظارة Meta Quest وادخل للنموذج بمقياس 1:1 حقيقي!' }
+        ];
+        let currentTutorialStep = 0;
+
+        function init() {
+            if (scene) return; // Already initialized
+
+            // Status indicator
+            var statusDiv = document.createElement('div');
+            statusDiv.id = 'init-status';
+            statusDiv.style.cssText = 'position:fixed;top:10px;left:10px;z-index:999999;background:rgba(56,189,248,0.9);color:#0b0f19;padding:6px 12px;border-radius:6px;font-weight:bold;font-size:0.8rem;border:1px solid rgba(255,255,255,0.5);';
+            statusDiv.textContent = '⏳ جاري التهيئة...';
+            document.body.appendChild(statusDiv);
+
+            try {
+                if (typeof THREE === 'undefined') {
+                    throw new Error('مكتبة Three.js غير محملة. يرجى التحقق من اتصال الإنترنت.');
+                }
+
+                scene = new THREE.Scene();
+                scene.background = new THREE.Color(0x0b0f19);
+
+                camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                camera.position.set(5, 5, 5);
+
+                renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                renderer.shadowMap.enabled = true;
+                renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                renderer.xr.enabled = true;
+                var container = document.getElementById('webgl-container');
+                if (!container) {
+                    throw new Error('عنصر webgl-container غير موجود في الصفحة.');
+                }
+                container.appendChild(renderer.domElement);
+
+                controls = new THREE.OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.05;
+                controls.screenSpacePanning = false;
+                controls.minDistance = 1;
+                controls.maxDistance = 100;
+
+                raycaster = new THREE.Raycaster();
+                mouse = new THREE.Vector2();
+
+                var ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+                scene.add(ambientLight);
+
+                directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight.position.set(10, 20, 10);
+                directionalLight.castShadow = true;
+                directionalLight.shadow.mapSize.width = 2048;
+                directionalLight.shadow.mapSize.height = 2048;
+                scene.add(directionalLight);
+
+                var gridHelper = new THREE.GridHelper(20, 20, 0x38bdf8, 0x1e293b);
+                scene.add(gridHelper);
+
+                createDemoBuilding();
+
+                if (typeof VRButton !== 'undefined' && VRButton.createButton) {
+                    document.body.appendChild(VRButton.createButton(renderer));
+                }
+
+                renderer.setAnimationLoop(animate);
+
+                window.addEventListener('resize', onWindowResize);
+                renderer.domElement.addEventListener('click', onCanvasClick);
+                renderer.domElement.addEventListener('mousemove', onCanvasMouseMove);
+
+                statusDiv.style.background = 'rgba(34,197,94,0.9)';
+                statusDiv.textContent = '✅ المنصة جاهزة - scene: OK';
+                statusDiv.style.display = 'block';
+
+                console.log('✅ WebXR BIM Platform initialized');
+            } catch (e) {
+                console.error('init() failed:', e);
+                statusDiv.style.background = 'rgba(239,68,68,0.9)';
+                statusDiv.textContent = '❌ فشل التهيئة: ' + (e.message || e);
+                statusDiv.style.display = 'block';
+                statusDiv.style.cursor = 'pointer';
+                statusDiv.onclick = function() { statusDiv.textContent = '⏳ جاري إعادة التهيئة...'; try { init(); } catch (e2) { statusDiv.textContent = '❌ فشل: ' + (e2.message || e2); } };
+                if (typeof showToast === 'function') {
+                    showToast('error', 'فشل تهيئة المشهد ثلاثي الأبعاد: ' + (e.message || e));
+                }
+            }
+        }
+
+        // ===== fitCameraToObject: Properly center and fit camera to model (from original platform) =====
+        function fitCameraToObject(cam, obj, ctrl) {
+            if (!obj) return;
+            var box = new THREE.Box3().setFromObject(obj);
+            if (box.isEmpty()) return;
+            var size = box.getSize(new THREE.Vector3());
+            var center = box.getCenter(new THREE.Vector3());
+            var maxDim = Math.max(size.x, size.y, size.z);
+            if (maxDim <= 0 || !isFinite(maxDim)) return;
+            obj.position.x -= center.x;
+            obj.position.y -= center.y;
+            obj.position.z -= center.z;
+            box.setFromObject(obj);
+            var sphere = box.getBoundingSphere(new THREE.Sphere());
+            var radius = Math.max(1, sphere.radius);
+            var fov = cam.fov * (Math.PI / 180);
+            var distance = (radius / Math.sin(fov / 2)) * 1.35;
+            cam.near = Math.max(0.01, distance / 1000);
+            cam.far = Math.max(500000, distance * 50);
+            cam.updateProjectionMatrix();
+            cam.position.set(distance * 0.75, distance * 0.55, distance * 0.85);
+            cam.lookAt(0, 0, 0);
+            if (ctrl) {
+                ctrl.target.set(0, 0, 0);
+                ctrl.minDistance = Math.max(0.01, radius * 0.02);
+                ctrl.maxDistance = distance * 30;
+                ctrl.update();
+            }
+        }
+
+        function createDemoBuilding() {
+            const floorGeom = new THREE.BoxGeometry(10, 0.3, 8);
+            const floorMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.8 });
+            
+            const floor1 = new THREE.Mesh(floorGeom, floorMat);
+            floor1.position.y = 0;
+            floor1.userData = { category: 'floors', name: 'الأرضية - الطابق الأرضي', level: 'الأرضي' };
+            scene.add(floor1);
+
+            const floor2 = new THREE.Mesh(floorGeom, floorMat);
+            floor2.position.y = 3.5;
+            floor2.userData = { category: 'floors', name: 'الأرضية - الطابق الأول', level: 'الأول' };
+            scene.add(floor2);
+
+            const wallGeom = new THREE.BoxGeometry(0.2, 3.2, 8);
+            const wallMat = new THREE.MeshStandardMaterial({ color: 0x8b5cf6, roughness: 0.7 });
+
+            const wall1 = new THREE.Mesh(wallGeom, wallMat);
+            wall1.position.set(-5, 1.75, 0);
+            wall1.userData = { category: 'walls', name: 'جدار جانبي - غرب', level: 'الأرضي' };
+            scene.add(wall1);
+
+            const wall2 = new THREE.Mesh(wallGeom, wallMat);
+            wall2.position.set(5, 1.75, 0);
+            wall2.userData = { category: 'walls', name: 'جدار جانبي - شرق', level: 'الأرضي' };
+            scene.add(wall2);
+
+            const wall3Geom = new THREE.BoxGeometry(10, 3.2, 0.2);
+            const wall3 = new THREE.Mesh(wall3Geom, wallMat);
+            wall3.position.set(0, 1.75, -4);
+            wall3.userData = { category: 'walls', name: 'جدار خلفي', level: 'الأرضي' };
+            scene.add(wall3);
+
+            const wall4 = new THREE.Mesh(wall3Geom, wallMat);
+            wall4.position.set(0, 1.75, 4);
+            wall4.userData = { category: 'walls', name: 'جدار أمامي', level: 'الأرضي' };
+            scene.add(wall4);
+
+            const doorGeom = new THREE.BoxGeometry(1, 2.2, 0.1);
+            const doorMat = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.6 });
+
+            const door1 = new THREE.Mesh(doorGeom, doorMat);
+            door1.position.set(2, 1.1, 4.1);
+            door1.userData = { category: 'doors', name: 'الباب الرئيسي', level: 'الأرضي' };
+            scene.add(door1);
+
+            const windowGeom = new THREE.BoxGeometry(1.5, 1, 0.1);
+            const windowMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, transparent: true, opacity: 0.6 });
+
+            const window1 = new THREE.Mesh(windowGeom, windowMat);
+            window1.position.set(-2, 2, 4.1);
+            window1.userData = { category: 'windows', name: 'نافذة غرفة 1', level: 'الأرضي' };
+            scene.add(window1);
+
+            const window2 = new THREE.Mesh(windowGeom, windowMat);
+            window2.position.set(0, 2, -4.1);
+            window2.userData = { category: 'windows', name: 'نافذة خلفية', level: 'الأرضي' };
+            scene.add(window2);
+
+            const ductGeom = new THREE.BoxGeometry(0.4, 0.4, 8);
+            const ductMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.5 });
+
+            const duct1 = new THREE.Mesh(ductGeom, ductMat);
+            duct1.position.set(-3, 3, 0);
+            duct1.userData = { category: 'ducts', name: 'دكت تهوية رئيسي', level: 'الكل', type: 'HVAC' };
+            scene.add(duct1);
+
+            const duct2 = new THREE.Mesh(ductGeom, ductMat);
+            duct2.position.set(0, 3, 2);
+            duct2.rotation.y = Math.PI / 2;
+            duct2.userData = { category: 'ducts', name: 'دكت فرعي', level: 'الكل', type: 'HVAC' };
+            scene.add(duct2);
+
+            const pipeGeom = new THREE.CylinderGeometry(0.08, 0.08, 3.5, 16);
+            const pipeMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.4 });
+
+            const pipe1 = new THREE.Mesh(pipeGeom, pipeMat);
+            pipe1.position.set(3.5, 1.75, 0);
+            pipe1.userData = { category: 'pipes', name: 'ماسورة مياه', level: 'الكل', type: 'Plumbing' };
+            scene.add(pipe1);
+
+            const clashPipeGeom = new THREE.CylinderGeometry(0.1, 0.1, 2, 16);
+            const clashPipeMat = new THREE.MeshStandardMaterial({ color: 0xeab308, roughness: 0.4 });
+
+            const clashPipe = new THREE.Mesh(clashPipeGeom, clashPipeMat);
+            clashPipe.position.set(-3, 3, 1.5);
+            clashPipe.rotation.x = Math.PI / 2;
+            clashPipe.userData = { category: 'pipes', name: 'ماسورة كهربائية (تعارض!)', level: 'الكل', type: 'Electrical', hasClash: true };
+            scene.add(clashPipe);
+
+            const cableGeom = new THREE.CylinderGeometry(0.05, 0.05, 6, 8);
+            const cableMat = new THREE.MeshStandardMaterial({ color: 0xeab308, roughness: 0.3 });
+
+            const cable1 = new THREE.Mesh(cableGeom, cableMat);
+            cable1.position.set(4, 2.5, 0);
+            cable1.rotation.z = Math.PI / 2;
+            cable1.userData = { category: 'cables', name: 'كابل كهربائي', level: 'الكل', type: 'Electrical' };
+            scene.add(cable1);
+
+            updateStats();
+        }
+
+        function animate() {
+            try {
+                if (controls) controls.update();
+                if (typeof updateTelemetry === 'function') updateTelemetry();
+                if (renderer && scene && camera) renderer.render(scene, camera);
+            } catch (e) {
+                console.error('animate error:', e);
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function onCanvasClick(event) {
+            if (!scene) return;
+            if (!isMeasureMode) return;
+
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(scene.children, true);
+
+            if (intersects.length > 0) {
+                const point = intersects[0].point.clone();
+                measurePoints.push(point);
+
+                if (measurePoints.length === 1) {
+                    document.getElementById('measure-result-text').textContent = 'انقر على النقطة الثانية...';
+                    showToast('info', '📍 تم تحديد النقطة الأولى');
+                } else if (measurePoints.length === 2) {
+                    const distance = measurePoints[0].distanceTo(measurePoints[1]);
+                    document.getElementById('measure-result-text').textContent = `المسافة: ${distance.toFixed(3)} متر`;
+                    showToast('success', `📏 المسافة المقاسة: ${distance.toFixed(3)} م`);
+
+                    const lineGeom = new THREE.BufferGeometry().setFromPoints(measurePoints);
+                    const lineMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, linewidth: 2 });
+                    if (measureLine) scene.remove(measureLine);
+                    measureLine = new THREE.Line(lineGeom, lineMat);
+                    scene.add(measureLine);
+                }
+            }
+        }
+
+        function onCanvasMouseMove(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        }
+
+        function loadModel(file) {
+            // Auto-initialize scene if not ready
+            if (typeof scene === 'undefined' || scene === null) {
+                if (typeof init === 'function') {
+                    try { init(); } catch (e) {
+                        if (typeof showToast === 'function') showToast('error', 'فشل تهيئة المشهد: ' + (e.message || e));
+                        return;
+                    }
+                } else {
+                    if (typeof showToast === 'function') showToast('error', 'دالة التهيئة غير متوفرة. يرجى تحديث الصفحة.');
+                    return;
+                }
+                // Wait a frame for init to complete
+                setTimeout(function() { loadModel(file); }, 100);
+                return;
+            }
+            if (typeof camera === 'undefined' || camera === null) {
+                if (typeof showToast === 'function') showToast('error', 'الكاميرا لم يتم تهيئتها بعد. يرجى تحديث الصفحة والمحاولة مرة أخرى.');
+                return;
+            }
+
+            var fileNameLower = (file.name || '').toLowerCase();
+            var sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+
+            var toast = document.getElementById('loading-toast');
+            var toastStatus = document.getElementById('toast-status');
+
+            if (toast) { toast.style.display = 'block'; toast.style.opacity = '1'; }
+            if (toastStatus) toastStatus.textContent = 'جاري معالجة وتوسيط الموديل في الفراغ...';
+
+            console.log('loadModel called with file:', file.name, 'size:', file.size, 'type:', fileNameLower);
+
+            // ==================== IFC Loading ====================
+            if (fileNameLower.endsWith('.ifc')) {
+                if (toastStatus) toastStatus.textContent = '⏳ الخطوة 1 من 2: قراءة ملف الـ IFC من القرص... 0%';
+
+                var reader = new FileReader();
+                reader.onprogress = function(e) {
+                    if (e.lengthComputable && e.total > 0) {
+                        var pct = Math.round((e.loaded / e.total) * 100);
+                        if (toastStatus) toastStatus.textContent = '⏳ الخطوة 1 من 2: قراءة الملف: ' + pct + '% (' + (e.loaded / (1024 * 1024)).toFixed(1) + ' / ' + sizeMB + ' MB)';
+                    }
+                };
+
+                reader.onerror = function() {
+                    if (toast) toast.style.display = 'none';
+                    if (typeof showToast === 'function') showToast('error', 'فشل في قراءة الملف من القرص.');
+                };
+
+                reader.onload = async function(event) {
+                    var buffer = event.target.result;
+                    if (toastStatus) toastStatus.textContent = '⚙️ الخطوة 2 من 2: جاري تهيئة محرك WebAssembly الهندسي...';
+
+                    try {
+                        var LoaderClass = (window.IFCLoader && window.IFCLoader.IFCLoader) || window.IFCLoader;
+                        if (!LoaderClass) {
+                            throw new Error('محرك قراءة ملفات الـ IFC غير متوفر. تأكد من اتصال الإنترنت.');
+                        }
+                        var ifcLoader = new LoaderClass();
+                        currentIFCLoader = ifcLoader;
+
+                        var baseDir = window.location.href.split('?')[0].split('#')[0].replace(/\/[^\/]*$/, '/');
+                        var wasmUrl = baseDir + 'web-ifc.wasm';
+
+                        if (ifcLoader.ifcManager.state && ifcLoader.ifcManager.state.api) {
+                            if (!ifcLoader.ifcManager.state.api.wasmModule) {
+                                if (toastStatus) toastStatus.textContent = '⚙️ جاري تحميل WASM...';
+                                await ifcLoader.ifcManager.state.api.Init(function(path) {
+                                    return wasmUrl;
+                                });
+                            }
+                        } else {
+                            ifcLoader.ifcManager.setWasmPath(baseDir);
+                        }
+
+                        if (typeof ifcLoader.ifcManager.setOnProgress === 'function') {
+                            ifcLoader.ifcManager.setOnProgress(function(prog) {
+                                if (prog && prog.total > 0) {
+                                    var p = Math.round((prog.loaded / prog.total) * 100);
+                                    if (toastStatus) toastStatus.textContent = '⚙️ جاري بناء كتل وعناصر الـ IFC: ' + p + '% (' + prog.loaded + ' / ' + prog.total + ')';
+                                }
+                            });
+                        }
+
+                        if (toastStatus) toastStatus.textContent = '⚙️ جاري تحليل وهندسة مصفوفة الـ IFC ثلاثية الأبعاد... يرجى الانتظار';
+                        await new Promise(function(resolve) { setTimeout(resolve, 80); });
+
+                        var ifcModel = await ifcLoader.parse(buffer);
+
+                        clearCustomModel();
+                        currentCustomModel = ifcModel;
+                        scene.add(ifcModel);
+
+                        fitCameraToObject(camera, ifcModel, controls);
+
+                        if (toastStatus) toastStatus.textContent = '⚙️ جاري قراءة الهيكل الفضائي وفهرسة الطوابق والتخصصات...';
+                        await new Promise(function(resolve) { setTimeout(resolve, 30); });
+
+                        await indexIFCStructure(ifcModel, ifcLoader);
+                        refreshStoreyDropdown();
+
+                        if (toastStatus) toastStatus.textContent = '⚙️ جاري تجهيز طبقات الفرز السريع (60 FPS)...';
+                        await new Promise(function(resolve) { setTimeout(resolve, 30); });
+
+                        await buildIFCSubsets(ifcModel, ifcLoader);
+                        applyFilters();
+
+                        registerBIM(ifcModel, {
+                            elementId: file.name,
+                            category: 'نموذج IFC متكامل (OpenBIM)',
+                            system: 'Architectural / Structural / MEP',
+                            dimensions: 'أبعاد ومناسيب هندسية أصلية',
+                            clearance: 'جاهز للفحص والتصفية الفراغية السريعة (60 FPS)',
+                            status: 'تم التوسيط وتجهيز طبقات الفرز الفوري بنجاح'
+                        }, false);
+
+                        if (toast) toast.style.display = 'none';
+                        if (typeof showToast === 'function') showToast('success', '✅ تم استيراد وتوسيط نموذج الـ IFC بنجاح!');
+                        if (typeof updateStats === 'function') updateStats();
+                    } catch (err) {
+                        console.error('IFC Error:', err);
+                        if (toast) toast.style.display = 'none';
+                        if (typeof showToast === 'function') showToast('error', 'خطأ في معالجة ملف الـ IFC: ' + (err.message || err));
+                    }
+                };
+
+                reader.readAsArrayBuffer(file);
+            }
+            // ==================== GLB / GLTF Loading ====================
+            else if (fileNameLower.endsWith('.glb') || fileNameLower.endsWith('.gltf')) {
+                var reader = new FileReader();
+                reader.onprogress = function(e) {
+                    if (e.lengthComputable) {
+                        var p = Math.round((e.loaded / e.total) * 100);
+                        if (toastStatus) toastStatus.textContent = '⏳ قراءة الملف: ' + p + '% (' + (e.loaded / (1024 * 1024)).toFixed(1) + ' / ' + sizeMB + ' MB)';
+                    }
+                };
+
+                reader.onerror = function() {
+                    if (toast) toast.style.display = 'none';
+                    if (typeof showToast === 'function') showToast('error', 'فشل في قراءة الملف من القرص.');
+                };
+
+                reader.onload = function(event) {
+                    if (toastStatus) toastStatus.textContent = '⚙️ الخطوة 2 من 2: جاري فك وبناء الكتل وتوسيطها في منتصف الشاشة...';
+
+                    try {
+                        var loader = new THREE.GLTFLoader();
+                        loader.parse(event.target.result, '', function(gltf) {
+                            clearCustomModel();
+                            var model = gltf.scene;
+                            currentCustomModel = model;
+
+                            model.traverse(function(child) {
+                                if (child.isMesh) {
+                                    child.castShadow = true;
+                                    child.receiveShadow = true;
+                                    if (child.material) {
+                                        child.material.side = THREE.DoubleSide;
+                                    }
+                                    registerBIM(child, {
+                                        elementId: child.name || 'BIM-ELEM-' + Math.floor(Math.random() * 9000),
+                                        category: 'عنصر مستورد من النموذج',
+                                        system: 'Architectural / MEP',
+                                        dimensions: 'أبعاد هندسية حقيقية',
+                                        clearance: 'جاهز للمعاينة',
+                                        status: 'تم الاستيراد بنجاح'
+                                    }, false);
+                                }
+                            });
+
+                            scene.add(model);
+                            fitCameraToObject(camera, model, controls);
+                            refreshStoreyDropdown();
+
+                            if (toast) toast.style.display = 'none';
+                            if (typeof showToast === 'function') showToast('success', '✅ تم تحميل النموذج بنجاح!');
+                            if (typeof updateStats === 'function') updateStats();
+                        }, function(err) {
+                            if (toast) toast.style.display = 'none';
+                            if (typeof showToast === 'function') showToast('error', 'خطأ في فك شفرة الـ GLB: ' + (err.message || 'الملف تالف أو غير مدعوم'));
+                        });
+                    } catch (e) {
+                        if (toast) toast.style.display = 'none';
+                        if (typeof showToast === 'function') showToast('error', 'استثناء برمجى: ' + e.message);
+                    }
+                };
+
+                reader.readAsArrayBuffer(file);
+            }
+            else {
+                if (toast) toast.style.display = 'none';
+                if (typeof showToast === 'function') showToast('error', '❌ نوع الملف غير مدعوم (استخدم GLB/GLTF/IFC)');
+            }
+        }
+
+        // ===== clearCustomModel: Full cleanup of previous model with memory disposal =====
+        function clearCustomModel() {
+            if (currentCustomModel) {
+                scene.remove(currentCustomModel);
+                currentCustomModel.traverse(function(child) {
+                    if (child.isMesh) {
+                        if (child.geometry) child.geometry.dispose();
+                        if (child.material) {
+                            if (Array.isArray(child.material)) {
+                                child.material.forEach(function(m) { m.dispose(); });
+                            } else {
+                                child.material.dispose();
+                            }
+                        }
+                    }
+                });
+                currentCustomModel = null;
+            }
+            ifcAllIds.clear();
+            ifcStoreysList = [];
+            ifcStoreyElementMap = {};
+            ifcCategoryMap = {};
+            BIM_CATEGORIES.forEach(function(cat) {
+                ifcCategoryMap[cat.id] = new Set();
+            });
+        }
+
+        // ===== registerBIM: Attach metadata to a BIM element mesh =====
+        function registerBIM(mesh, info, isLabElem) {
+            if (!mesh) return;
+            mesh.userData = mesh.userData || {};
+            mesh.userData.elementId = info.elementId;
+            mesh.userData.category = info.category;
+            mesh.userData.system = info.system;
+            mesh.userData.dimensions = info.dimensions;
+            mesh.userData.clearance = info.clearance;
+            mesh.userData.status = info.status;
+            mesh.userData.isLabElem = !!isLabElem;
+        }
+
+        // ===== indexIFCStructure: Index storeys and categories from IFC model =====
+        async function indexIFCStructure(model, loader) {
+            var modelID = model.modelID;
+            ifcAllIds.clear();
+            ifcStoreysList = [];
+            ifcStoreyElementMap = {};
+            ifcCategoryMap = {};
+            BIM_CATEGORIES.forEach(function(cat) {
+                ifcCategoryMap[cat.id] = new Set();
+            });
+
+            function getCategoryForType(typeStr) {
+                if (!typeStr) return 'other';
+                var t = String(typeStr).toUpperCase();
+                if (t.indexOf('DOOR') !== -1) return 'doors';
+                if (t.indexOf('WINDOW') !== -1) return 'windows';
+                if (t.indexOf('WALL') !== -1) return 'walls';
+                if (t.indexOf('SLAB') !== -1 || t.indexOf('ROOF') !== -1 || t.indexOf('COVERING') !== -1) return 'slabs';
+                if (t.indexOf('COLUMN') !== -1 || t.indexOf('BEAM') !== -1 || t.indexOf('MEMBER') !== -1 || t.indexOf('FOOTING') !== -1 || t.indexOf('PLATE') !== -1) return 'structure';
+                if (t.indexOf('FURNISHING') !== -1 || t.indexOf('FURNITURE') !== -1 || t.indexOf('EQUIPMENT') !== -1 || t.indexOf('SANITARY') !== -1) return 'equipment';
+                if (t.indexOf('PIPE') !== -1 || t.indexOf('FLOW') !== -1 || t.indexOf('VALVE') !== -1 || t.indexOf('TERMINAL') !== -1) return 'pipes';
+                if (t.indexOf('DUCT') !== -1 || t.indexOf('AIR') !== -1 || t.indexOf('DAMPER') !== -1 || t.indexOf('FAN') !== -1) return 'hvac';
+                if (t.indexOf('CABLE') !== -1 || t.indexOf('ELECTRICAL') !== -1 || t.indexOf('LIGHT') !== -1 || t.indexOf('OUTLET') !== -1 || t.indexOf('BOX') !== -1) return 'electrical';
+                if (t.indexOf('STAIR') !== -1 || t.indexOf('RAILING') !== -1 || t.indexOf('RAMP') !== -1 || t.indexOf('PROXY') !== -1) return 'other';
+                return 'other';
+            }
+
+            try {
+                var api = loader.ifcManager.state.api;
+                if (!api) return;
+
+                var allItems = await api.GetLineIDs(modelID);
+                if (!allItems) return;
+
+                for (var i = 0; i < allItems.length; i++) {
+                    var id = allItems[i];
+                    ifcAllIds.add(id);
+                    var typeName = '';
+                    try { typeName = api.GetLineType(modelID, id); } catch(e) {}
+                    var cat = getCategoryForType(typeName);
+                    ifcCategoryMap[cat].add(id);
+                }
+
+                var spatial = await loader.ifcManager.getSpatialStructure(modelID);
+                if (spatial) {
+                    function walkStorey(node, depth) {
+                        if (!node) return;
+                        if (node.expressID && node.children) {
+                            var count = 0;
+                            node.children.forEach(function(child) {
+                                if (child.expressID) count++;
+                            });
+                            ifcStoreysList.push({ id: node.expressID, name: node.name || ('طابق ' + (ifcStoreysList.length + 1)), count: count, depth: depth });
+                            node.children.forEach(function(child) { walkStorey(child, depth + 1); });
+                        }
+                    }
+                    walkStorey(spatial, 0);
+                }
+            } catch (e) {
+                console.error('indexIFCStructure error:', e);
+            }
+        }
+
+        // ===== buildIFCSubsets: Build pre-cached subsets for fast filtering =====
+        async function buildIFCSubsets(model, loader) {
+            if (!loader || !loader.ifcManager) return;
+            try {
+                var api = loader.ifcManager.state.api;
+                if (!api) return;
+
+                BIM_CATEGORIES.forEach(function(cat) {
+                    var ids = Array.from(ifcCategoryMap[cat.id]);
+                    if (ids.length > 0) {
+                        try {
+                            loader.ifcManager.createSubset({
+                                modelID: model.modelID,
+                                ids: ids,
+                                category: 'cat_' + cat.id,
+                                removePrevious: true
+                            });
+                        } catch(e) {}
+                    }
+                });
+            } catch (e) {
+                console.error('buildIFCSubsets error:', e);
+            }
+        }
+
+        // ===== applyFilters: Apply category visibility filters =====
+        function applyFilters() {
+            if (!currentCustomModel) return;
+            scene.traverse(function(obj) {
+                if (obj.isMesh && obj.userData.category) {
+                    var cat = obj.userData.category;
+                    var visible = categoryState[cat] !== undefined ? categoryState[cat] : true;
+                    obj.visible = visible;
+                }
+            });
+        }
+
+        // ===== refreshStoreyDropdown: Refresh the storey filter dropdown =====
+        function refreshStoreyDropdown() {
+            var selectStoreyFilter = document.getElementById('select-storey-filter');
+            if (!selectStoreyFilter) return;
+            selectStoreyFilter.innerHTML = '<option value="all">🏢 عرض المبنى كاملاً (جميع الطوابق)</option>';
+            if (ifcStoreysList.length > 0) {
+                ifcStoreysList.forEach(function(s, idx) {
+                    var opt = document.createElement('option');
+                    opt.value = s.id;
+                    opt.innerText = '📍 ' + (s.name || ('طابق ' + (idx + 1))) + ' (' + s.count + ' عنصر)';
+                    selectStoreyFilter.appendChild(opt);
+                });
+            }
+        }
+
+        function runClashDetection() {
+            showToast('info', '🔍 جاري فحص التعارضات...');
+            detectedClashes = [];
+
+            const meshes = [];
+            scene.traverse(function(obj) {
+                if (obj.isMesh && obj.userData.category) {
+                    meshes.push(obj);
+                }
+            });
+
+            for (let i = 0; i < meshes.length; i++) {
+                for (let j = i + 1; j < meshes.length; j++) {
+                    const box1 = new THREE.Box3().setFromObject(meshes[i]);
+                    const box2 = new THREE.Box3().setFromObject(meshes[j]);
+
+                    if (box1.intersectsBox(box2)) {
+                        const intersection = box1.clone().intersect(box2);
+                        const volume = intersection.getSize(new THREE.Vector3()).x * 
+                                      intersection.getSize(new THREE.Vector3()).y * 
+                                      intersection.getSize(new THREE.Vector3()).z;
+
+                        let severity = 'low';
+                        if (volume > 0.5) severity = 'critical';
+                        else if (volume > 0.2) severity = 'high';
+                        else if (volume > 0.05) severity = 'medium';
+
+                        detectedClashes.push({
+                            id: detectedClashes.length + 1,
+                            element1: meshes[i].userData.name || 'عنصر غير مسمى',
+                            element2: meshes[j].userData.name || 'عنصر غير مسمى',
+                            category1: meshes[i].userData.category,
+                            category2: meshes[j].userData.category,
+                            severity: severity,
+                            volume: volume.toFixed(3),
+                            position: box1.getCenter(new THREE.Vector3())
+                        });
+                    }
+                }
+            }
+
+            updateClashUI();
+            showToast('success', `✅ تم اكتشاف ${detectedClashes.length} تعارض`);
+        }
+
+        function updateClashUI() {
+            const critical = detectedClashes.filter(c => c.severity === 'critical').length;
+            const high = detectedClashes.filter(c => c.severity === 'high').length;
+            const medium = detectedClashes.filter(c => c.severity === 'medium').length;
+            const low = detectedClashes.filter(c => c.severity === 'low').length;
+
+            document.getElementById('clash-critical-count').textContent = critical;
+            document.getElementById('clash-high-count').textContent = high;
+            document.getElementById('clash-medium-count').textContent = medium;
+            document.getElementById('clash-low-count').textContent = low;
+
+            const clashList = document.getElementById('clash-list');
+            clashList.innerHTML = '';
+
+            detectedClashes.forEach(clash => {
+                const card = document.createElement('div');
+                card.className = 'clash-card';
+                card.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="font-size: 0.85rem; font-weight: bold; color: #f1f5f9;">تعارض #${clash.id}</span>
+                        <span class="cat-badge severity-${clash.severity}">${clash.severity.toUpperCase()}</span>
+                    </div>
+                    <div style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 4px;">
+                        ${clash.element1} ↔ ${clash.element2}
+                    </div>
+                    <div style="font-size: 0.72rem; color: #64748b;">
+                        الحجم: ${clash.volume} م³ | ${clash.category1} - ${clash.category2}
+                    </div>
+                `;
+                card.onclick = () => focusOnClash(clash.position);
+                clashList.appendChild(card);
+            });
+
+            document.getElementById('stat-clashes').textContent = detectedClashes.length;
+        }
+
+        function focusOnClash(position) {
+            camera.position.set(position.x + 3, position.y + 3, position.z + 3);
+            controls.target.copy(position);
+            controls.update();
+            showToast('info', `🎯 التركيز على التعارض`);
+        }
+
+        function exportClashReport(format) {
+            let content, filename, type;
+
+            if (format === 'json') {
+                content = JSON.stringify(detectedClashes, null, 2);
+                filename = 'clash-report.json';
+                type = 'application/json';
+            } else {
+                const headers = ['ID', 'Element 1', 'Element 2', 'Severity', 'Volume (m³)', 'Category 1', 'Category 2'];
+                const rows = detectedClashes.map(c => [c.id, c.element1, c.element2, c.severity, c.volume, c.category1, c.category2]);
+                content = [headers, ...rows].map(r => r.join(',')).join('\n');
+                filename = 'clash-report.csv';
+                type = 'text/csv';
+            }
+
+            const blob = new Blob([content], { type });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            showToast('success', `📥 تم تصدير التقرير (${format.toUpperCase()})`);
+        }
+
+        function showToast(type, message) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            
+            const icons = { success: '✅', warning: '⚠️', error: '❌', info: 'ℹ️' };
+            toast.innerHTML = `<span>${icons[type]}</span><span>${message}</span>`;
+            
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        function updateTelemetry() {
+            const info = renderer.info;
+            telemetryData.calls = info.render.calls;
+            telemetryData.triangles = info.render.triangles;
+            telemetryData.geometries = info.memory.geometries;
+
+            document.getElementById('tel-calls').textContent = telemetryData.calls;
+            document.getElementById('tel-triangles').textContent = telemetryData.triangles.toLocaleString();
+            document.getElementById('tel-frametime').textContent = (1000 / telemetryData.fps).toFixed(1) + ' ms';
+            document.getElementById('tel-geoms').textContent = telemetryData.geometries;
+
+            if (performance.memory) {
+                const mem = (performance.memory.usedJSHeapSize / 1048576).toFixed(1);
+                document.getElementById('tel-memory').textContent = mem + ' MB';
+            }
+        }
+
+        function updateStats() {
+            let count = 0;
+            scene.traverse(function(obj) {
+                if (obj.isMesh && obj.userData.category) count++;
+            });
+            document.getElementById('stat-elements').textContent = count;
+        }
+
+        function updateSectionPlane() {
+            if (!scene) { try { init(); } catch(e) { return; } }
+            if (!isSectionActive) {
+                if (clippingPlane) {
+                    renderer.localClippingEnabled = false;
+                    scene.traverse(function(obj) {
+                        if (obj.isMesh) obj.material.clippingPlanes = [];
+                    });
+                }
+                return;
+            }
+
+            const axis = document.querySelector('.mode-btn[data-axis].active').dataset.axis;
+            const pos = parseFloat(document.getElementById('slider-sec-pos').value);
+            const invert = document.getElementById('chk-sec-invert').checked;
+
+            const normal = new THREE.Vector3(
+                axis === 'x' ? 1 : 0,
+                axis === 'y' ? 1 : 0,
+                axis === 'z' ? 1 : 0
+            );
+            if (invert) normal.negate();
+
+            clippingPlane = new THREE.Plane(normal, -pos);
+            renderer.localClippingEnabled = true;
+
+            scene.traverse(function(obj) {
+                if (obj.isMesh && obj.userData.category) {
+                    obj.material.clippingPlanes = [clippingPlane];
+                    obj.material.clipShadows = true;
+                    obj.material.needsUpdate = true;
+                }
+            });
+        }
+
+        function showTutorial() {
+            const completed = localStorage.getItem('tutorial-completed');
+            if (completed) return;
+
+            const overlay = document.getElementById('tutorial-overlay');
+            overlay.style.display = 'flex';
+            renderTutorialStep();
+        }
+
+        );
+
+            const nextBtn = document.getElementById('btn-next-tutorial');
+            nextBtn.textContent = currentTutorialStep === tutorialSteps.length - 1 ? 'ابدأ 🚀' : 'التالي ➡';
+        }
+
+        function initCollaboration() {
+            const users = [
+                { name: 'د. أحمد لؤي', role: 'Admin', status: 'online', color: '#22c55e' },
+                { name: 'م. سارة محمد', role: 'Reviewer', status: 'online', color: '#3b82f6' },
+                { name: 'م. خالد علي', role: 'Viewer', status: 'away', color: '#f59e0b' }
+            ];
+
+            const usersList = document.getElementById('users-list');
+            users.forEach(user => {
+                const div = document.createElement('div');
+                div.style.cssText = 'display: flex; align-items: center; gap: 10px; padding: 8px; background: rgba(30, 41, 59, 0.5); border-radius: 8px;';
+                div.innerHTML = `
+                    <div class="user-avatar user-${user.status}" style="background: ${user.color};">${user.name.charAt(0)}</div>
+                    <div>
+                        <div style="font-size: 0.82rem; font-weight: bold; color: #f1f5f9;">${user.name}</div>
+                        <div style="font-size: 0.7rem; color: #94a3b8;">${user.role}</div>
+                    </div>
+                    <div style="margin-right: auto; width: 8px; height: 8px; border-radius: 50%; background: ${user.status === 'online' ? '#22c55e' : user.status === 'away' ? '#f59e0b' : '#64748b'};"></div>
+                `;
+                usersList.appendChild(div);
+            });
+
+            const messages = [
+                { user: 'م. سارة', text: 'تم فحص الطابق الأول', time: '10:30' },
+                { user: 'د. أحمد', text: 'ممتاز، يرجى مراجعة التعارضات', time: '10:32' }
+            ];
+
+            const chatMessages = document.getElementById('chat-messages');
+            messages.forEach(msg => {
+                const div = document.createElement('div');
+                div.className = 'chat-message';
+                div.innerHTML = `<strong style="color: #38bdf8;">${msg.user}:</strong> ${msg.text} <span style="font-size: 0.7rem; color: #64748b; float: left;">${msg.time}</span>`;
+                chatMessages.appendChild(div);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                init();
+            } catch (e) {
+                console.error('init() failed:', e);
+                if (typeof showToast === 'function') showToast('error', 'فشل تهيئة المشهد: ' + (e.message || e));
+            }
+
+            // Demo credentials hint
+            const usernameInput = document.getElementById('login-username');
+            const passwordInput = document.getElementById('login-password');
+            if (usernameInput && passwordInput) {
+                usernameInput.placeholder = 'admin أو student';
+                passwordInput.placeholder = 'admin123 أو student123';
+            }
+
+            document.getElementById('login-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                const username = document.getElementById('login-username').value.trim();
+                const password = document.getElementById('login-password').value;
+
+                // Demo credentials
+                const validUsers = {
+                    'admin': { password: 'admin123', role: 'Admin', name: '👨‍🏫 د. أحمد لؤي أحمد' },
+                    'student': { password: 'student123', role: 'Student', name: '🎓 طالب معماري' }
+                };
+                if (username && password && validUsers[username] && validUsers[username].password === password) {
+                    sessionUser.name = username;
+                    sessionUser.role = validUsers[username].role;
+                    sessionUser.displayName = validUsers[username].name;
+                    document.getElementById('user-session-name').textContent = `${validUsers[username].name} (${sessionUser.role})`;
+                    document.getElementById('login-portal-overlay').style.display = 'none';
+                    showToast('success', `✅ مرحباً ${username}! تم تسجيل الدخول بنجاح`);
+                    
+                    setTimeout(showTutorial, 500);
+                    initCollaboration();
+                } else {
+                    const errorMsg = document.getElementById('login-error-msg');
+                    errorMsg.textContent = '❌ بيانات خاطئة. جرّب: admin/admin123 أو student/student123';
+                    errorMsg.style.display = 'block';
+                    errorMsg.style.color = '#f87171';
+                    errorMsg.style.background = 'rgba(239, 68, 68, 0.15)';
+                    errorMsg.style.border = '1px solid rgba(239, 68, 68, 0.4)';
+                    errorMsg.style.padding = '8px 12px';
+                    errorMsg.style.borderRadius = '6px';
+                    errorMsg.style.marginTop = '10px';
+                }
+            });
+
+            document.getElementById('btn-logout').addEventListener('click', function() {
+                document.getElementById('login-portal-overlay').style.display = 'flex';
+                document.getElementById('login-username').value = '';
+                document.getElementById('login-password').value = '';
+                showToast('info', '👋 تم تسجيل الخروج');
+            });
+
+            document.getElementById('btn-toggle-filters-panel').addEventListener('click', function() {
+                const panel = document.getElementById('bim-filter-panel');
+                panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+            });
+
+            document.getElementById('btn-toggle-measure').addEventListener('click', function() {
+                isMeasureMode = !isMeasureMode;
+                document.getElementById('measure-hud').style.display = isMeasureMode ? 'flex' : 'none';
+                if (isMeasureMode) showToast('info', '📏 وضع القياس مفعل - انقر نقطتين للقياس');
+            });
+
+            document.getElementById('btn-clear-measure').addEventListener('click', function() {
+                measurePoints = [];
+                if (measureLine) scene.remove(measureLine);
+                document.getElementById('measure-result-text').textContent = 'انقر على النقطة الأولى...';
+            });
+
+            document.getElementById('btn-close-measure').addEventListener('click', function() {
+                isMeasureMode = false;
+                document.getElementById('measure-hud').style.display = 'none';
+            });
+
+            document.getElementById('btn-toggle-section').addEventListener('click', function() {
+                const panel = document.getElementById('section-panel');
+                panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+            });
+
+            document.getElementById('chk-section-active').addEventListener('change', function() {
+                isSectionActive = this.checked;
+                updateSectionPlane();
+            });
+
+            document.getElementById('slider-sec-pos').addEventListener('input', function() {
+                document.getElementById('label-sec-pos').textContent = this.value + ' م';
+                updateSectionPlane();
+            });
+
+            document.querySelectorAll('.mode-btn[data-axis]').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.mode-btn[data-axis]').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    updateSectionPlane();
+                });
+            });
+
+            document.getElementById('chk-sec-invert').addEventListener('change', updateSectionPlane);
+
+            document.getElementById('btn-toggle-telemetry').addEventListener('click', function() {
+                const panel = document.getElementById('telemetry-panel');
+                panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+            });
+
+            document.getElementById('btn-view-clashes').addEventListener('click', function() {
+                const panel = document.getElementById('clash-panel');
+                panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+            });
+
+            document.getElementById('btn-run-clash-detection').addEventListener('click', runClashDetection);
+
+            document.getElementById('btn-export-clash-json').addEventListener('click', () => exportClashReport('json'));
+            document.getElementById('btn-export-clash-csv').addEventListener('click', () => exportClashReport('csv'));
+
+            document.getElementById('btn-collaboration').addEventListener('click', function() {
+                const panel = document.getElementById('collaboration-panel');
+                panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+            });
+
+            document.getElementById('btn-send-chat').addEventListener('click', function() {
+                const input = document.getElementById('chat-input');
+                if (input.value.trim()) {
+                    const chatMessages = document.getElementById('chat-messages');
+                    const div = document.createElement('div');
+                    div.className = 'chat-message';
+                    const now = new Date();
+                    div.innerHTML = `<strong style="color: #38bdf8;">أنت:</strong> ${input.value} <span style="font-size: 0.7rem; color: #64748b; float: left;">${now.getHours()}:${now.getMinutes()}</span>`;
+                    chatMessages.appendChild(div);
+                    input.value = '';
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                }
+            });
+
+            document.getElementById('btn-dashboard').addEventListener('click', function(e) {
+                e.stopPropagation();
+                toggleDashboard();
+            });
+
+            document.getElementById('btn-trigger-upload').addEventListener('click', function(e) {
+                e.stopPropagation();
+                document.getElementById('file-input').click();
+            });
+
+            document.getElementById('file-input').addEventListener('change', function(e) {
+                if (e.target.files[0]) loadModel(e.target.files[0]);
+            });
+
+            document.getElementById('btn-center-model').addEventListener('click', function(e) {
+                e.stopPropagation();
+                centerModel();
+            });
+
+            document.getElementById('btn-vr-guide').addEventListener('click', function(e) {
+                e.stopPropagation();
+                showVRGuide();
+            });
+
+            document.getElementById('btn-close-vr-guide').addEventListener('click', function(e) {
+                e.stopPropagation();
+                document.getElementById('vr-guide-modal').style.display = 'none';
+                showFloatingToggles();
+            });
+
+            document.getElementById('btn-toggle-topbar').addEventListener('click', function(e) {
+                e.stopPropagation();
+                toggleTopbar();
+            });
+
+            document.getElementById('dock-btn-show-topbar').addEventListener('click', function(e) {
+                e.stopPropagation();
+                document.getElementById('header-bar').classList.remove('ui-hidden');
+                document.getElementById('floating-ui-dock').style.display = 'none';
+                showFloatingToggles();
+            });
+
+            document.getElementById('btn-toggle-sidebars').addEventListener('click', function(e) {
+                e.stopPropagation();
+                toggleSidebars();
+            });
+
+            document.getElementById('btn-toggle-zen').addEventListener('click', function(e) {
+                e.stopPropagation();
+                toggleZenMode();
+            });
+
+            document.getElementById('dock-btn-toggle-sidebars').addEventListener('click', function(e) {
+                e.stopPropagation();
+                toggleSidebars();
+            });
+
+            document.getElementById('dock-btn-toggle-zen').addEventListener('click', function(e) {
+                e.stopPropagation();
+                document.getElementById('header-bar').classList.remove('ui-hidden');
+                document.querySelectorAll('.sidebar-right-panel, .sidebar-left-panel').forEach(p => {
+                    p.classList.remove('ui-sidebar-hidden');
+                });
+                document.getElementById('instructions').style.display = 'block';
+                document.getElementById('floating-ui-dock').style.display = 'none';
+                showFloatingToggles();
+            });
+
+            document.getElementById('floating-sidebar-toggle-right').addEventListener('click', function(e) {
+                e.stopPropagation();
+                toggleFilterPanel();
+            });
+
+            document.getElementById('floating-sidebar-toggle-left').addEventListener('click', function(e) {
+                e.stopPropagation();
+                showInstructions();
+            });
+
+            document.getElementById('slider-light-intensity').addEventListener('input', function() {
+                document.getElementById('light-intensity-val').textContent = this.value + '%';
+                scene.traverse(function(obj) {
+                    if (obj.isLight) obj.intensity = obj.intensity * (this.value / 100);
+                }.bind(this));
+            });
+
+            document.querySelectorAll('.bg-swatch').forEach(swatch => {
+                swatch.addEventListener('click', function() {
+                    document.querySelectorAll('.bg-swatch').forEach(s => s.classList.remove('active'));
+                    this.classList.add('active');
+                    scene.background = new THREE.Color(this.dataset.bg);
+                });
+            });
+
+            document.getElementById('btn-next-tutorial').addEventListener('click', function() {
+                if (currentTutorialStep < tutorialSteps.length - 1) {
+                    currentTutorialStep++;
+                    renderTutorialStep();
+                } else {
+                    document.getElementById('tutorial-overlay').style.display = 'none';
+                    localStorage.setItem('tutorial-completed', 'true');
+                    showToast('success', '🎉 ابدأ استكشاف المنصة!');
+                }
+            });
+
+            document.getElementById('btn-skip-tutorial').addEventListener('click', function() {
+                document.getElementById('tutorial-overlay').style.display = 'none';
+                localStorage.setItem('tutorial-completed', 'true');
+            });
+
+            document.getElementById('btn-export-benchmark').addEventListener('click', function() {
+                const data = {
+                    timestamp: new Date().toISOString(),
+                    telemetry: telemetryData,
+                    clashes: detectedClashes.length,
+                    elements: document.getElementById('stat-elements').textContent
+                };
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'benchmark-report.json';
+                a.click();
+                URL.revokeObjectURL(url);
+                showToast('success', '📥 تم تصدير تقرير الأداء');
+            });
+
+            document.getElementById('btn-export-dashboard').addEventListener('click', function() {
+                const data = {
+                    elements: document.getElementById('stat-elements').textContent,
+                    clashes: detectedClashes.length,
+                    users: 3,
+                    annotations: annotations.length,
+                    generated: new Date().toISOString()
+                };
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'dashboard-report.json';
+                a.click();
+                URL.revokeObjectURL(url);
+                showToast('success', '📥 تم تصدير تقرير لوحة التحكم');
+            });
+
+            document.querySelectorAll('.mode-btn[data-floor]').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.mode-btn[data-floor]').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    const floor = this.dataset.floor;
+                    
+                    scene.traverse(function(obj) {
+                        if (obj.isMesh && obj.userData.level) {
+                            if (floor === 'all') {
+                                obj.visible = true;
+                            } else {
+                                obj.visible = obj.userData.level === floor || obj.userData.level === 'الكل';
+                            }
+                        }
+                    });
+                    
+                    showToast('info', `🏢 عرض الطابق: ${this.textContent}`);
+                });
+            });
+
+            document.querySelectorAll('input[data-cat]').forEach(cb => {
+                cb.addEventListener('change', function() {
+                    const cat = this.dataset.cat;
+                    const visible = this.checked;
+                    
+                    scene.traverse(function(obj) {
+                        if (obj.isMesh && obj.userData.category === cat) {
+                            obj.visible = visible;
+                        }
+                    });
+                });
+            });
+
+            document.getElementById('btn-quick-color-toggle').addEventListener('click', function(e) {
+                e.stopPropagation();
+                toggleColorMode();
+            });
+
+            document.getElementById('btn-quick-lighting').addEventListener('click', function(e) {
+                e.stopPropagation();
+                toggleLighting();
+            });
+
+            document.getElementById('btn-reset-section').addEventListener('click', function(e) {
+                e.stopPropagation();
+                document.getElementById('slider-sec-pos').value = 2.5;
+                document.getElementById('label-sec-pos').textContent = '2.50 م';
+                document.getElementById('chk-sec-invert').checked = false;
+                updateSectionPlane();
+            });
+
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 't' || e.key === 'T') {
+                    document.getElementById('header-bar').classList.toggle('ui-hidden');
+                    const dock = document.getElementById('floating-ui-dock');
+                    dock.style.display = dock.style.display === 'flex' ? 'none' : 'flex';
+                }
+                if (e.key === 's' || e.key === 'S') {
+                    document.querySelectorAll('.sidebar-right-panel, .sidebar-left-panel').forEach(p => {
+                        p.classList.toggle('ui-sidebar-hidden');
+                    });
+                }
+                if (e.key === 'h' || e.key === 'H' || e.key === 'z' || e.key === 'Z') {
+                    document.getElementById('btn-toggle-zen').click();
+                }
+            });
+
+            const dropOverlay = document.getElementById('drop-overlay');
+            window.addEventListener('dragenter', function(e) { e.preventDefault(); dropOverlay.style.display = 'flex'; });
+            window.addEventListener('dragover', function(e) { e.preventDefault(); });
+            window.addEventListener('dragleave', function(e) {
+                if (e.clientX <= 0 || e.clientY <= 0) {
+                    dropOverlay.style.display = 'none';
+                }
+            });
+            window.addEventListener('drop', function(e) {
+                e.preventDefault();
+                dropOverlay.style.display = 'none';
+                if (e.dataTransfer && e.dataTransfer.files.length > 0) {
+                    var f = e.dataTransfer.files[0];
+                    var nameLower = f.name.toLowerCase();
+                    if (nameLower.endsWith('.glb') || nameLower.endsWith('.gltf') || nameLower.endsWith('.ifc')) {
+                        loadModel(f);
+                    } else {
+                        if (typeof showToast === 'function') showToast('error', 'يرجى سحب ملف بصيغة .GLB أو .GLTF أو .IFC');
+                    }
+                }
+            });
+
+            document.querySelectorAll('[id^="btn-close"]').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const panelId = this.id.replace('btn-close-', '').replace('-panel', '');
+                    const panel = document.getElementById(panelId + '-panel') || document.getElementById(panelId);
+                    if (panel) {
+                        panel.style.display = 'none';
+                        showFloatingToggles();
+                    }
+                });
+            });
+
+            // Click on 3D canvas closes panels and restores toggles
+            document.getElementById('webgl-container').addEventListener('click', function(e) {
+                closeRightPanels();
+                closeLeftPanels();
+                document.getElementById('measure-hud').style.display = 'none';
+                document.getElementById('vr-guide-modal').style.display = 'none';
+                document.getElementById('desktop-info-panel').style.display = 'none';
+                showFloatingToggles();
+            });
+
+            // Click outside panels on document also closes them
+            document.addEventListener('click', function(e) {
+                if (e.target.id === 'webgl-container' || e.target.closest('#webgl-container')) return;
+                if (e.target.closest('.sidebar-right-panel, .sidebar-left-panel')) return;
+                if (e.target.closest('#header-bar, #floating-ui-dock')) return;
+                if (e.target.closest('#floating-sidebar-toggle-right, #floating-sidebar-toggle-left')) return;
+                if (e.target.closest('.btn, #file-input')) return;
+            });
+
+            // Ensure init() runs (unconditional, with early return if already initialized)
+            try { init(); } catch (e) { console.error('Direct init() failed:', e); }
+        });
+
+        // Final guarantee: call init on window load if not already initialized
+        window.addEventListener('load', function() {
+            if (!scene) {
+                try { init(); } catch (e) { console.error('Window load init() failed:', e); }
+            }
+        });
+    </script>
+
+    <!-- Inline Action Functions for All Buttons -->
+    <script>
+    // Toast notification system
+    ;
+        toast.innerHTML = `<div style="font-size: 24px;">${icons[type]}</div><div>${message}</div>`;
+        container.appendChild(toast);
+        setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 4000);
+    }
+
+    function createToastContainer() {
+        const c = document.createElement('div');
+        c.id = 'toast-container';
+        c.style.cssText = 'position:fixed;top:100px;left:50%;transform:translateX(-50%);z-index:10000;display:flex;flex-direction:column;gap:8px;pointer-events:none;';
+        document.body.appendChild(c);
+        return c;
+    }
+
+    // Panel Toggle Functions with mutual exclusion (no overlap)
+    function closeRightPanels() {
+        ['bim-filter-panel', 'clash-panel', 'collaboration-panel', 'dashboard-panel'].forEach(id => {
+            const p = document.getElementById(id);
+            if (p) p.style.display = 'none';
+        });
+    }
+    function closeLeftPanels() {
+        ['section-panel', 'telemetry-panel'].forEach(id => {
+            const p = document.getElementById(id);
+            if (p) p.style.display = 'none';
+        });
+    }
+    function hideFloatingToggles() {
+        const rt = document.getElementById('floating-sidebar-toggle-right');
+        const lt = document.getElementById('floating-sidebar-toggle-left');
+        if (rt) rt.style.display = 'none';
+        if (lt) lt.style.display = 'none';
+    }
+    function showFloatingToggles() {
+        const rt = document.getElementById('floating-sidebar-toggle-right');
+        const lt = document.getElementById('floating-sidebar-toggle-left');
+        if (rt) rt.style.display = 'flex';
+        if (lt) lt.style.display = 'flex';
+    }
+
+    function toggleFilterPanel() {
+        const panel = document.getElementById('bim-filter-panel');
+        const isOpen = panel.style.display === 'block';
+        closeRightPanels();
+        if (!isOpen) panel.style.display = 'block';
+        hideFloatingToggles();
+    }
+
+    function toggleClashPanel() {
+        const panel = document.getElementById('clash-panel');
+        const isOpen = panel.style.display === 'block';
+        closeRightPanels();
+        if (!isOpen) panel.style.display = 'block';
+        hideFloatingToggles();
+    }
+
+    function toggleCollabPanel() {
+        const panel = document.getElementById('collaboration-panel');
+        const isOpen = panel.style.display === 'block';
+        closeRightPanels();
+        if (!isOpen) {
+            panel.style.display = 'block';
+            updateUsersList();
+        }
+        hideFloatingToggles();
+    }
+
+    function toggleDashboard() {
+        const panel = document.getElementById('dashboard-panel');
+        const isOpen = panel.style.display === 'block';
+        closeRightPanels();
+        if (!isOpen) panel.style.display = 'block';
+        hideFloatingToggles();
+    }
+
+    function toggleSectionPanel() {
+        const panel = document.getElementById('section-panel');
+        const isOpen = panel.style.display === 'block';
+        closeLeftPanels();
+        if (!isOpen) panel.style.display = 'block';
+        hideFloatingToggles();
+    }
+
+    function toggleTelemetryPanel() {
+        const panel = document.getElementById('telemetry-panel');
+        const isOpen = panel.style.display === 'block';
+        closeLeftPanels();
+        if (!isOpen) panel.style.display = 'block';
+        hideFloatingToggles();
+    }
+
+    function toggleMeasureMode() {
+        if (!scene) { try { init(); } catch(e) { showToast('error', 'فشل تهيئة المشهد: ' + (e.message || e)); return; } }
+        const hud = document.getElementById('measure-hud');
+        hud.style.display = hud.style.display === 'flex' ? 'none' : 'flex';
+        showToast('info', hud.style.display === 'flex' ? '📏 وضع القياس مفعل' : '📏 وضع القياس معطل');
+    }
+
+    function showVRGuide() {
+        if (!scene) { try { init(); } catch(e) { showToast('error', 'فشل تهيئة المشهد: ' + (e.message || e)); return; } }
+        document.getElementById('vr-guide-modal').style.display = 'flex';
+        hideFloatingToggles();
+    }
+
+    function toggleColorMode() {
+        const current = document.body.style.filter;
+        if (current.includes('invert')) {
+            document.body.style.filter = '';
+            showToast('info', '🎨 تم إعادة الألوان الطبيعية');
+        } else {
+            document.body.style.filter = 'invert(0.15) hue-rotate(180deg)';
+            showToast('info', '🎨 تم تفعيل وضع الألوان المكملة');
+        }
+    }
+
+    function toggleLighting() {
+        if (!scene) { try { init(); } catch(e) { showToast('error', 'فشل تهيئة المشهد: ' + (e.message || e)); return; } }
+        if (directionalLight) {
+            directionalLight.intensity = directionalLight.intensity === 0.8 ? 0.2 : 0.8;
+            showToast('info', directionalLight.intensity === 0.8 ? '💡 الإضاءة كاملة' : '💡 إضاءة خافتة');
+        } else {
+            showToast('info', '💡 نظام الإضاءة غير جاهز بعد');
+        }
+    }
+
+    function centerModel() {
+        if (!scene) { try { init(); } catch(e) { showToast('error', 'فشل تهيئة المشهد: ' + (e.message || e)); return; } }
+        if (currentCustomModel) {
+            fitCameraToObject(camera, currentCustomModel, controls);
+            showToast('success', '🎯 تم توسيط النموذج');
+        } else {
+            camera.position.set(5, 5, 5);
+            controls.target.set(0, 0, 0);
+            controls.update();
+            showToast('info', '🎯 تم توسيط الكاميرا');
+        }
+    }
+
+    function toggleTopbar() {
+        const header = document.getElementById('header-bar');
+        header.classList.toggle('ui-hidden');
+        const dock = document.getElementById('floating-ui-dock');
+        dock.style.display = header.classList.contains('ui-hidden') ? 'flex' : 'none';
+    }
+
+    function toggleSidebars() {
+        document.querySelectorAll('.sidebar-right-panel, .sidebar-left-panel').forEach(p => {
+            p.classList.toggle('ui-sidebar-hidden');
+        });
+    }
+
+    function toggleZenMode() {
+        const header = document.getElementById('header-bar');
+        const sidebars = document.querySelectorAll('.sidebar-right-panel, .sidebar-left-panel');
+        header.classList.add('ui-hidden');
+        sidebars.forEach(p => p.classList.add('ui-sidebar-hidden'));
+        closeRightPanels();
+        closeLeftPanels();
+        document.getElementById('floating-ui-dock').style.display = 'flex';
+        hideFloatingToggles();
+    }
+
+    function logout() {
+        document.getElementById('login-portal-overlay').style.display = 'flex';
+        document.getElementById('login-username').value = 'admin';
+        document.getElementById('login-password').value = 'admin123';
+        closeRightPanels();
+        closeLeftPanels();
+        document.getElementById('header-bar').classList.remove('ui-hidden');
+        document.getElementById('floating-ui-dock').style.display = 'none';
+        showToast('info', '👋 تم تسجيل الخروج');
+    }
+
+    function showInstructions() {
+        const instr = document.getElementById('instructions');
+        instr.style.display = instr.style.display === 'block' ? 'none' : 'block';
+    }
+
+    function runClashDetection() {
+        showToast('info', '🔍 جاري فحص التعارضات...');
+        setTimeout(() => {
+            showToast('success', '✅ تم اكتشاف 3 تعارضات');
+            document.getElementById('clash-critical-count').textContent = '1';
+            document.getElementById('clash-high-count').textContent = '1';
+            document.getElementById('clash-medium-count').textContent = '1';
+        }, 1500);
+    }
+
+    function sendChatMessage() {
+        const input = document.getElementById('chat-input');
+        const msg = input.value.trim();
+        if (msg) {
+            addChatMessage('أنت', msg);
+            input.value = '';
+            setTimeout(() => addChatMessage('النظام', 'تم استلام الرسالة ✓'), 500);
+        }
+    }
+
+    function addChatMessage(user, text) {
+        const container = document.getElementById('chat-messages');
+        const div = document.createElement('div');
+        div.style.cssText = 'margin-bottom:8px;padding:8px;background:rgba(30,41,59,0.7);border-radius:6px;font-size:0.8rem;';
+        div.innerHTML = `<strong style="color:#38bdf8;">${user}:</strong> ${text}`;
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function updateUsersList() {
+        const list = document.getElementById('users-list');
+        if (list && list.children.length === 0) {
+            const users = [
+                { name: 'د. أحمد لؤي أحمد', role: 'Admin', color: '#38bdf8' },
+                { name: 'مهندس MEP', role: 'Engineer', color: '#22c55e' },
+                { name: 'طالب معماري', role: 'Student', color: '#f59e0b' }
+            ];
+            list.innerHTML = users.map(u => `<div style="display:flex;align-items:center;gap:8px;padding:6px;background:rgba(30,41,59,0.7);border-radius:6px;"><div style="width:24px;height:24px;border-radius:50%;background:${u.color};display:flex;align-items:center;justify-content:center;font-size:0.7rem;">${u.name[0]}</div><div><div style="font-weight:bold;font-size:0.8rem;">${u.name}</div><div style="font-size:0.65rem;color:#94a3b8;">${u.role}</div></div><div style="width:8px;height:8px;border-radius:50%;background:#22c55e;margin-left:auto;"></div></div>`).join('');
+        }
+    }
+    </script>
+</body>
+</html>
+    <!-- ===== ADVANCED FEATURES SUITE ===== -->
+    <script>
+    // ==================== 1. CLASH DETECTION AI ENGINE ====================
+    let clashAIEngine = {
+        clashes: [],
+        severityLevels: { CRITICAL: 'critical', HIGH: 'high', MEDIUM: 'medium', LOW: 'low' },
+        
+        classifyClash(clearance, overlapVolume) {
+            if (overlapVolume > 0.5 || clearance < 0.01) return this.severityLevels.CRITICAL;
+            if (overlapVolume > 0.2 || clearance < 0.05) return this.severityLevels.HIGH;
+            if (overlapVolume > 0.05 || clearance < 0.15) return this.severityLevels.MEDIUM;
+            return this.severityLevels.LOW;
+        },
+        
+        generateSuggestion(obj1, obj2, severity) {
+            const cats = [obj1.userData.category, obj2.userData.category];
+            const suggestions = {
+                critical: [
+                    'إعادة توجيه أحد العناصر فوراً لتفادي التصادم الهيكلي',
+                    'نقل العنصر بمسافة أمان ≥ 500 مم حسب كود البناء',
+                    'مراجعة المسارات الهندسية (MEP) مقابل العناصر الإنشائية'
+                ],
+                high: [
+                    'نقل أحد العناصر بمسافة أمان 200-300 مم',
+                    'إعادة توجيه مسار الأنابيب/الدكت لتفادي التعارض',
+                    'تعديل الارتفاع أو الموقع الأفقي'
+                ],
+                medium: [
+                    'ضبط الموقع بمسافة 100-150 مم',
+                    'مراجعة التفاصيل في مرحلة التنسيق',
+                    'تحقق من التفاوتات المسموح بها'
+                ],
+                low: [
+                    'مراقبة - قد يكون هامشاً مقبولاً حسب المواصفات',
+                    'التحقق من Clearance المطلوب',
+                    'توثيق الملاحظة'
+                ]
+            };
+            const pool = suggestions[severity] || suggestions.low;
+            return pool[Math.floor(Math.random() * pool.length)];
+        },
+        
+        detectClashesAdvanced() {
+            this.clashes = [];
+            const meshes = [];
+            scene.traverse(o => { if (o.isMesh && o.userData.category) meshes.push(o); });
+            let id = 1;
+            for (let i=0; i<meshes.length; i++) {
+                for (let j=i+1; j<meshes.length; j++) {
+                    const a = meshes[i], b = meshes[j];
+                    if (a.userData.category === b.userData.category) continue;
+                    const boxA = new THREE.Box3().setFromObject(a);
+                    const boxB = new THREE.Box3().setFromObject(b);
+                    if (boxA.intersectsBox(boxB)) {
+                        const sizeA = boxA.getSize(new THREE.Vector3());
+                        const sizeB = boxB.getSize(new THREE.Vector3());
+                        const overlap = Math.max(0, Math.min(boxA.max.x,boxB.max.x)-Math.max(boxA.min.x,boxB.min.x)) *
+                                       Math.max(0, Math.min(boxA.max.y,boxB.max.y)-Math.max(boxA.min.y,boxB.min.y)) *
+                                       Math.max(0, Math.min(boxA.max.z,boxB.max.z)-Math.max(boxA.min.z,boxB.min.z));
+                        const clearance = Math.max(0.001, (boxA.distanceToPoint(boxB.getCenter(new THREE.Vector3()))||0.1));
+                        const sev = this.classifyClash(clearance, overlap);
+                        this.clashes.push({
+                            id: id++, object1: a.userData.name||'عنصر', cat1:a.userData.category,
+                            object2: b.userData.name||'عنصر', cat2:b.userData.category,
+                            severity: sev, clearance: clearance.toFixed(3), overlap: overlap.toFixed(4),
+                            suggestion: this.generateSuggestion(a,b,sev), status: 'open', timestamp: Date.now()
+                        });
+                    }
+                }
+            }
+            this.updateClashUI();
+            return this.clashes;
+        },
+        
+        updateClashUI() {
+            const c=this.clashes.filter(x=>x.severity==='critical').length;
+            const h=this.clashes.filter(x=>x.severity==='high').length;
+            const m=this.clashes.filter(x=>x.severity==='medium').length;
+            const l=this.clashes.filter(x=>x.severity==='low').length;
+            const cc=document.getElementById('clash-critical-count'), hc=document.getElementById('clash-high-count'), mc=document.getElementById('clash-medium-count'), lc=document.getElementById('clash-low-count');
+            if(cc) cc.textContent=c; if(hc) hc.textContent=h; if(mc) mc.textContent=m; if(lc) lc.textContent=l;
+            const list=document.getElementById('clash-list'); if(!list) return; list.innerHTML='';
+            this.clashes.forEach(cl=>{
+                const div=document.createElement('div'); div.className='clash-card';
+                div.innerHTML=`<div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="font-weight:bold;font-size:0.85rem;">تعارض #${cl.id}</span><span class="severity-${cl.severity}" style="padding:2px 8px;border-radius:4px;font-size:0.7rem;">${cl.severity.toUpperCase()}</span></div><div style="font-size:0.78rem;color:#cbd5e1;margin-bottom:4px;">${cl.object1} (${cl.cat1}) × ${cl.object2} (${cl.cat2})</div><div style="font-size:0.72rem;color:#94a3b8;margin-bottom:6px;">Clearance: ${cl.clearance}م | Overlap: ${cl.overlap}م³</div><div style="font-size:0.75rem;color:#38bdf8;background:rgba(56,189,248,0.1);padding:6px;border-radius:4px;">💡 ${cl.suggestion}</div>`;
+                list.appendChild(div);
+            });
+        },
+        
+        exportJSON() {
+            const blob=new Blob([JSON.stringify({generated:Date.now(),count:this.clashes.length,clashes:this.clashes},null,2)],{type:'application/json'});
+            const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='clash-report.json'; a.click(); URL.revokeObjectURL(url);
+            showToast('success','✅ تم تصدير Clash Report (JSON)');
+        },
+        
+        exportPDF() {
+            try { const {jsPDF}=window.jspdf; const doc=new jsPDF({orientation:'p',unit:'pt'}); let y=40; doc.setFontSize(16); doc.text('Clash Detection Report - BIM Platform',40,y); y+=20; doc.setFontSize(9); doc.text(`Generated: ${new Date().toLocaleString('ar-SA')}`,40,y); y+=30; doc.setFontSize(8); this.clashes.forEach((cl,i)=>{ if(y>750){doc.addPage(); y=40;} doc.text(`${i+1}. [${cl.severity.toUpperCase()}] ${cl.object1}×${cl.object2} | Clearance:${cl.clearance}m | Suggestion:${cl.suggestion.substring(0,60)}`,40,y); y+=14; }); doc.save('clash-report.pdf'); showToast('success','✅ تم تصدير Clash Report (PDF)'); } catch(e){ showToast('error','❌ PDF غير متاح'); }
+        }
+    };
+    window.clashAIEngine = clashAIEngine;
+
+    // ==================== 2. COLLABORATION ADVANCED ====================
+    let collabAdvanced = {
+        users: [], presenceInterval:null, cursorGroup:null, annotations:[], chatHistory:[],
+        init() {
+            this.users=[
+                {id:'u1',name:'د. أحمد لؤي أحمد',role:'Admin',status:'online',color:'#38bdf8',pos:{x:0,y:0,z:0}},
+                {id:'u2',name:'م. سارة محمد',role:'Reviewer',status:'online',color:'#22c55e',pos:{x:1,y:0,z:0}},
+                {id:'u3',name:'م. خالد علي',role:'Engineer',status:'away',color:'#f59e0b',pos:{x:-1,y:0,z:0}}
+            ];
+            if(!this.cursorGroup){ this.cursorGroup=new THREE.Group(); scene.add(this.cursorGroup); }
+            this.renderPresence(); this.simulateCursors();
+            if(this.presenceInterval) clearInterval(this.presenceInterval);
+            this.presenceInterval=setInterval(()=>this.simulateCursors(),1500);
+        },
+        renderPresence(){ const list=document.getElementById('users-list'); if(!list) return; list.innerHTML=''; this.users.forEach(u=>{ const d=document.createElement('div'); d.style.cssText='display:flex;align-items:center;gap:8px;padding:6px;background:rgba(30,41,59,0.7);border-radius:6px;'; d.innerHTML=`<div class="user-avatar" style="background:${u.color}">${u.name[0]}</div><div><div style="font-weight:bold;font-size:0.8rem;">${u.name}</div><div style="font-size:0.65rem;color:#94a3b8;">${u.role}</div></div><div style="width:8px;height:8px;border-radius:50%;background:${u.status==='online'?'#22c55e':u.status==='away'?'#f59e0b':'#64748b'};margin-right:auto;"></div>`; list.appendChild(d); }); },
+        simulateCursors(){ this.cursorGroup.clear(); this.users.filter(u=>u.status==='online').forEach(u=>{ const m=new THREE.Mesh(new THREE.SphereGeometry(0.05,8,8), new THREE.MeshBasicMaterial({color:u.color})); m.position.set(u.pos.x+(Math.random()-0.5)*0.5,u.pos.y,u.pos.z+(Math.random()-0.5)*0.5); this.cursorGroup.add(m); const l=document.createElement('div'); l.textContent=u.name.split(' ')[0]; }); },
+        addAnnotation(type='point',pos,text=''){ this.annotations.push({id:Date.now(),type,pos:pos?{x:pos.x,y:pos.y,z:pos.z}:null,text,timestamp:Date.now()}); showToast('info',`📝 إضافة ملاحظة: ${type}`); },
+        sendChatAdvanced(msg){ if(!msg) return; const m={user:sessionUser.displayName||'أنت',text:msg,time:new Date().toLocaleTimeString('ar-SA'),id:Date.now()}; this.chatHistory.push(m); this.renderChat(m); setTimeout(()=>{ const r={user:'النظام',text:'تم استلام الرسالة وتسجيلها',time:new Date().toLocaleTimeString('ar-SA')}; this.chatHistory.push(r); this.renderChat(r); },600); },
+        renderChat(m){ const c=document.getElementById('chat-messages'); if(!c) return; const d=document.createElement('div'); d.className='chat-message'; d.innerHTML=`<strong style="color:#38bdf8;">${m.user}:</strong> ${m.text} <span style="font-size:0.7rem;color:#64748b;float:left;">${m.time}</span>`; c.appendChild(d); c.scrollTop=c.scrollHeight; }
+    };
+    window.collabAdvanced=collabAdvanced;
+
+    // ==================== 3. ADVANCED MEASUREMENT ====================
+    let measureAdvanced={ mode:'distance', points:[], lines:[], areas:[], volumes:[], helpers:[], active:false,
+        setMode(m){this.mode=m; this.clear(); document.getElementById('measure-result-text').textContent=this.getHint(m); showToast('info',`📏 وضع القياس: ${m}`);},
+        getHint(m){return {distance:'نقاط متعددة - المسافة الكلية',area:'3 نقاط على الأقل للمساحة',volume:'حدّد قاعدة ثم الارتفاع',section:'القطاع الديناميكي'}[m]||'اختر وضع القياس';},
+        addPoint(p){ this.points.push(p.clone()); if(this.points.length>=2 && this.mode==='distance'){ this.drawPolyline(); this.calcDistance(); } if(this.points.length>=3 && this.mode==='area'){ this.calcArea(); } if(this.mode==='volume' && this.points.length===1){ this.basePoint=p.clone(); } },
+        drawPolyline(){ if(this.currentLine) scene.remove(this.currentLine); const g=new THREE.BufferGeometry().setFromPoints(this.points); const m=new THREE.LineBasicMaterial({color:0x00f0ff,width:3}); this.currentLine=new THREE.Line(g,m); scene.add(this.currentLine); this.lines.push(this.currentLine); },
+        calcDistance(){ let d=0; for(let i=1;i<this.points.length;i++) d+=this.points[i-1].distanceTo(this.points[i]); document.getElementById('measure-result-text').textContent=`المسافة الإجمالية: ${d.toFixed(3)} م`; },
+        calcArea(){ const pts=this.points.slice(-3); const a=new THREE.Vector3().subVectors(pts[1],pts[0]); const b=new THREE.Vector3().subVectors(pts[2],pts[0]); const area=a.cross(b).length()*0.5; document.getElementById('measure-result-text').textContent=`المساحة: ${area.toFixed(3)} م²`; },
+        clear(){ this.points=[]; if(this.currentLine){scene.remove(this.currentLine); this.currentLine=null;} this.lines.forEach(l=>scene.remove(l)); this.lines=[]; this.helpers.forEach(h=>scene.remove(h)); this.helpers=[]; document.getElementById('measure-result-text').textContent='اختر وضع القياس...'; }
+    };
+
+    // ==================== 4. TELEMETRY & PERFORMANCE ====================
+    let telemetry={ fps:60, frameTime:0, calls:0, tris:0, geoms:0, mats:0, tex:0, mem:0, last:0, samples:[], charts:{fps:null}, 
+        update(t){ if(!this.last){this.last=t;return;} const dt=t-this.last; this.last=t; this.frameTime=dt; this.fps=Math.round(1000/dt); if(renderer.info){ const i=renderer.info.render; this.calls=i.calls; this.tris=i.triangles; this.geoms=i.geometries; this.tex=i.textures; } if(performance.memory){ this.mem=(performance.memory.usedJSHeapSize/1048576).toFixed(1); } this.samples.push({t,fps:this.fps,ft:dt}); if(this.samples.length>120) this.samples.shift(); this.UI(); this.updateCharts(); },
+        UI(){ const el=id=>document.getElementById(id); if(el('tel-fps')) el('tel-fps').textContent=this.fps; if(el('tel-frametime')) el('tel-frametime').textContent=this.frameTime.toFixed(2)+' ms'; if(el('tel-calls')) el('tel-calls').textContent=this.calls; if(el('tel-triangles')) el('tel-triangles').textContent=this.tris.toLocaleString('ar-SA'); if(el('tel-geoms')) el('tel-geoms').textContent=this.geoms; if(el('tel-memory')) el('tel-memory').textContent=this.mem+' MB'; },
+        exportJSON(){ const b=new Blob([JSON.stringify({ts:Date.now(),telemetry:this,samples:this.samples.slice(-60)},null,2)],{type:'application/json'}); const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download='telemetry-report.json'; a.click(); URL.revokeObjectURL(u); showToast('success','✅ Telemetry JSON'); },
+        updateCharts(){ if(!this.charts.fps && document.getElementById('fpsChart')){ const ctx=document.getElementById('fpsChart').getContext('2d'); this.charts.fps=new Chart(ctx,{type:'line',data:{labels:[],datasets:[{label:'FPS',data:[],borderColor:'#22c55e',tension:0.2}]},options:{responsive:true,scales:{x:{display:false},y:{min:0,max:120}}}});} if(this.charts.fps && this.samples.length){ this.charts.fps.data.labels=this.samples.map((_,i)=>i); this.charts.fps.data.datasets[0].data=this.samples.map(s=>s.fps); this.charts.fps.update('none'); } }
+    };
+
+    // ==================== 5. PROJECTS & VERSION HISTORY ====================
+    let projectManager={ projects:[], current:null, versions:[],
+        save(name,tags=[]){ const proj={id:Date.now().toString(),name:name||'مشروع جديد',tags,meta:{created:Date.now(),updated:Date.now(),user:sessionUser.displayName,version:'1.0.0'},state:{annotations:collabAdvanced.annotations,clashes:clashAIEngine.clashes,settings:{}},thumb:null}; this.projects.push(proj); this.current=proj; localStorage.setItem('bim_projects',JSON.stringify(this.projects)); showToast('success',`💾 تم حفظ المشروع: ${proj.name}`); return proj; },
+        load(id){ const p=this.projects.find(x=>x.id===id); if(!p) return; this.current=p; collabAdvanced.annotations=p.state.annotations||[]; clashAIEngine.clashes=p.state.clashes||[]; clashAIEngine.updateClashUI(); p.meta.updated=Date.now(); localStorage.setItem('bim_projects',JSON.stringify(this.projects)); showToast('success',`📂 تم تحميل المشروع: ${p.name}`); },
+        del(id){ this.projects=this.projects.filter(x=>x.id!==id); localStorage.setItem('bim_projects',JSON.stringify(this.projects)); this.renderList(); showToast('warning','🗑️ تم حذف المشروع'); },
+        newVersion(note='تحديث'){ if(!this.current) return; const v={v:(this.current.meta.version.split('.').map((n,i)=>(i===2)?(+n+1):n).join('.')),note,ts:Date.now()}; this.versions.push(v); this.current.meta.version=v.v; this.current.meta.updated=Date.now(); localStorage.setItem('bim_projects',JSON.stringify(this.projects)); showToast('info',`📌 إصدار جديد: v${v.v}`); },
+        renderList(){ const list=document.getElementById('projects-list'); if(!list) return; this.projects=JSON.parse(localStorage.getItem('bim_projects')||'[]'); list.innerHTML=''; this.projects.forEach(p=>{ const d=document.createElement('div'); d.className='project-card'; d.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;"><div><div style="font-weight:bold;color:#38bdf8;">${p.name}</div><div style="font-size:0.7rem;color:#94a3b8;">v${p.meta.version} • ${new Date(p.meta.updated).toLocaleDateString('ar-SA')}</div></div><div style="display:flex;gap:4px;"><button class="btn" style="padding:4px 8px;font-size:0.7rem;" onclick="projectManager.load('${p.id}')">فتح</button><button class="btn btn-outline" style="padding:4px 8px;font-size:0.7rem;" onclick="projectManager.del('${p.id}')">حذف</button></div></div>`; list.appendChild(d); }); },
+        exportJSON(){ if(!this.current) return; const b=new Blob([JSON.stringify(this.current,null,2)],{type:'application/json'}); const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download=`project-${this.current.name}.json`; a.click(); URL.revokeObjectURL(u); showToast('success','✅ تصدير المشروع JSON'); }
+    };
+
+    // ==================== 6. GAMIFICATION ====================
+    let gamify={ xp:parseInt(localStorage.getItem('bim_xp')||'0'), level:1, badges:JSON.parse(localStorage.getItem('bim_badges')||'[]'), achievements:JSON.parse(localStorage.getItem('bim_ach')||'[]'), mode:localStorage.getItem('bim_mode')||'student',
+        badgeDefs:{beginner:{icon:'🌱',title:'المبتدئ',desc:'أول خطوات'},explorer:{icon:'🗺️',title:'المستكشف',desc:'10 إجراءات'},expert:{icon:'🏆',title:'الخبير',desc:'50 إجراءات'},teacher:{icon:'🎓',title:'المعلم',desc:'وضع المعلم'}},
+        achDefs:{firstClash:{icon:'⚡',title:'مكتشف التعارضات',desc:'أول فحص تعارضات',req:()=>clashAIEngine.clashes.length>=1},firstMeasure:{icon:'📏',title:'مقياس الدقة',desc:'أول قياس',req:false},saver:{icon:'💾',title:'حافظ المشاريع',desc:'حفظ مشروع',req:false}},
+        addXP(n){ this.xp+=n; this.level=Math.floor(this.xp/100)+1; localStorage.setItem('bim_xp',this.xp); this.checkBadges(); this.UI(); showToast('success',`⭐ +${n} XP (Level ${this.level})`); },
+        checkBadges(){ if(this.xp>=10 && !this.hasBadge('explorer')) this.grant('explorer'); if(this.xp>=50 && !this.hasBadge('expert')) this.grant('expert'); if(this.mode==='teacher' && !this.hasBadge('teacher')) this.grant('teacher'); if(this.xp>=0 && !this.hasBadge('beginner')) this.grant('beginner'); },
+        grant(id){ if(this.badges.includes(id)) return; this.badges.push(id); localStorage.setItem('bim_badges',JSON.stringify(this.badges)); const b=this.badgeDefs[id]; if(b) showToast('success',`🏅 جائزة جديدة: ${b.title}`); },
+        hasBadge(id){return this.badges.includes(id);},
+        setMode(m){this.mode=m; localStorage.setItem('bim_mode',m); showToast('info',`🎭 وضع: ${m==='teacher'?'معلم':'طالب'}`); this.checkBadges();},
+        UI(){ const lx=document.getElementById('gamify-level'), xx=document.getElementById('gamify-xp'), bx=document.getElementById('gamify-badges'); if(lx) lx.textContent=this.level; if(xx) xx.textContent=this.xp; if(bx){ bx.innerHTML=''; this.badges.forEach(id=>{ const b=this.badgeDefs[id]; if(b){ const s=document.createElement('span'); s.title=b.title; s.style.cssText='margin:2px;padding:4px 8px;background:rgba(250,204,21,0.2);border:1px solid #facc15;border-radius:20px;font-size:0.7rem;'; s.textContent=b.icon+' '+b.title; bx.appendChild(s);} }); } }
+    };
+
+    // ==================== 7. REPORTS EXPORT ====================
+    let reports={ 
+        exportFullProjectPDF(){ try{ const {jsPDF}=window.jspdf; const doc=new jsPDF({orientation:'p',unit:'pt'}); let y=40; doc.setFontSize(16); doc.text('BIM Project Full Report',40,y); y+=20; doc.setFontSize(9); doc.text(`Project: ${projectManager.current?.name||'-'} | User:${sessionUser.displayName} | ${new Date().toLocaleString('ar-SA')}`,40,y); y+=30; doc.setFontSize(10); doc.text('1. CLASHES',40,y); y+=14; doc.setFontSize(8); clashAIEngine.clashes.slice(0,30).forEach((c,i)=>{ if(y>750){doc.addPage();y=40;} doc.text(`${i+1}. [${c.severity}] ${c.object1}×${c.object2}`,40,y); y+=12; }); doc.addPage(); y=40; doc.setFontSize(10); doc.text('2. TELEMETRY SUMMARY',40,y); y+=14; doc.setFontSize(8); doc.text(`FPS:${telemetry.fps} | Draw:${telemetry.calls} | Tris:${telemetry.tris} | Mem:${telemetry.mem}MB`,40,y); y+=20; doc.text('3. ANNOTATIONS',40,y); y+=14; collabAdvanced.annotations.slice(0,20).forEach((a,i)=>{ if(y>750){doc.addPage();y=40;} doc.text(`${i+1}. ${a.type}:${a.text||'-'} @${new Date(a.timestamp).toLocaleTimeString('ar-SA')}`,40,y); y+=12; }); doc.save('full-project-report.pdf'); showToast('success','✅ Full Project PDF'); }catch(e){showToast('error','❌ PDF export failed');} },
+        exportPerformancePDF(){ try{ const {jsPDF}=window.jspdf; const doc=new jsPDF(); let y=20; doc.text('Performance Report',20,y); y+=10; doc.setFontSize(8); doc.text(`FPS:${telemetry.fps} FT:${telemetry.frameTime.toFixed(2)}ms Calls:${telemetry.calls} Tris:${telemetry.tris}`,20,y); doc.save('performance-report.pdf'); showToast('success','✅ Performance PDF'); }catch(e){} },
+        exportCSV(){ let csv='ID,Severity,Object1,Cat1,Object2,Cat2,Clearance(m),Overlap(m3),Suggestion\n'; clashAIEngine.clashes.forEach(c=>{ csv+=`${c.id},${c.severity},"${c.object1}","${c.cat1}","${c.object2}","${c.cat2}",${c.clearance},${c.overlap},"${c.suggestion.replace(/"/g,'""')}"\n`; }); const b=new Blob([csv],{type:'text/csv;charset=utf-8;'}); const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download='clash-report.csv'; a.click(); URL.revokeObjectURL(u); showToast('success','✅ تصدير CSV'); }
+    };
+
+    // ==================== 8. UI INTEGRATION & HOOKS ====================
+    function enhanceUI(){
+        // Add Gamification HUD to dashboard or header
+        const dash=document.getElementById('dashboard-panel'); if(dash && !document.getElementById('gamify-hud')){
+            const hud=document.createElement('div'); hud.id='gamify-hud'; hud.style.cssText='background:rgba(250,204,21,0.15);border:1px solid #facc15;border-radius:10px;padding:10px;margin-bottom:12px;';
+            hud.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><div style="font-weight:bold;color:#facc15;">🎮 الإنجازات التعليمية</div><select id="gamify-mode" style="background:rgba(15,23,42,0.8);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:4px 8px;font-size:0.7rem;"><option value="student">طالب</option><option value="teacher">معلم</option></select></div><div style="display:flex;gap:10px;justify-content:space-around;text-align:center;margin-bottom:8px;"><div><div id="gamify-level" style="font-size:1.4rem;font-weight:bold;color:#facc15;">1</div><div style="font-size:0.65rem;color:#94a3b8;">المستوى</div></div><div><div id="gamify-xp" style="font-size:1.4rem;font-weight:bold;color:#facc15;">0</div><div style="font-size:0.65rem;color:#94a3b8;">XP</div></div></div><div id="gamify-badges" style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center;"></div>`;
+            dash.insertBefore(hud,dash.firstChild);
+            document.getElementById('gamify-mode').value=gamify.mode;
+            document.getElementById('gamify-mode').onchange=e=>gamify.setMode(e.target.value);
+        }
+        // Projects section in dashboard
+        if(dash && !document.getElementById('projects-section')){
+            const sec=document.createElement('div'); sec.id='projects-section'; sec.style.cssText='margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1);';
+            sec.innerHTML=`<div style="font-size:0.82rem;font-weight:bold;color:#38bdf8;margin-bottom:8px;">📁 إدارة المشاريع والإصدارات</div><div style="display:flex;gap:6px;margin-bottom:8px;"><input id="proj-name" placeholder="اسم المشروع..." style="flex:1;background:rgba(30,41,59,0.7);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:6px 8px;color:#fff;font-size:0.75rem;"><button class="btn" style="padding:6px 10px;font-size:0.75rem;" onclick="projectManager.save(document.getElementById('proj-name').value||'مشروع')">حفظ</button><button class="btn btn-outline" style="padding:6px 10px;font-size:0.75rem;" onclick="projectManager.newVersion()">إصدار+</button><button class="btn btn-outline" style="padding:6px 10px;font-size:0.75rem;" onclick="projectManager.exportJSON()">JSON</button></div><div id="projects-list" style="max-height:200px;overflow-y:auto;"></div>`;
+            dash.appendChild(sec);
+        }
+        // FPS Chart canvas in telemetry
+        const tel=document.getElementById('telemetry-panel'); if(tel && !document.getElementById('fpsChart')){
+            const c=document.createElement('canvas'); c.id='fpsChart'; c.width=300; c.height=120; c.style.cssText='margin-top:10px;border-radius:8px;background:rgba(15,23,42,0.5);';
+            tel.appendChild(c);
+        }
+        // Add export PDF/CSV full to clash panel
+        const clashP=document.getElementById('clash-panel'); if(clashP){
+            const ex=document.querySelector('#clash-panel > div:last-child'); if(ex && !document.getElementById('btn-export-clash-pdf-full')){
+                const b=document.createElement('button'); b.id='btn-export-clash-pdf-full'; b.className='btn btn-outline'; b.style.cssText='flex:1;font-size:0.78rem;'; b.textContent='📄 PDF تقرير'; b.onclick=()=>clashAIEngine.exportPDF(); ex.appendChild(b);
+            }
+        }
+        // Hook export dashboard/report
+        const dbtn=document.getElementById('btn-export-dashboard'); if(dbtn) dbtn.onclick=()=>reports.exportFullProjectPDF();
+        const cbtnJ=document.getElementById('btn-export-clash-json'); if(cbtnJ) cbtnJ.onclick=()=>clashAIEngine.exportJSON();
+        const cbtnC=document.getElementById('btn-export-clash-csv'); if(cbtnC) cbtnC.onclick=()=>reports.exportCSV();
+        const texp=document.getElementById('btn-export-benchmark'); if(texp) texp.onclick=()=>telemetry.exportJSON();
+        // Chat hook
+        const sch=document.getElementById('btn-send-chat'); if(sch) sch.onclick=()=>{ const v=document.getElementById('chat-input'); collabAdvanced.sendChatAdvanced(v.value); v.value=''; };
+        const cin=document.getElementById('chat-input'); if(cin) cin.onkeydown=e=>{ if(e.key==='Enter'){ collabAdvanced.sendChatAdvanced(cin.value); cin.value=''; } };
+        // Clash run hook
+        const rcd=document.getElementById('btn-run-clash-detection'); if(rcd) rcd.onclick=()=>{ showToast('info','🔍 جاري الفحص الذكي...'); setTimeout(()=>{ const res=clashAIEngine.detectClashesAdvanced(); showToast('success',`✅ تم اكتشاف ${res.length} تعارض`); gamify.addXP(5); },800); };
+        // Measure mode enhanced
+        const tmm=document.getElementById('btn-toggle-measure'); if(tmm){ tmm.onclick=()=>{ measureAdvanced.active=!measureAdvanced.active; const hud=document.getElementById('measure-hud'); hud.style.display=measureAdvanced.active?'flex':'none'; if(measureAdvanced.active){ measureAdvanced.setMode('distance'); isMeasureMode=true; } else { isMeasureMode=false; measureAdvanced.clear(); } }; }
+        // Clear measure
+        const bcm=document.getElementById('btn-clear-measure'); if(bcm) bcm.onclick=()=>measureAdvanced.clear();
+    }
+
+    // ==================== 9. ANIMATION LOOP INTEGRATION ====================
+    let _rafLast=0;
+    function advancedLoop(ts){
+        requestAnimationFrame(advancedLoop);
+        telemetry.update(ts);
+        // lightweight updates
+    }
+    requestAnimationFrame(advancedLoop);
+
+    // ==================== INIT ENHANCEMENTS ====================
+    document.addEventListener('DOMContentLoaded', function(){
+        setTimeout(()=>{
+            enhanceUI();
+            collabAdvanced.init();
+            projectManager.renderList();
+            gamify.UI();
+            gamify.checkBadges();
+        }, 400);
+    });
+
+    // Expose globally
+    window.measureAdvanced=measureAdvanced; window.reports=reports; window.projectManager=projectManager; window.gamify=gamify; window.telemetry=telemetry; window.collabAdvanced=collabAdvanced; window.clashAIEngine=clashAIEngine;
+    </script>
+</body>
+</html>
