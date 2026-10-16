@@ -2655,8 +2655,9 @@
                     };
 
                     reader.onload = async function(event) {
-                        var buffer = event.target.result;
-                        toastStatus.innerText = '⚙️ الخطوة 2 من 2: جاري تهيئة محرك WebAssembly الهندسي...';
+                        try {
+                            var buffer = event.target.result;
+                            toastStatus.innerText = '⚙️ الخطوة 2 من 2: جاري تهيئة محرك WebAssembly الهندسي...';
 
                         try {
                             var LoaderClass = (window.IFCLoader && window.IFCLoader.IFCLoader) || window.IFCLoader;
@@ -2724,39 +2725,47 @@
                             }
 
                             toastStatus.innerText = '⚙️ جاري تحليل وهندسة مصفوفة الـ IFC ثلاثية الأبعاد... يرجى الانتظار';
-                            await new Promise(function(resolve) { setTimeout(resolve, 80); });
+                            console.log('Starting IFC parse...');
+                            try {
+                                await new Promise(function(resolve) { setTimeout(resolve, 80); });
+                                console.log('Calling ifcLoader.parse...');
+                                var ifcModel = await ifcLoader.parse(buffer);
+                                console.log('IFC parse completed, model:', !!ifcModel, 'modelID:', ifcModel ? ifcModel.modelID : 'N/A');
+                                
+                                clearCustomModel();
+                                webxrLabGroup.visible = false;
+                                currentCustomModel = ifcModel;
+                                scene.add(ifcModel);
 
-                            var ifcModel = await ifcLoader.parse(buffer);
+                                fitCameraToObject(camera, ifcModel, controls);
 
-                            clearCustomModel();
-                            webxrLabGroup.visible = false;
-                            currentCustomModel = ifcModel;
-                            scene.add(ifcModel);
+                                toastStatus.innerText = '⚙️ جاري قراءة الهيكل الفضائي وفهرسة الطوابق والتخصصات...';
+                                await new Promise(function(resolve) { setTimeout(resolve, 30); });
 
-                            fitCameraToObject(camera, ifcModel, controls);
+                                // Index Storeys and Categories from IFC
+                                await indexIFCStructure(ifcModel, ifcLoader);
+                                refreshStoreyDropdown();
 
-                            toastStatus.innerText = '⚙️ جاري قراءة الهيكل الفضائي وفهرسة الطوابق والتخصصات...';
-                            await new Promise(function(resolve) { setTimeout(resolve, 30); });
+                                toastStatus.innerText = '⚙️ جاري تجهيز طبقات الفرز السريع (60 FPS)...';
+                                await new Promise(function(resolve) { setTimeout(resolve, 30); });
 
-                            // Index Storeys and Categories from IFC
-                            await indexIFCStructure(ifcModel, ifcLoader);
-                            refreshStoreyDropdown();
+                                // Build pre-cached subsets for categories and storeys (ensures 0ms toggle speed)
+                                await buildIFCSubsets(ifcModel, ifcLoader);
+                                applyFilters();
 
-                            toastStatus.innerText = '⚙️ جاري تجهيز طبقات الفرز السريع (60 FPS)...';
-                            await new Promise(function(resolve) { setTimeout(resolve, 30); });
-
-                            // Build pre-cached subsets for categories and storeys (ensures 0ms toggle speed)
-                            await buildIFCSubsets(ifcModel, ifcLoader);
-                            applyFilters();
-
-                            registerBIM(ifcModel, {
-                                elementId: file.name,
-                                category: 'نموذج IFC متكامل (OpenBIM)',
-                                system: 'Architectural / Structural / MEP',
-                                dimensions: 'أبعاد ومناسيب هندسية أصلية',
-                                clearance: 'جاهز للفحص والتصفية الفراغية السريعة (60 FPS)',
-                                status: 'تم التوسيط وتجهيز طبقات الفرز الفوري بنجاح'
-                            }, false);
+                                registerBIM(ifcModel, {
+                                    elementId: file.name,
+                                    category: 'نموذج IFC متكامل (OpenBIM)',
+                                    system: 'Architectural / Structural / MEP',
+                                    dimensions: 'أبعاد ومناسيب هندسية أصلية',
+                                    clearance: 'جاهز للفحص والتصفية الفراغية السريعة (60 FPS)',
+                                    status: 'تم التوسيط وتجهيز طبقات الفرز الفوري بنجاح'
+                                }, false);
+                            } catch (parseErr) {
+                                console.error('IFC parse error:', parseErr);
+                                console.error('IFC parse error stack:', parseErr.stack);
+                                throw parseErr;
+                            }
 
                             toast.style.display = 'none';
                             // Ensure filter panel does not obstruct 3D building view
@@ -2764,13 +2773,15 @@
                             if (fPanel) fPanel.style.display = 'none';
                             showPlatformNotification('✅ تم استيراد وتوسيط نموذج الـ IFC بنجاح! انقر على أي جزء بالمبنى لفتح بياناته وتسجيل التعارضات.');
                         } catch (err) {
-                            console.error('IFC Error:', err);
-                            console.error('IFC Error stack:', err.stack);
-                            console.error('IFC Error name:', err.name);
-                            console.error('IFC Error message:', err.message);
+                            console.error('=== IFC ERROR DETAILS ===');
+                            console.error('Error:', err);
+                            console.error('Stack:', err.stack);
+                            console.error('Name:', err.name);
+                            console.error('Message:', err.message);
+                            console.error('=== END IFC ERROR ===');
                             toastError.style.display = 'block';
                             toastError.innerText = 'خطأ في معالجة ملف الـ IFC: ' + (err.message || err);
-                            toastStatus.innerText = '❌ فشل التحميل - راجع وحدة التحكم (Console) للتفاصيل';
+                            toastStatus.innerText = '❌ فشل التحميل - راجع وحدة التحكم (F12 → Console)';
                         }
                     };
 
