@@ -2131,21 +2131,7 @@
             renderTutorialStep();
         }
 
-        function renderTutorialStep() {
-            const step = tutorialSteps[currentTutorialStep];
-            document.getElementById('tutorial-icon').textContent = step.icon;
-            document.getElementById('tutorial-title').textContent = step.title;
-            document.getElementById('tutorial-text').textContent = step.text;
-
-            const progress = document.getElementById('tutorial-progress');
-            progress.innerHTML = '';
-            tutorialSteps.forEach((_, i) => {
-                const dot = document.createElement('div');
-                dot.className = 'tutorial-dot';
-                if (i < currentTutorialStep) dot.classList.add('completed');
-                if (i === currentTutorialStep) dot.classList.add('active');
-                progress.appendChild(dot);
-            });
+        );
 
             const nextBtn = document.getElementById('btn-next-tutorial');
             nextBtn.textContent = currentTutorialStep === tutorialSteps.length - 1 ? 'ابدأ 🚀' : 'التالي ➡';
@@ -2603,11 +2589,7 @@
     <!-- Inline Action Functions for All Buttons -->
     <script>
     // Toast notification system
-    function showToast(type, message) {
-        const container = document.getElementById('toast-container') || createToastContainer();
-        const toast = document.createElement('div');
-        toast.className = 'toast toast-' + type;
-        const icons = { success: '✅', warning: '⚠️', error: '❌', info: 'ℹ️' };
+    ;
         toast.innerHTML = `<div style="font-size: 24px;">${icons[type]}</div><div>${message}</div>`;
         container.appendChild(toast);
         setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 4000);
