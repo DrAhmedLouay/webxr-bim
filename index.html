@@ -1233,6 +1233,51 @@
         let annotations = [];
         let directionalLight = null;
 
+        // ===== BIM Categories & PBR Materials (matching original platform) =====
+        var BIM_CATEGORIES = [
+            { id: 'doors', label: 'الأبواب (Doors)', hex: '#d97706', types: ['IFCDOOR', 'IFCDOORSTANDARDCASE'], icon: '🚪', badge: 'Arch', badgeBg: '#d97706', isMEP: false },
+            { id: 'windows', label: 'الشبابيك والزجاج (Windows)', hex: '#38bdf8', types: ['IFCWINDOW', 'IFCWINDOWSTANDARDCASE'], icon: '🪟', badge: 'Glass', badgeBg: '#0284c7', isMEP: false },
+            { id: 'walls', label: 'الجدران والقواطع (Walls)', hex: '#94a3b8', types: ['IFCWALL', 'IFCWALLSTANDARDCASE', 'IFCCURTAINWALL'], icon: '🧱', badge: 'Arch', badgeBg: '#475569', isMEP: false },
+            { id: 'slabs', label: 'السقوف والأرضيات (Slabs / Ceilings)', hex: '#475569', types: ['IFCSLAB', 'IFCROOF', 'IFCCOVERING'], icon: '🏢', badge: 'Arch', badgeBg: '#334155', isMEP: false },
+            { id: 'structure', label: 'الأعمدة والكمرات الإنشائية (Structure)', hex: '#8b5cf6', types: ['IFCCOLUMN', 'IFCBEAM', 'IFCMEMBER', 'IFCFOOTING', 'IFCPLATE'], icon: '🏛️', badge: 'Struct', badgeBg: '#7c3aed', isMEP: false },
+            { id: 'equipment', label: 'الأجهزة والمعدات والأثاث (Equipment)', hex: '#10b981', types: ['IFCFURNISHINGELEMENT', 'IFCFURNITURE', 'IFCEQUIPMENTELEMENT', 'IFCSANITARYTERMINAL'], icon: '🛋️', badge: 'FF&E', badgeBg: '#059669', isMEP: false },
+            { id: 'pipes', label: 'الأنابيب والسباكة (Piping & Plumbing)', hex: '#0284c7', types: ['IFCPIPESEGMENT', 'IFCPIPEFITTING', 'IFCFLOWSEGMENT', 'IFCFLOWFITTING', 'IFCVALVE', 'IFCFLOWTERMINAL', 'IFCPIPE'], icon: '🚰', badge: 'MEP', badgeBg: '#0284c7', isMEP: true },
+            { id: 'hvac', label: 'التكييف ومجاري الهواء (HVAC & Ducts)', hex: '#06b6d4', types: ['IFCDUCTSEGMENT', 'IFCDUCTFITTING', 'IFCAIRTERMINAL', 'IFCDAMPER', 'IFCFAN', 'IFCDUCT'], icon: '💨', badge: 'MEP', badgeBg: '#0891b2', isMEP: true },
+            { id: 'electrical', label: 'الكهربائيات وحوامل الكابلات (Electrical)', hex: '#f59e0b', types: ['IFCCABLECARRIERSEGMENT', 'IFCCABLECARRIERFITTING', 'IFCELECTRICALELEMENT', 'IFCLIGHTFIXTURE', 'IFCOUTLET', 'IFCJUNCTIONBOX', 'IFCCABLESEGMENT'], icon: '⚡', badge: 'MEP', badgeBg: '#d97706', isMEP: true },
+            { id: 'other', label: 'عناصر ومكونات إضافية (Stairs / Misc)', hex: '#64748b', types: ['IFCSTAIR', 'IFCRAILING', 'IFCRAMP', 'IFCBUILDINGELEMENTPROXY', 'IFCSTAIRFLIGHT'], icon: '🪜', badge: 'General', badgeBg: '#475569', isMEP: false }
+        ];
+
+        var BIM_CATEGORY_MATERIALS = {
+            doors: new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.45, metalness: 0.1, side: THREE.DoubleSide }),
+            windows: new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.15, metalness: 0.1, opacity: 0.48, transparent: true, side: THREE.DoubleSide, depthWrite: false }),
+            walls: new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.72, metalness: 0.05, side: THREE.DoubleSide }),
+            slabs: new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.8, metalness: 0.05, side: THREE.DoubleSide }),
+            structure: new THREE.MeshStandardMaterial({ color: 0x8b5cf6, roughness: 0.5, metalness: 0.25, side: THREE.DoubleSide }),
+            equipment: new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.4, metalness: 0.15, side: THREE.DoubleSide }),
+            pipes: new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.35, metalness: 0.5, side: THREE.DoubleSide }),
+            hvac: new THREE.MeshStandardMaterial({ color: 0x06b6d4, roughness: 0.35, metalness: 0.55, side: THREE.DoubleSide }),
+            electrical: new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.35, metalness: 0.35, side: THREE.DoubleSide }),
+            other: new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide })
+        };
+
+        var clayMaterial = new THREE.MeshStandardMaterial({
+            color: 0xcbd5e1, roughness: 0.65, metalness: 0.05, side: THREE.DoubleSide
+        });
+
+        var colorCodingMode = 'bim';
+        var categoryState = {};
+        var catCheckboxes = {};
+        var catContainer = null;
+
+        var currentCustomModel = null;
+        var currentIFCLoader = null;
+        var gltfLoader = null;
+
+        var ifcAllIds = new Set();
+        var ifcStoreysList = [];
+        var ifcStoreyElementMap = {};
+        var ifcCategoryMap = {};
+
         const tutorialSteps = [
             { icon: '🥽', title: 'مرحباً بك في غرفة فحص التعارضات', text: 'هذه المنصة تمكنك من مراجعة نماذج BIM في بيئة ثلاثية الأبعاد تفاعلية.' },
             { icon: '📂', title: 'استيراد النماذج', text: 'يمكنك استيراد نماذج GLB بالسحب والإفلات أو عبر زر الاستيراد.' },
@@ -1293,6 +1338,36 @@
             renderer.domElement.addEventListener('mousemove', onCanvasMouseMove);
 
             console.log('✅ WebXR BIM Platform initialized');
+        }
+
+        // ===== fitCameraToObject: Properly center and fit camera to model (from original platform) =====
+        function fitCameraToObject(cam, obj, ctrl) {
+            if (!obj) return;
+            var box = new THREE.Box3().setFromObject(obj);
+            if (box.isEmpty()) return;
+            var size = box.getSize(new THREE.Vector3());
+            var center = box.getCenter(new THREE.Vector3());
+            var maxDim = Math.max(size.x, size.y, size.z);
+            if (maxDim <= 0 || !isFinite(maxDim)) return;
+            obj.position.x -= center.x;
+            obj.position.y -= center.y;
+            obj.position.z -= center.z;
+            box.setFromObject(obj);
+            var sphere = box.getBoundingSphere(new THREE.Sphere());
+            var radius = Math.max(1, sphere.radius);
+            var fov = cam.fov * (Math.PI / 180);
+            var distance = (radius / Math.sin(fov / 2)) * 1.35;
+            cam.near = Math.max(0.01, distance / 1000);
+            cam.far = Math.max(500000, distance * 50);
+            cam.updateProjectionMatrix();
+            cam.position.set(distance * 0.75, distance * 0.55, distance * 0.85);
+            cam.lookAt(0, 0, 0);
+            if (ctrl) {
+                ctrl.target.set(0, 0, 0);
+                ctrl.minDistance = Math.max(0.01, radius * 0.02);
+                ctrl.maxDistance = distance * 30;
+                ctrl.update();
+            }
         }
 
         function createDemoBuilding() {
@@ -1445,157 +1520,334 @@
         }
 
         function loadModel(file) {
-            const toast = document.getElementById('loading-toast');
-            const toastStatus = document.getElementById('toast-status');
+            var fileNameLower = (file.name || '').toLowerCase();
+            var sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+
+            var toast = document.getElementById('loading-toast');
+            var toastStatus = document.getElementById('toast-status');
+
             if (toast) { toast.style.display = 'block'; toast.style.opacity = '1'; }
-            if (toastStatus) toastStatus.textContent = 'جاري قراءة الملف من القرص...';
-            const name = (file.name || '').toLowerCase();
+            if (toastStatus) toastStatus.textContent = 'جاري معالجة وتوسيط الموديل في الفراغ...';
 
-            console.log('loadModel called with file:', file.name, 'size:', file.size, 'type:', name);
+            console.log('loadModel called with file:', file.name, 'size:', file.size, 'type:', fileNameLower);
 
-            const reader = new FileReader();
-            reader.onprogress = function(e) {
-                if (e.lengthComputable && e.total > 0) {
-                    var pct = Math.round((e.loaded / e.total) * 100);
-                    if (toastStatus) toastStatus.textContent = '⏳ قراءة الملف: ' + pct + '%';
-                }
-            };
+            // ==================== IFC Loading ====================
+            if (fileNameLower.endsWith('.ifc')) {
+                if (toastStatus) toastStatus.textContent = '⏳ الخطوة 1 من 2: قراءة ملف الـ IFC من القرص... 0%';
 
-            reader.onerror = function(e) {
-                console.error('FileReader error:', e);
-                if (toast) toast.style.display = 'none';
-                if (typeof showToast === 'function') showToast('error', '❌ فشل قراءة الملف');
-            };
-
-            reader.onload = function(event) {
-                const arrayBuffer = event.target.result;
-                console.log('File read successfully, buffer size:', arrayBuffer.byteLength);
-
-                if (name.endsWith('.ifc')) {
-                    loadIFCModel(arrayBuffer, toast, toastStatus);
-                    return;
-                }
-
-                if (name.endsWith('.glb') || name.endsWith('.gltf')) {
-                    const loader = new THREE.GLTFLoader();
-                    loader.parse(arrayBuffer, '', function(gltf) {
-                        try {
-                            if (currentModel) scene.remove(currentModel);
-                            currentModel = gltf.scene || gltf;
-                            scene.add(currentModel);
-                            const box = new THREE.Box3().setFromObject(currentModel);
-                            const center = box.getCenter(new THREE.Vector3());
-                            const size = box.getSize(new THREE.Vector3());
-                            const maxDim = Math.max(size.x, size.y, size.z);
-                            if (maxDim > 0) {
-                                const s = 5 / maxDim;
-                                currentModel.scale.setScalar(s);
-                                currentModel.position.copy(center).multiplyScalar(-s);
-                            }
-                        } catch (err) { console.error(err); }
-                        if (toast) toast.style.display = 'none';
-                        if (typeof showToast === 'function') showToast('success', '✅ تم تحميل النموذج بنجاح');
-                        if (typeof updateStats === 'function') updateStats();
-                    });
-                    return;
-                }
-
-                if (toast) toast.style.display = 'none';
-                if (typeof showToast === 'function') showToast('error', '❌ نوع الملف غير مدعوم (استخدم GLB/GLTF/IFC)');
-            };
-            try { reader.readAsArrayBuffer(file); } catch(e) {
-                console.error('Reader error:', e);
-                if (toast) toast.style.display = 'none';
-                if (typeof showToast === 'function') showToast('error', '❌ فشل قراءة الملف');
-            }
-        }
-
-        function loadIFCModel(arrayBuffer, toast, toastStatus) {
-            try {
-                if (toastStatus) toastStatus.textContent = '⚙️ جاري تهيئة محرك WebAssembly الهندسي...';
-
-                var LoaderClass = (window.IFCLoader && window.IFCLoader.IFCLoader) || window.IFCLoader;
-                console.log('LoaderClass found:', !!LoaderClass);
-
-                if (!LoaderClass) {
-                    throw new Error('محرك قراءة ملفات IFC غير متوفر. تأكد من تحميل مكتبة IFCLoader.');
-                }
-
-                var ifcLoader = new LoaderClass();
-                window.currentIFCLoader = ifcLoader;
-
-                var wasmDir = 'https://unpkg.com/web-ifc@0.0.57/';
-                var wasmUrl = wasmDir + 'web-ifc.wasm';
-                console.log('WASM URL:', wasmUrl);
-
-                if (ifcLoader.ifcManager && ifcLoader.ifcManager.state && ifcLoader.ifcManager.state.api) {
-                    if (!ifcLoader.ifcManager.state.api.wasmModule) {
-                        if (toastStatus) toastStatus.textContent = '⚙️ جاري تحميل WASM...';
-                        awaitInit(ifcLoader.ifcManager.state.api, function(path) { return wasmDir; });
+                var reader = new FileReader();
+                reader.onprogress = function(e) {
+                    if (e.lengthComputable && e.total > 0) {
+                        var pct = Math.round((e.loaded / e.total) * 100);
+                        if (toastStatus) toastStatus.textContent = '⏳ الخطوة 1 من 2: قراءة الملف: ' + pct + '% (' + (e.loaded / (1024 * 1024)).toFixed(1) + ' / ' + sizeMB + ' MB)';
                     }
-                } else if (typeof ifcLoader.ifcManager.setWasmPath === 'function') {
-                    ifcLoader.ifcManager.setWasmPath(wasmDir);
-                }
+                };
 
-                if (typeof ifcLoader.ifcManager.setOnProgress === 'function') {
-                    ifcLoader.ifcManager.setOnProgress(function(prog) {
-                        if (prog && prog.total > 0) {
-                            var p = Math.round((prog.loaded / prog.total) * 100);
-                            if (toastStatus) toastStatus.textContent = '⚙️ جاري بناء عناصر IFC: ' + p + '%';
-                        }
-                    });
-                }
+                reader.onerror = function() {
+                    if (toast) toast.style.display = 'none';
+                    if (typeof showToast === 'function') showToast('error', 'فشل في قراءة الملف من القرص.');
+                };
 
-                if (toastStatus) toastStatus.textContent = '⚙️ جاري تحليل نموذج IFC ثلاثي الأبعاد...';
+                reader.onload = async function(event) {
+                    var buffer = event.target.result;
+                    if (toastStatus) toastStatus.textContent = '⚙️ الخطوة 2 من 2: جاري تهيئة محرك WebAssembly الهندسي...';
 
-                ifcLoader.parse(arrayBuffer).then(function(ifcModel) {
                     try {
-                        if (currentModel) scene.remove(currentModel);
-                        currentModel = ifcModel;
+                        var LoaderClass = (window.IFCLoader && window.IFCLoader.IFCLoader) || window.IFCLoader;
+                        if (!LoaderClass) {
+                            throw new Error('محرك قراءة ملفات الـ IFC غير متوفر. تأكد من اتصال الإنترنت.');
+                        }
+                        var ifcLoader = new LoaderClass();
+                        currentIFCLoader = ifcLoader;
+
+                        var baseDir = window.location.href.split('?')[0].split('#')[0].replace(/\/[^\/]*$/, '/');
+                        var wasmUrl = baseDir + 'web-ifc.wasm';
+
+                        if (ifcLoader.ifcManager.state && ifcLoader.ifcManager.state.api) {
+                            if (!ifcLoader.ifcManager.state.api.wasmModule) {
+                                if (toastStatus) toastStatus.textContent = '⚙️ جاري تحميل WASM...';
+                                await ifcLoader.ifcManager.state.api.Init(function(path) {
+                                    return wasmUrl;
+                                });
+                            }
+                        } else {
+                            ifcLoader.ifcManager.setWasmPath(baseDir);
+                        }
+
+                        if (typeof ifcLoader.ifcManager.setOnProgress === 'function') {
+                            ifcLoader.ifcManager.setOnProgress(function(prog) {
+                                if (prog && prog.total > 0) {
+                                    var p = Math.round((prog.loaded / prog.total) * 100);
+                                    if (toastStatus) toastStatus.textContent = '⚙️ جاري بناء كتل وعناصر الـ IFC: ' + p + '% (' + prog.loaded + ' / ' + prog.total + ')';
+                                }
+                            });
+                        }
+
+                        if (toastStatus) toastStatus.textContent = '⚙️ جاري تحليل وهندسة مصفوفة الـ IFC ثلاثية الأبعاد... يرجى الانتظار';
+                        await new Promise(function(resolve) { setTimeout(resolve, 80); });
+
+                        var ifcModel = await ifcLoader.parse(buffer);
+
+                        clearCustomModel();
+                        currentCustomModel = ifcModel;
                         scene.add(ifcModel);
 
-                        const box = new THREE.Box3().setFromObject(ifcModel);
-                        const center = box.getCenter(new THREE.Vector3());
-                        const size = box.getSize(new THREE.Vector3());
-                        const maxDim = Math.max(size.x, size.y, size.z);
-                        if (maxDim > 0) {
-                            const s = 5 / maxDim;
-                            ifcModel.scale.setScalar(s);
-                            ifcModel.position.copy(center).multiplyScalar(-s);
-                        }
+                        fitCameraToObject(camera, ifcModel, controls);
+
+                        if (toastStatus) toastStatus.textContent = '⚙️ جاري قراءة الهيكل الفضائي وفهرسة الطوابق والتخصصات...';
+                        await new Promise(function(resolve) { setTimeout(resolve, 30); });
+
+                        await indexIFCStructure(ifcModel, ifcLoader);
+                        refreshStoreyDropdown();
+
+                        if (toastStatus) toastStatus.textContent = '⚙️ جاري تجهيز طبقات الفرز السريع (60 FPS)...';
+                        await new Promise(function(resolve) { setTimeout(resolve, 30); });
+
+                        await buildIFCSubsets(ifcModel, ifcLoader);
+                        applyFilters();
+
+                        registerBIM(ifcModel, {
+                            elementId: file.name,
+                            category: 'نموذج IFC متكامل (OpenBIM)',
+                            system: 'Architectural / Structural / MEP',
+                            dimensions: 'أبعاد ومناسيب هندسية أصلية',
+                            clearance: 'جاهز للفحص والتصفية الفراغية السريعة (60 FPS)',
+                            status: 'تم التوسيط وتجهيز طبقات الفرز الفوري بنجاح'
+                        }, false);
 
                         if (toast) toast.style.display = 'none';
-                        if (typeof showToast === 'function') showToast('success', '✅ تم تحميل نموذج IFC بنجاح');
+                        if (typeof showToast === 'function') showToast('success', '✅ تم استيراد وتوسيط نموذج الـ IFC بنجاح!');
                         if (typeof updateStats === 'function') updateStats();
-                        console.log('IFC model loaded successfully');
                     } catch (err) {
-                        console.error('IFC model processing error:', err);
+                        console.error('IFC Error:', err);
                         if (toast) toast.style.display = 'none';
-                        if (typeof showToast === 'function') showToast('error', '❌ خطأ في معالجة نموذج IFC');
+                        if (typeof showToast === 'function') showToast('error', 'خطأ في معالجة ملف الـ IFC: ' + (err.message || err));
                     }
-                }).catch(function(err) {
-                    console.error('IFC parse error:', err);
-                    if (toast) toast.style.display = 'none';
-                    if (typeof showToast === 'function') showToast('error', '❌ فشل تحليل ملف IFC');
-                });
+                };
 
-            } catch (err) {
-                console.error('IFC init error:', err);
+                reader.readAsArrayBuffer(file);
+            }
+            // ==================== GLB / GLTF Loading ====================
+            else if (fileNameLower.endsWith('.glb') || fileNameLower.endsWith('.gltf')) {
+                var reader = new FileReader();
+                reader.onprogress = function(e) {
+                    if (e.lengthComputable) {
+                        var p = Math.round((e.loaded / e.total) * 100);
+                        if (toastStatus) toastStatus.textContent = '⏳ قراءة الملف: ' + p + '% (' + (e.loaded / (1024 * 1024)).toFixed(1) + ' / ' + sizeMB + ' MB)';
+                    }
+                };
+
+                reader.onerror = function() {
+                    if (toast) toast.style.display = 'none';
+                    if (typeof showToast === 'function') showToast('error', 'فشل في قراءة الملف من القرص.');
+                };
+
+                reader.onload = function(event) {
+                    if (toastStatus) toastStatus.textContent = '⚙️ الخطوة 2 من 2: جاري فك وبناء الكتل وتوسيطها في منتصف الشاشة...';
+
+                    try {
+                        var loader = new THREE.GLTFLoader();
+                        loader.parse(event.target.result, '', function(gltf) {
+                            clearCustomModel();
+                            var model = gltf.scene;
+                            currentCustomModel = model;
+
+                            model.traverse(function(child) {
+                                if (child.isMesh) {
+                                    child.castShadow = true;
+                                    child.receiveShadow = true;
+                                    if (child.material) {
+                                        child.material.side = THREE.DoubleSide;
+                                    }
+                                    registerBIM(child, {
+                                        elementId: child.name || 'BIM-ELEM-' + Math.floor(Math.random() * 9000),
+                                        category: 'عنصر مستورد من النموذج',
+                                        system: 'Architectural / MEP',
+                                        dimensions: 'أبعاد هندسية حقيقية',
+                                        clearance: 'جاهز للمعاينة',
+                                        status: 'تم الاستيراد بنجاح'
+                                    }, false);
+                                }
+                            });
+
+                            scene.add(model);
+                            fitCameraToObject(camera, model, controls);
+                            refreshStoreyDropdown();
+
+                            if (toast) toast.style.display = 'none';
+                            if (typeof showToast === 'function') showToast('success', '✅ تم تحميل النموذج بنجاح!');
+                            if (typeof updateStats === 'function') updateStats();
+                        }, function(err) {
+                            if (toast) toast.style.display = 'none';
+                            if (typeof showToast === 'function') showToast('error', 'خطأ في فك شفرة الـ GLB: ' + (err.message || 'الملف تالف أو غير مدعوم'));
+                        });
+                    } catch (e) {
+                        if (toast) toast.style.display = 'none';
+                        if (typeof showToast === 'function') showToast('error', 'استثناء برمجى: ' + e.message);
+                    }
+                };
+
+                reader.readAsArrayBuffer(file);
+            }
+            else {
                 if (toast) toast.style.display = 'none';
-                if (typeof showToast === 'function') showToast('error', '❌ فشل تهيئة مكتبة IFC');
+                if (typeof showToast === 'function') showToast('error', '❌ نوع الملف غير مدعوم (استخدم GLB/GLTF/IFC)');
             }
         }
 
-        function awaitInit(api, getPath) {
-            return new Promise(function(resolve, reject) {
-                try {
-                    api.Init(getPath, function() {
-                        resolve();
-                    });
-                } catch (err) {
-                    reject(err);
+        // ===== clearCustomModel: Full cleanup of previous model with memory disposal =====
+        function clearCustomModel() {
+            if (currentCustomModel) {
+                scene.remove(currentCustomModel);
+                currentCustomModel.traverse(function(child) {
+                    if (child.isMesh) {
+                        if (child.geometry) child.geometry.dispose();
+                        if (child.material) {
+                            if (Array.isArray(child.material)) {
+                                child.material.forEach(function(m) { m.dispose(); });
+                            } else {
+                                child.material.dispose();
+                            }
+                        }
+                    }
+                });
+                currentCustomModel = null;
+            }
+            ifcAllIds.clear();
+            ifcStoreysList = [];
+            ifcStoreyElementMap = {};
+            ifcCategoryMap = {};
+            BIM_CATEGORIES.forEach(function(cat) {
+                ifcCategoryMap[cat.id] = new Set();
+            });
+        }
+
+        // ===== registerBIM: Attach metadata to a BIM element mesh =====
+        function registerBIM(mesh, info, isLabElem) {
+            if (!mesh) return;
+            mesh.userData = mesh.userData || {};
+            mesh.userData.elementId = info.elementId;
+            mesh.userData.category = info.category;
+            mesh.userData.system = info.system;
+            mesh.userData.dimensions = info.dimensions;
+            mesh.userData.clearance = info.clearance;
+            mesh.userData.status = info.status;
+            mesh.userData.isLabElem = !!isLabElem;
+        }
+
+        // ===== indexIFCStructure: Index storeys and categories from IFC model =====
+        async function indexIFCStructure(model, loader) {
+            var modelID = model.modelID;
+            ifcAllIds.clear();
+            ifcStoreysList = [];
+            ifcStoreyElementMap = {};
+            ifcCategoryMap = {};
+            BIM_CATEGORIES.forEach(function(cat) {
+                ifcCategoryMap[cat.id] = new Set();
+            });
+
+            function getCategoryForType(typeStr) {
+                if (!typeStr) return 'other';
+                var t = String(typeStr).toUpperCase();
+                if (t.indexOf('DOOR') !== -1) return 'doors';
+                if (t.indexOf('WINDOW') !== -1) return 'windows';
+                if (t.indexOf('WALL') !== -1) return 'walls';
+                if (t.indexOf('SLAB') !== -1 || t.indexOf('ROOF') !== -1 || t.indexOf('COVERING') !== -1) return 'slabs';
+                if (t.indexOf('COLUMN') !== -1 || t.indexOf('BEAM') !== -1 || t.indexOf('MEMBER') !== -1 || t.indexOf('FOOTING') !== -1 || t.indexOf('PLATE') !== -1) return 'structure';
+                if (t.indexOf('FURNISHING') !== -1 || t.indexOf('FURNITURE') !== -1 || t.indexOf('EQUIPMENT') !== -1 || t.indexOf('SANITARY') !== -1) return 'equipment';
+                if (t.indexOf('PIPE') !== -1 || t.indexOf('FLOW') !== -1 || t.indexOf('VALVE') !== -1 || t.indexOf('TERMINAL') !== -1) return 'pipes';
+                if (t.indexOf('DUCT') !== -1 || t.indexOf('AIR') !== -1 || t.indexOf('DAMPER') !== -1 || t.indexOf('FAN') !== -1) return 'hvac';
+                if (t.indexOf('CABLE') !== -1 || t.indexOf('ELECTRICAL') !== -1 || t.indexOf('LIGHT') !== -1 || t.indexOf('OUTLET') !== -1 || t.indexOf('BOX') !== -1) return 'electrical';
+                if (t.indexOf('STAIR') !== -1 || t.indexOf('RAILING') !== -1 || t.indexOf('RAMP') !== -1 || t.indexOf('PROXY') !== -1) return 'other';
+                return 'other';
+            }
+
+            try {
+                var api = loader.ifcManager.state.api;
+                if (!api) return;
+
+                var allItems = await api.GetLineIDs(modelID);
+                if (!allItems) return;
+
+                for (var i = 0; i < allItems.length; i++) {
+                    var id = allItems[i];
+                    ifcAllIds.add(id);
+                    var typeName = '';
+                    try { typeName = api.GetLineType(modelID, id); } catch(e) {}
+                    var cat = getCategoryForType(typeName);
+                    ifcCategoryMap[cat].add(id);
+                }
+
+                var spatial = await loader.ifcManager.getSpatialStructure(modelID);
+                if (spatial) {
+                    function walkStorey(node, depth) {
+                        if (!node) return;
+                        if (node.expressID && node.children) {
+                            var count = 0;
+                            node.children.forEach(function(child) {
+                                if (child.expressID) count++;
+                            });
+                            ifcStoreysList.push({ id: node.expressID, name: node.name || ('طابق ' + (ifcStoreysList.length + 1)), count: count, depth: depth });
+                            node.children.forEach(function(child) { walkStorey(child, depth + 1); });
+                        }
+                    }
+                    walkStorey(spatial, 0);
+                }
+            } catch (e) {
+                console.error('indexIFCStructure error:', e);
+            }
+        }
+
+        // ===== buildIFCSubsets: Build pre-cached subsets for fast filtering =====
+        async function buildIFCSubsets(model, loader) {
+            if (!loader || !loader.ifcManager) return;
+            try {
+                var api = loader.ifcManager.state.api;
+                if (!api) return;
+
+                BIM_CATEGORIES.forEach(function(cat) {
+                    var ids = Array.from(ifcCategoryMap[cat.id]);
+                    if (ids.length > 0) {
+                        try {
+                            loader.ifcManager.createSubset({
+                                modelID: model.modelID,
+                                ids: ids,
+                                category: 'cat_' + cat.id,
+                                removePrevious: true
+                            });
+                        } catch(e) {}
+                    }
+                });
+            } catch (e) {
+                console.error('buildIFCSubsets error:', e);
+            }
+        }
+
+        // ===== applyFilters: Apply category visibility filters =====
+        function applyFilters() {
+            if (!currentCustomModel) return;
+            scene.traverse(function(obj) {
+                if (obj.isMesh && obj.userData.category) {
+                    var cat = obj.userData.category;
+                    var visible = categoryState[cat] !== undefined ? categoryState[cat] : true;
+                    obj.visible = visible;
                 }
             });
+        }
+
+        // ===== refreshStoreyDropdown: Refresh the storey filter dropdown =====
+        function refreshStoreyDropdown() {
+            var selectStoreyFilter = document.getElementById('select-storey-filter');
+            if (!selectStoreyFilter) return;
+            selectStoreyFilter.innerHTML = '<option value="all">🏢 عرض المبنى كاملاً (جميع الطوابق)</option>';
+            if (ifcStoreysList.length > 0) {
+                ifcStoreysList.forEach(function(s, idx) {
+                    var opt = document.createElement('option');
+                    opt.value = s.id;
+                    opt.innerText = '📍 ' + (s.name || ('طابق ' + (idx + 1))) + ' (' + s.count + ' عنصر)';
+                    selectStoreyFilter.appendChild(opt);
+                });
+            }
         }
 
         function runClashDetection() {
@@ -2179,19 +2431,25 @@
             });
 
             const dropOverlay = document.getElementById('drop-overlay');
-            document.addEventListener('dragover', function(e) {
-                e.preventDefault();
-                dropOverlay.style.display = 'flex';
+            window.addEventListener('dragenter', function(e) { e.preventDefault(); dropOverlay.style.display = 'flex'; });
+            window.addEventListener('dragover', function(e) { e.preventDefault(); });
+            window.addEventListener('dragleave', function(e) {
+                if (e.clientX <= 0 || e.clientY <= 0) {
+                    dropOverlay.style.display = 'none';
+                }
             });
-
-            document.addEventListener('dragleave', function(e) {
-                if (e.target === document) dropOverlay.style.display = 'none';
-            });
-
-            document.addEventListener('drop', function(e) {
+            window.addEventListener('drop', function(e) {
                 e.preventDefault();
                 dropOverlay.style.display = 'none';
-                if (e.dataTransfer.files[0]) loadModel(e.dataTransfer.files[0]);
+                if (e.dataTransfer && e.dataTransfer.files.length > 0) {
+                    var f = e.dataTransfer.files[0];
+                    var nameLower = f.name.toLowerCase();
+                    if (nameLower.endsWith('.glb') || nameLower.endsWith('.gltf') || nameLower.endsWith('.ifc')) {
+                        loadModel(f);
+                    } else {
+                        if (typeof showToast === 'function') showToast('error', 'يرجى سحب ملف بصيغة .GLB أو .GLTF أو .IFC');
+                    }
+                }
             });
 
             document.querySelectorAll('[id^="btn-close"]').forEach(btn => {
@@ -2357,12 +2615,8 @@
     }
 
     function centerModel() {
-        if (currentModel) {
-            const box = new THREE.Box3().setFromObject(currentModel);
-            const center = box.getCenter(new THREE.Vector3());
-            camera.position.set(center.x + 5, center.y + 5, center.z + 5);
-            controls.target.copy(center);
-            controls.update();
+        if (currentCustomModel) {
+            fitCameraToObject(camera, currentCustomModel, controls);
             showToast('success', '🎯 تم توسيط النموذج');
         } else {
             camera.position.set(5, 5, 5);
