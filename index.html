@@ -2669,14 +2669,17 @@
                             var wasmDir = 'https://unpkg.com/web-ifc@0.0.57/';
                             var wasmUrl = wasmDir + 'web-ifc.wasm';
 
+                            // Initialize WASM properly
+                            try {
+                                ifcLoader.ifcManager.setWasmPath(wasmDir);
+                            } catch(e) {}
+
                             if (ifcLoader.ifcManager.state && ifcLoader.ifcManager.state.api) {
                                 if (!ifcLoader.ifcManager.state.api.wasmModule) {
-await ifcLoader.ifcManager.state.api.Init(function(path) {
-                                    return wasmDir;
-                                });
+                                    await ifcLoader.ifcManager.state.api.Init(function() { return wasmDir; });
                                 }
-                            } else {
-                                ifcLoader.ifcManager.setWasmPath(wasmDir);
+                            } else if (typeof ifcLoader.ifcManager.init === 'function') {
+                                try { await ifcLoader.ifcManager.init(); } catch(e) {}
                             }
 
                             if (typeof ifcLoader.ifcManager.setOnProgress === 'function') {
