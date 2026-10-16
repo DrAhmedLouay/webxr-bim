@@ -1317,8 +1317,8 @@
             // Status indicator
             var statusDiv = document.createElement('div');
             statusDiv.id = 'init-status';
-            statusDiv.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:999999;background:rgba(56,189,248,0.9);color:#0b0f19;padding:8px 16px;border-radius:6px;font-weight:bold;font-size:0.9rem;';
-            statusDiv.textContent = '⏳ جاري تهيئة المشهد ثلاثي الأبعاد...';
+            statusDiv.style.cssText = 'position:fixed;top:10px;left:10px;z-index:999999;background:rgba(56,189,248,0.9);color:#0b0f19;padding:6px 12px;border-radius:6px;font-weight:bold;font-size:0.8rem;border:1px solid rgba(255,255,255,0.5);';
+            statusDiv.textContent = '⏳ جاري التهيئة...';
             document.body.appendChild(statusDiv);
 
             try {
@@ -1380,14 +1380,17 @@
                 renderer.domElement.addEventListener('mousemove', onCanvasMouseMove);
 
                 statusDiv.style.background = 'rgba(34,197,94,0.9)';
-                statusDiv.textContent = '✅ تم تهيئة المشهد ثلاثي الأبعاد بنجاح';
-                setTimeout(function() { statusDiv.style.display = 'none'; }, 2000);
+                statusDiv.textContent = '✅ المنصة جاهزة - scene: OK';
+                statusDiv.style.display = 'block';
 
                 console.log('✅ WebXR BIM Platform initialized');
             } catch (e) {
                 console.error('init() failed:', e);
                 statusDiv.style.background = 'rgba(239,68,68,0.9)';
                 statusDiv.textContent = '❌ فشل التهيئة: ' + (e.message || e);
+                statusDiv.style.display = 'block';
+                statusDiv.style.cursor = 'pointer';
+                statusDiv.onclick = function() { statusDiv.textContent = '⏳ جاري إعادة التهيئة...'; try { init(); } catch (e2) { statusDiv.textContent = '❌ فشل: ' + (e2.message || e2); } };
                 if (typeof showToast === 'function') {
                     showToast('error', 'فشل تهيئة المشهد ثلاثي الأبعاد: ' + (e.message || e));
                 }
