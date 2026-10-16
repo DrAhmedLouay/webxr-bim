@@ -1519,17 +1519,17 @@
                 var ifcLoader = new LoaderClass();
                 window.currentIFCLoader = ifcLoader;
 
-                var baseDir = window.location.href.split('?')[0].split('#')[0].replace(/\/[^\/]*$/, '/');
-                var wasmUrl = baseDir + 'web-ifc.wasm';
+                var wasmDir = 'https://unpkg.com/web-ifc@0.0.57/';
+                var wasmUrl = wasmDir + 'web-ifc.wasm';
                 console.log('WASM URL:', wasmUrl);
 
                 if (ifcLoader.ifcManager && ifcLoader.ifcManager.state && ifcLoader.ifcManager.state.api) {
                     if (!ifcLoader.ifcManager.state.api.wasmModule) {
                         if (toastStatus) toastStatus.textContent = '⚙️ جاري تحميل WASM...';
-                        awaitInit(ifcLoader.ifcManager.state.api, function(path) { return wasmUrl; });
+                        awaitInit(ifcLoader.ifcManager.state.api, function(path) { return wasmDir; });
                     }
                 } else if (typeof ifcLoader.ifcManager.setWasmPath === 'function') {
-                    ifcLoader.ifcManager.setWasmPath(baseDir);
+                    ifcLoader.ifcManager.setWasmPath(wasmDir);
                 }
 
                 if (typeof ifcLoader.ifcManager.setOnProgress === 'function') {
