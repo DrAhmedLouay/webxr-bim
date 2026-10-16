@@ -1592,6 +1592,180 @@
             mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
         }
 
+        function loadFile(file) {
+                var fileNameLower = file.name.toLowerCase();
+                var sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                
+                switchView('webxr');
+
+                toast.style.display = 'block';
+                toastError.style.display = 'none';
+                toastTitle.innerText = 'جاري معالجة وتوسيط الموديل في الفراغ...';
+                toastFileInfo.innerText = '📁 الملف: ' + file.name + ' (' + sizeMB + ' MB)';
+                toastStatus.innerText = '⏳ الخطوة 1 من 2: جاري قراءة الملف...';
+
+                // ==================== IFC Loading ====================
+                if (fileNameLower.endsWith('.ifc')) {
+                    toastStatus.innerText = '⏳ الخطوة 1 من 2: جاري قراءة ملف الـ IFC من القرص... 0%';
+
+                    var reader = new FileReader();
+                    reader.onprogress = function(e) {
+                        if (e.lengthComputable && e.total > 0) {
+                            var pct = Math.round((e.loaded / e.total) * 100);
+                            toastStatus.innerText = '⏳ الخطوة 1 من 2: قراءة الملف: ' + pct + '% (' + (e.loaded / (1024 * 1024)).toFixed(1) + ' / ' + sizeMB + ' MB)';
+                        }
+                    };
+
+                    reader.onload = async function(event) {
+                        var buffer = event.target.result;
+                        toastStatus.innerText = '⚙️ الخطوة 2 من 2: جاري تهيئة محرك WebAssembly الهندسي...';
+
+                        try {
+                            var LoaderClass = (window.IFCLoader && window.IFCLoader.IFCLoader) || window.IFCLoader;
+                            if (!LoaderClass) {
+                                throw new Error('محرك قراءة ملفات الـ IFC غير متوفر. تأكد من اتصال الإنترنت.');
+                            }
+                            var ifcLoader = new LoaderClass();
+                            currentIFCLoader = ifcLoader;
+
+                            var baseDir = window.location.href.split('?')[0].split('#')[0].replace(/\/[^\/]*$/, '/');
+                            var wasmUrl = baseDir + 'web-ifc.wasm';
+
+                            if (ifcLoader.ifcManager.state && ifcLoader.ifcManager.state.api) {
+                                if (!ifcLoader.ifcManager.state.api.wasmModule) {
+                                    await ifcLoader.ifcManager.state.api.Init(function(path) {
+                                        return wasmUrl;
+                                    });
+                                }
+                            } else {
+                                ifcLoader.ifcManager.setWasmPath(baseDir);
+                            }
+
+                            if (typeof ifcLoader.ifcManager.setOnProgress === 'function') {
+                                ifcLoader.ifcManager.setOnProgress(function(prog) {
+                                    if (prog && prog.total > 0) {
+                                        var p = Math.round((prog.loaded / prog.total) * 100);
+                                        toastStatus.innerText = '⚙️ جاري بناء كتل وعناصر الـ IFC: ' + p + '% (' + prog.loaded + ' / ' + prog.total + ')';
+                                    }
+                                });
+                            }
+
+                            toastStatus.innerText = '⚙️ جاري تحليل وهندسة مصفوفة الـ IFC ثلاثية الأبعاد... يرجى الانتظار';
+                            await new Promise(function(resolve) { setTimeout(resolve, 80); });
+
+                            var ifcModel = await ifcLoader.parse(buffer);
+
+                            clearCustomModel();
+                            webxrLabGroup.visible = false;
+                            currentCustomModel = ifcModel;
+                            scene.add(ifcModel);
+
+                            fitCameraToObject(camera, ifcModel, controls);
+
+                            toastStatus.innerText = '⚙️ جاري قراءة الهيكل الفضائي وفهرسة الطوابق والتخصصات...';
+                            await new Promise(function(resolve) { setTimeout(resolve, 30); });
+
+                            // Index Storeys and Categories from IFC
+                            await indexIFCStructure(ifcModel, ifcLoader);
+                            refreshStoreyDropdown();
+
+                            toastStatus.innerText = '⚙️ جاري تجهيز طبقات الفرز السريع (60 FPS)...';
+                            await new Promise(function(resolve) { setTimeout(resolve, 30); });
+
+                            // Build pre-cached subsets for categories and storeys (ensures 0ms toggle speed)
+                            await buildIFCSubsets(ifcModel, ifcLoader);
+                            applyFilters();
+
+                            registerBIM(ifcModel, {
+                                elementId: file.name,
+                                category: 'نموذج IFC متكامل (OpenBIM)',
+                                system: 'Architectural / Structural / MEP',
+                                dimensions: 'أبعاد ومناسيب هندسية أصلية',
+                                clearance: 'جاهز للفحص والتصفية الفراغية السريعة (60 FPS)',
+                                status: 'تم التوسيط وتجهيز طبقات الفرز الفوري بنجاح'
+                            }, false);
+
+                            toast.style.display = 'none';
+                            // Ensure filter panel does not obstruct 3D building view
+                            var fPanel = document.getElementById('bim-filter-panel');
+                            if (fPanel) fPanel.style.display = 'none';
+                            showPlatformNotification('✅ تم استيراد وتوسيط نموذج الـ IFC بنجاح! انقر على أي جزء بالمبنى لفتح بياناته وتسجيل التعارضات.');
+                        } catch (err) {
+                            console.error('IFC Error:', err);
+                            toastError.style.display = 'block';
+                            toastError.innerText = 'خطأ في معالجة ملف الـ IFC: ' + (err.message || err);
+                        }
+                    };
+
+                    reader.onerror = function() {
+                        toastError.style.display = 'block';
+                        toastError.innerText = 'فشل في قراءة الملف من القرص.';
+                    };
+
+                    reader.readAsArrayBuffer(file);
+                } 
+                // ==================== GLB / GLTF Loading ====================
+                else {
+                    var reader = new FileReader();
+                    reader.onprogress = function(e) {
+                        if (e.lengthComputable) {
+                            var p = Math.round((e.loaded / e.total) * 100);
+                            toastStatus.innerText = '⏳ قراءة الملف: ' + p + '% (' + (e.loaded / (1024 * 1024)).toFixed(1) + ' / ' + sizeMB + ' MB)';
+                        }
+                    };
+
+                    reader.onload = function(event) {
+                        toastStatus.innerText = '⚙️ الخطوة 2 من 2: جاري فك وبناء الكتل وتوسيطها في منتصف الشاشة...';
+
+                        try {
+                            gltfLoader.parse(event.target.result, '', function(gltf) {
+                                clearCustomModel();
+                                webxrLabGroup.visible = false;
+                                var model = gltf.scene;
+                                currentCustomModel = model;
+
+                                model.traverse(function(child) {
+                                    if (child.isMesh) {
+                                        child.castShadow = true;
+                                        child.receiveShadow = true;
+                                        if (child.material) {
+                                            child.material.side = THREE.DoubleSide;
+                                        }
+                                        registerBIM(child, {
+                                            elementId: child.name || 'BIM-ELEM-' + Math.floor(Math.random() * 9000),
+                                            category: 'عنصر مستورد من النموذج',
+                                            system: 'Architectural / MEP',
+                                            dimensions: 'أبعاد هندسية حقيقية',
+                                            clearance: 'جاهز للمعاينة',
+                                            status: 'تم الاستيراد بنجاح'
+                                        }, false);
+                                    }
+                                });
+
+                                scene.add(model);
+                                fitCameraToObject(camera, model, controls);
+                                refreshStoreyDropdown();
+
+                                toast.style.display = 'none';
+                            }, function(err) {
+                                toastError.style.display = 'block';
+                                toastError.innerText = 'خطأ في فك شفرة الـ GLB: ' + (err.message || 'الملف تالف أو غير مدعوم');
+                            });
+                        } catch (e) {
+                            toastError.style.display = 'block';
+                            toastError.innerText = 'استثناء برمجى: ' + e.message;
+                        }
+                    };
+
+                    reader.onerror = function() {
+                        toastError.style.display = 'block';
+                        toastError.innerText = 'فشل في قراءة الملف من القرص.';
+                    };
+
+                    reader.readAsArrayBuffer(file);
+                }
+            }
+
         function loadModel(file) {
             loadFile(file);
         }
