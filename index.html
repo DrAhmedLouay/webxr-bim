@@ -2669,18 +2669,50 @@
                             var wasmDir = 'https://unpkg.com/web-ifc@0.0.57/';
                             var wasmUrl = wasmDir + 'web-ifc.wasm';
 
-                            // Initialize WASM properly
-                            try {
-                                ifcLoader.ifcManager.setWasmPath(wasmDir);
-                            } catch(e) {}
+                            // Initialize WASM properly with polling
+                            await new Promise(function(resolve, reject) {
+                                try {
+                                    ifcLoader.ifcManager.setWasmPath(wasmDir);
+                                } catch(e) {}
 
-                            if (ifcLoader.ifcManager.state && ifcLoader.ifcManager.state.api) {
-                                if (!ifcLoader.ifcManager.state.api.wasmModule) {
-                                    await ifcLoader.ifcManager.state.api.Init(function() { return wasmDir; });
+                                var api = ifcLoader.ifcManager.state && ifcLoader.ifcManager.state.api;
+                                if (api && api.wasmModule) {
+                                    resolve();
+                                    return;
                                 }
-                            } else if (typeof ifcLoader.ifcManager.init === 'function') {
-                                try { await ifcLoader.ifcManager.init(); } catch(e) {}
-                            }
+
+                                if (api && typeof api.Init === 'function') {
+                                    api.Init(function() {
+                                        return wasmDir;
+                                    });
+                                } else if (typeof ifcLoader.ifcManager.init === 'function') {
+                                    ifcLoader.ifcManager.init().then(resolve).catch(reject);
+                                    return;
+                                } else {
+                                    resolve();
+                                    return;
+                                }
+
+                                // Poll for wasmModule to be ready (max 30 seconds)
+                                var attempts = 0;
+                                var maxAttempts = 300;
+                                var poll = function() {
+                                    attempts++;
+                                    if (api && api.wasmModule) {
+                                        resolve();
+                                        return;
+                                    }
+                                    if (attempts >= maxAttempts) {
+                                        reject(new Error('WASM module failed to load within 30 seconds'));
+                                        return;
+                                    }
+                                    setTimeout(poll, 100);
+                                };
+                                poll();
+                            }).catch(function(e) {
+                                console.error('WASM init error:', e);
+                                throw e;
+                            });
 
                             if (typeof ifcLoader.ifcManager.setOnProgress === 'function') {
                                 ifcLoader.ifcManager.setOnProgress(function(prog) {
