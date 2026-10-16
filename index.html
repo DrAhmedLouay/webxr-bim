@@ -1399,6 +1399,14 @@
 
     <!-- Main 3D Engine & BIM Inspection Logic -->
     <script>
+        // Global Three.js objects - declared here so they're accessible from loadFile and other functions
+        var scene = null;
+        var camera = null;
+        var renderer = null;
+        var controls = null;
+        raycaster = null;
+        mouse = null;
+
         window.addEventListener('DOMContentLoaded', function() {
             if (typeof THREE === 'undefined') {
                 alert('تنبيه: تعذر تحميل مكتبة Three.js. يرجى التأكد من اتصال الإنترنت ثم إعادة تحديث الصفحة.');
@@ -1408,14 +1416,14 @@
             // =====================================================================
             // 1. Scene, Camera, Renderer Setup (WebXR Ready)
             // =====================================================================
-            var container = document.getElementById('webgl-container');
-            var scene = new THREE.Scene();
+            container = document.getElementById('webgl-container');
+            scene = new THREE.Scene();
             scene.background = new THREE.Color(0x0b0f19);
 
-            var camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.05, 500000);
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.05, 500000);
             camera.position.set(0, 2.2, 5.8);
 
-            var renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.shadowMap.enabled = false; // Disabled for buttery-smooth 60FPS BIM navigation
@@ -1431,7 +1439,7 @@
                 document.body.appendChild(THREE.VRButton.createButton(renderer));
             }
 
-            var controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
             controls.dampingFactor = 0.08;
             controls.target.set(0, 1.8, 0);
@@ -2631,6 +2639,14 @@
             refreshStoreyDropdown();
 
             function loadFile(file) {
+                // Safety check: ensure Three.js scene is initialized
+                if (!scene || !camera || !renderer || !controls) {
+                    toastError.style.display = 'block';
+                    toastError.innerText = 'المشهد ثلاثي الأبعاد لم يتم تهيئته بعد. يرجى انتظار لحظة والمحاولة مرة أخرى.';
+                    toastStatus.innerText = '⏳ جاري تهيئة المشهد... يرجى الانتظار';
+                    console.error('Scene not initialized:', {scene: !!scene, camera: !!camera, renderer: !!renderer, controls: !!controls});
+                    return;
+                }
                 var fileNameLower = file.name.toLowerCase();
                 var sizeMB = (file.size / (1024 * 1024)).toFixed(2);
                 
