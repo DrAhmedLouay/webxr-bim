@@ -3317,6 +3317,8 @@
 
     // Expose globally
     window.measureAdvanced=measureAdvanced; window.reports=reports; window.projectManager=projectManager; window.gamify=gamify; window.telemetry=telemetry; window.collabAdvanced=collabAdvanced; window.clashAIEngine=clashAIEngine;
-    </script>
+    
+    <script>if(typeof init==="function"&&!window.__initDone){try{init();window.__initDone=true;}catch(e){console.error(e);}}</script>
+</script>
 </body>
 </html>
