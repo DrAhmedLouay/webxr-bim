@@ -1407,6 +1407,13 @@
         raycaster = null;
         mouse = null;
 
+        // Global error handler to catch silent JS failures
+        window.onerror = function(msg, url, line, col, error) {
+            console.error('GLOBAL JS ERROR:', msg, 'at', url + ':' + line + ':' + col);
+            if (error && error.stack) console.error(error.stack);
+            return true;
+        };
+
         function initScene() {
             if (typeof THREE === 'undefined') {
                 alert('تنبيه: تعذر تحميل مكتبة Three.js. يرجى التأكد من اتصال الإنترنت ثم إعادة تحديث الصفحة.');
