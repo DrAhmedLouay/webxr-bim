@@ -2150,7 +2150,6 @@
                     'admin': { password: 'admin123', role: 'Admin', name: '👨‍🏫 د. أحمد لؤي أحمد' },
                     'student': { password: 'student123', role: 'Student', name: '🎓 طالب معماري' }
                 };
-
                 if (username && password && validUsers[username] && validUsers[username].password === password) {
                     sessionUser.name = username;
                     sessionUser.role = validUsers[username].role;
@@ -2507,6 +2506,11 @@
                 if (e.target.closest('#floating-sidebar-toggle-right, #floating-sidebar-toggle-left')) return;
                 if (e.target.closest('.btn, #file-input')) return;
             });
+
+            // Ensure init() runs even if DOMContentLoaded already fired before this script loaded
+            if (typeof scene === 'undefined' || scene === null) {
+                try { init(); } catch (e) { console.error('Direct init() failed:', e); }
+            }
         });
     </script>
 
