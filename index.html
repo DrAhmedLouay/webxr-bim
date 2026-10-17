@@ -2713,7 +2713,7 @@
                             var buffer = event.target.result;
                             toastStatus.innerText = '⚙️ الخطوة 2 من 2: جاري تهيئة محرك WebAssembly الهندسي...';
 
-                        try {
+                            // removed extra unclosed try
                             var LoaderClass = (window.IFCLoader && window.IFCLoader.IFCLoader) || window.IFCLoader;
                             if (!LoaderClass) {
                                 throw new Error('محرك قراءة ملفات الـ IFC غير متوفر. تأكد من اتصال الإنترنت.');
@@ -4968,7 +4968,7 @@
             });
         });
 
-        } // Close initScene()
+
 
         // Initialize scene directly (script runs at end of body)
         try {
