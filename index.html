@@ -785,7 +785,9 @@
         }
 
 
-        /* Collaboration Panel */
+        /* ===================================================================== */
+        /* Additional Panels: Collaboration, Dashboard, Toast, Gamification */
+        /* ===================================================================== */
         #collaboration-panel {
             top: 72px;
             right: 18px;
@@ -800,8 +802,8 @@
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
             z-index: 101;
             display: none;
+            direction: rtl;
         }
-        /* Dashboard Panel */
         #dashboard-panel {
             top: 72px;
             right: 18px;
@@ -816,11 +818,22 @@
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
             z-index: 101;
             display: none;
+            direction: rtl;
         }
-        /* Toast */
+        #toast-container {
+            position: fixed;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: none;
+        }
         .toast {
             background: rgba(15, 23, 42, 0.94);
-            border: 1px solid rgba(255,255,255,0.1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 8px;
             padding: 10px 16px;
             color: #f1f5f9;
@@ -836,7 +849,39 @@
         .toast-error { border-left: 4px solid #f87171; }
         .toast-info { border-left: 4px solid #38bdf8; }
         .toast-warning { border-left: 4px solid #f59e0b; }
-        @keyframes slideDown { from { transform: translateX(-50%) translateY(-20px); opacity: 0; } to { transform: translateX(-50%) translateY(0); opacity: 1; } }
+        @keyframes slideDown {
+            from { transform: translateX(-50%) translateY(-20px); opacity: 0; }
+            to { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
+        #gamification-indicator {
+            margin-left: 10px;
+            padding: 4px 10px;
+            background: rgba(139, 92, 246, 0.2);
+            border: 1px solid rgba(139, 92, 246, 0.4);
+            border-radius: 20px;
+            color: #a78bfa;
+            font-size: 0.75rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        #quick-bypass-btn {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 9999999;
+            background: #22c55e;
+            color: #fff;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 0.8rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+
 </style>
 
     <!-- Standard Three.js r128 Core & Helpers -->
@@ -866,7 +911,11 @@
     <div id="login-portal-overlay">
         <div class="login-card">
             <div class="login-header">
-                <div class="login-logo">🥽 🏛️</div>
+                <div class="login-logo">🥽 🏛️
+
+    <button id="quick-bypass-btn" style="position: fixed; top: 10px; right: 10px; z-index: 9999999; background: #22c55e; color: #fff; border: none; padding: 8px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.8rem; box-shadow: 0 4px 12px rgba(0,0,0,0.4);">⚡ دخول مباشر (Admin)</button>
+
+</div>
                 <h2>منظومة مراجعة الـ BIM والواقع الافتراضي</h2>
                 <p>WebXR BIM Design Review & Coordination Platform</p>
                 <div class="login-academic-badge">
@@ -945,11 +994,9 @@
 
             <!-- BIM Filters & Storeys Button -->
             <button class="btn btn-filter" id="btn-toggle-filters-panel" title="فصل الطوابق وتصفية عناصر المبنى والتأسيسات وضبط الإضاءة">🎛️ تصفية العناصر والإضاءة</button>
-            <button class="btn btn-upload" id="btn-trigger-upload" onclick="window.triggerUpload && window.triggerUpload()">📂 استيراد نموذج آخر (GLB / IFC)</button>📂 استيراد نموذج آخر (GLB / IFC)</button>
+            <button class="btn btn-upload" id="btn-trigger-upload">📂 استيراد نموذج آخر (GLB / IFC)</button>
             <button class="btn btn-center" id="btn-center-model" title="إعادة الكاميرا وتوسيط الموديل في منتصف الشاشة">🎯 وضع المجسم في المنتصف</button>
             <button class="btn btn-clash-view" id="btn-view-clashes" title="مشاهدة واستعراض التعارضات في المشهد الثلاثي الأبعاد">⚠️ مشاهدة التعارضات</button>
-            <button class="btn btn-outline" id="btn-collaboration" title="لوحة التعاون المتعدد المستخدمين والمحادثة الفورية">👥 التعاون</button>
-            <button class="btn btn-outline" id="btn-dashboard" title="لوحة التحكم والتحليلات والإحصائيات">📈 لوحة التحكم</button>
             <button class="btn btn-outline" id="btn-export-bcf" title="تسجيل وتصدير تقرير الانحرافات بتنسيق BCF المفتوح">📋 تسجيل الانحراف (BCF)</button>
             <button class="btn btn-outline" id="btn-import-bcf-header" title="استيراد وتغذية قضايا وملفات BCF الميدانية">📥 دعم BCF</button>
             <button class="btn btn-outline" id="btn-calibrate-header" style="border-color: rgba(56, 189, 248, 0.5); color: #38bdf8;" title="إجراء المعايرة المكانية وضبط الانزياح بمقياس 1:1">⚙️ معايرة</button>
@@ -972,6 +1019,60 @@
             </div>
         </div>
     </div>
+
+    <!-- Additional Panels: Collaboration, Dashboard, Toast -->
+    <div id="collaboration-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 8px; margin-bottom: 12px;">
+            <h3 style="color: #38bdf8; font-size: 0.95rem; font-weight: bold; margin: 0; display: flex; align-items: center; gap: 6px;">
+                <span>👥 التعاون المتعدد المستخدمين</span>
+            </h3>
+            <button id="btn-close-collab-panel" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer; padding: 2px 6px;">✕</button>
+        </div>
+        <div style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 10px;">مراقبة الحضور والمحادثة الفورية مع أعضاء الفريق.</div>
+        <div id="users-list" style="margin-bottom: 12px;"></div>
+        <div style="border: 1px solid rgba(56,189,248,0.2); border-radius: 8px; background: rgba(15,23,42,0.6); height: 200px; overflow-y: auto; padding: 8px; margin-bottom: 10px;" id="chat-messages"></div>
+        <div style="display: flex; gap: 6px;">
+            <input type="text" id="chat-input" placeholder="أكتب رسالة..." style="flex: 1; background: #0f172a; border: 1px solid rgba(56,189,248,0.3); border-radius: 6px; padding: 6px 10px; color: #f1f5f9; font-size: 0.8rem;">
+            <button id="btn-send-chat" style="background: #38bdf8; border: none; color: #0b0f19; border-radius: 6px; padding: 6px 14px; font-weight: bold; font-size: 0.8rem; cursor: pointer;">إرسال</button>
+        </div>
+        <div style="margin-top: 8px; font-size: 0.72rem; color: #64748b;">📍 موقع المؤشر الخاص بك يتم مشاركته مع الفريق تلقائياً.</div>
+    </div>
+
+    <div id="dashboard-panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 8px; margin-bottom: 12px;">
+            <h3 style="color: #22c55e; font-size: 0.95rem; font-weight: bold; margin: 0; display: flex; align-items: center; gap: 6px;">
+                <span>📈 لوحة التحكم والتحليل</span>
+            </h3>
+            <button id="btn-close-dashboard-panel" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer; padding: 2px 6px;">✕</button>
+        </div>
+        <div class="tel-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+            <div class="tel-card" style="background: rgba(15,23,42,0.5); border: 1px solid rgba(56,189,248,0.2); border-radius: 8px; padding: 10px;">
+                <div class="tel-lbl" style="font-size: 0.7rem; color: #94a3b8;">العناصر المحملة:</div>
+                <div class="tel-val" id="stat-elements" style="color: #38bdf8; font-weight: bold; font-size: 1.1rem;">0</div>
+            </div>
+            <div class="tel-card" style="background: rgba(15,23,42,0.5); border: 1px solid rgba(34,197,94,0.2); border-radius: 8px; padding: 10px;">
+                <div class="tel-lbl" style="font-size: 0.7rem; color: #94a3b8;">التعارضات المكتشفة:</div>
+                <div class="tel-val" id="stat-clashes" style="color: #f87171; font-weight: bold; font-size: 1.1rem;">0</div>
+            </div>
+            <div class="tel-card" style="background: rgba(15,23,42,0.5); border: 1px solid rgba(249,115,22,0.2); border-radius: 8px; padding: 10px;">
+                <div class="tel-lbl" style="font-size: 0.7rem; color: #94a3b8;">الطوابق المفهرسة:</div>
+                <div class="tel-val" id="stat-storeys" style="color: #f59e0b; font-weight: bold; font-size: 1.1rem;">0</div>
+            </div>
+            <div class="tel-card" style="background: rgba(15,23,42,0.5); border: 1px solid rgba(139,92,246,0.2); border-radius: 8px; padding: 10px;">
+                <div class="tel-lbl" style="font-size: 0.7rem; color: #94a3b8;">حالة النظام:</div>
+                <div class="tel-val" id="stat-status" style="color: #22c55e; font-weight: bold; font-size: 0.9rem;">مُنشط</div>
+            </div>
+        </div>
+        <div style="display: flex; gap: 6px; margin-bottom: 10px;">
+            <button id="btn-export-dashboard-json" style="flex: 1; background: #38bdf8; border: none; color: #0b0f19; border-radius: 6px; padding: 6px 10px; font-weight: bold; font-size: 0.8rem; cursor: pointer;">📥 تصدير JSON</button>
+            <button id="btn-export-benchmark" style="flex: 1; background: #22c55e; border: none; color: #0b0f19; border-radius: 6px; padding: 6px 10px; font-weight: bold; font-size: 0.8rem; cursor: pointer;">📊 تقرير الأداء</button>
+        </div>
+        <div style="margin-top: 8px; font-size: 0.72rem; color: #64748b; line-height: 1.4;">📊 تحليلات الأداء والتعارضات والعناصر المعمارية والـ MEP في الوقت الفعلي.</div>
+    </div>
+
+    <div id="toast-container"></div>
+
+
 
     <!-- Floating UI Dock (Active when Header Bar is hidden or for quick toggles) -->
     <div id="floating-ui-dock">
@@ -1340,109 +1441,27 @@
         <div style="margin-top: 8px; padding-top: 7px; border-top: 1px solid rgba(255,255,255,0.15); color: #7dd3fc; font-size: 0.74rem; font-weight: 500;">
             🔬 هذه المنصة قيد التطوير لاغراض بحثية ، وتم تطويرها من قبل المهندس المعماري الدكتور احمد لؤي احمد
         </div>
-
-    <!-- Collaboration Panel (Multi-user) -->
-    <div id="collaboration-panel" class="sidebar-right-panel">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 8px; margin-bottom: 12px;">
-            <h3 style="color: #38bdf8; font-size: 0.95rem; font-weight: bold; margin: 0; display: flex; align-items: center; gap: 6px;">
-                <span>👥 التعاون المتعدد المستخدمين</span>
-            </h3>
-            <button id="btn-close-collab-panel" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer; padding: 2px 6px;">✕</button>
-        </div>
-        <div style="font-size: 0.75rem; color: #94a3b8; margin-bottom: 10px;">مراقبة الحضور والمحادثة الفورية مع أعضاء الفريق.</div>
-        <div id="users-list" style="margin-bottom: 12px;"></div>
-        <div style="border: 1px solid rgba(56,189,248,0.2); border-radius: 8px; background: rgba(15,23,42,0.6); height: 200px; overflow-y: auto; padding: 8px; margin-bottom: 10px;" id="chat-messages"></div>
-        <div style="display: flex; gap: 6px;">
-            <input type="text" id="chat-input" placeholder="أكتب رسالة..." style="flex: 1; background: #0f172a; border: 1px solid rgba(56,189,248,0.3); border-radius: 6px; padding: 6px 10px; color: #f1f5f9; font-size: 0.8rem;">
-            <button id="btn-send-chat" style="background: #38bdf8; border: none; color: #0b0f19; border-radius: 6px; padding: 6px 14px; font-weight: bold; font-size: 0.8rem; cursor: pointer;">إرسال</button>
-        </div>
-        <div style="margin-top: 8px; font-size: 0.72rem; color: #64748b;">📍 موقع المؤشر الخاص بك يتم مشاركته مع الفريق تلقائياً.</div>
-    </div>
-
-    <!-- Dashboard / Analytics Panel -->
-    <div id="dashboard-panel" class="sidebar-right-panel">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 8px; margin-bottom: 12px;">
-            <h3 style="color: #22c55e; font-size: 0.95rem; font-weight: bold; margin: 0; display: flex; align-items: center; gap: 6px;">
-                <span>📈 لوحة التحكم والتحليل</span>
-            </h3>
-            <button id="btn-close-dashboard-panel" style="background: transparent; border: none; color: #94a3b8; font-size: 1.1rem; cursor: pointer; padding: 2px 6px;">✕</button>
-        </div>
-        <div class="tel-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
-            <div class="tel-card" style="background: rgba(15,23,42,0.5); border: 1px solid rgba(56,189,248,0.2); border-radius: 8px; padding: 10px;">
-                <div class="tel-lbl" style="font-size: 0.7rem; color: #94a3b8;">العناصر المحملة:</div>
-                <div class="tel-val" id="stat-elements" style="color: #38bdf8; font-weight: bold; font-size: 1.1rem;">0</div>
-            </div>
-            <div class="tel-card" style="background: rgba(15,23,42,0.5); border: 1px solid rgba(34,197,94,0.2); border-radius: 8px; padding: 10px;">
-                <div class="tel-lbl" style="font-size: 0.7rem; color: #94a3b8;">التعارضات المكتشفة:</div>
-                <div class="tel-val" id="stat-clashes" style="color: #f87171; font-weight: bold; font-size: 1.1rem;">0</div>
-            </div>
-            <div class="tel-card" style="background: rgba(15,23,42,0.5); border: 1px solid rgba(249,115,22,0.2); border-radius: 8px; padding: 10px;">
-                <div class="tel-lbl" style="font-size: 0.7rem; color: #94a3b8;">الطوابق المفهرسة:</div>
-                <div class="tel-val" id="stat-storeys" style="color: #f59e0b; font-weight: bold; font-size: 1.1rem;">0</div>
-            </div>
-            <div class="tel-card" style="background: rgba(15,23,42,0.5); border: 1px solid rgba(139,92,246,0.2); border-radius: 8px; padding: 10px;">
-                <div class="tel-lbl" style="font-size: 0.7rem; color: #94a3b8;">حالة النظام:</div>
-                <div class="tel-val" id="stat-status" style="color: #22c55e; font-weight: bold; font-size: 0.9rem;">مُنشط</div>
-            </div>
-        </div>
-        <div style="display: flex; gap: 6px; margin-bottom: 10px;">
-            <button id="btn-export-dashboard-json" style="flex: 1; background: #38bdf8; border: none; color: #0b0f19; border-radius: 6px; padding: 6px 10px; font-weight: bold; font-size: 0.8rem; cursor: pointer;">📥 تصدير JSON</button>
-            <button id="btn-export-benchmark" style="flex: 1; background: #22c55e; border: none; color: #0b0f19; border-radius: 6px; padding: 6px 10px; font-weight: bold; font-size: 0.8rem; cursor: pointer;">📊 تقرير الأداء</button>
-        </div>
-        <div style="margin-top: 8px; font-size: 0.72rem; color: #64748b; line-height: 1.4;">📊 تحليلات الأداء والتعارضات والعناصر المعمارية والـ MEP في الوقت الفعلي.</div>
-    </div>
-
-    <!-- Toast Notification Container -->
-    <div id="toast-container" style="position:fixed;top:100px;left:50%;transform:translateX(-50%);z-index:10000;display:flex;flex-direction:column;gap:8px;pointer-events:none;"></div>
-
     </div>
 
     <!-- Main 3D Engine & BIM Inspection Logic -->
     <script>
-        // Global Three.js objects - declared here so they're accessible from loadFile and other functions
-        var scene = null;
-        var camera = null;
-        var renderer = null;
-        var controls = null;
-        var raycaster = null;
-        var mouse = null;
-        var fileInput = null;
-        var currentIFCLoader = null;
-        var currentCustomModel = null;
-
-        // Global error handler
-        window.onerror = function(msg, url, line, col, error) {
-            console.error('GLOBAL JS ERROR:', msg, 'at', url + ':' + line + ':' + col);
-            if (error && error.stack) console.error(error.stack);
-            return false; // Don't suppress, let it show in console
-        };
-
-        function initScene() {
-            console.log('initScene() started');
+        window.addEventListener('DOMContentLoaded', function() {
             if (typeof THREE === 'undefined') {
                 alert('تنبيه: تعذر تحميل مكتبة Three.js. يرجى التأكد من اتصال الإنترنت ثم إعادة تحديث الصفحة.');
                 return;
             }
-            console.log('Three.js version:', THREE.REVISION);
 
             // =====================================================================
             // 1. Scene, Camera, Renderer Setup (WebXR Ready)
             // =====================================================================
-            console.log('Getting container...');
-            container = document.getElementById('webgl-container');
-            console.log('Container:', !!container, container ? 'found' : 'MISSING!');
-            if (!container) {
-                console.error('CRITICAL: webgl-container element not found in DOM!');
-                return;
-            }
-            scene = new THREE.Scene();
+            var container = document.getElementById('webgl-container');
+            var scene = new THREE.Scene();
             scene.background = new THREE.Color(0x0b0f19);
-            console.log('Scene created:', !!scene);
 
-            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.05, 500000);
+            var camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.05, 500000);
             camera.position.set(0, 2.2, 5.8);
 
-            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+            var renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.shadowMap.enabled = false; // Disabled for buttery-smooth 60FPS BIM navigation
@@ -1458,7 +1477,7 @@
                 document.body.appendChild(THREE.VRButton.createButton(renderer));
             }
 
-            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            var controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
             controls.dampingFactor = 0.08;
             controls.target.set(0, 1.8, 0);
@@ -2574,7 +2593,7 @@
                 }, 3800);
             }
 
-            fileInput = document.getElementById('file-input');
+            var fileInput = document.getElementById('file-input');
             var dropOverlay = document.getElementById('drop-overlay');
             var toast = document.getElementById('loading-toast');
             var toastTitle = document.getElementById('toast-title');
@@ -2582,39 +2601,16 @@
             var toastStatus = document.getElementById('toast-status');
             var toastError = document.getElementById('toast-error');
 
-            window.triggerUpload = function() {
-                console.log('window.triggerUpload called');
-                var fi = document.getElementById('file-input');
-                if (!fi) {
-                    console.error('file-input element not found in DOM!');
-                    alert('عنصر إدخال الملفات غير موجود.');
-                    return;
+            function triggerUpload() {
+                fileInput.click();
+            }
+            document.getElementById('btn-trigger-upload').addEventListener('click', triggerUpload);
+
+            fileInput.addEventListener('change', function(e) {
+                if (e.target.files.length > 0) {
+                    loadFile(e.target.files[0]);
                 }
-                console.log('Triggering fileInput click...');
-                fi.click();
-            };
-
-            var btnUpload = document.getElementById('btn-trigger-upload');
-            if (btnUpload) {
-                btnUpload.onclick = window.triggerUpload;
-                btnUpload.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    window.triggerUpload();
-                });
-                console.log('Upload button wired successfully');
-            } else {
-                console.error('btn-trigger-upload not found in DOM!');
-            }
-
-            if (fileInput) {
-                fileInput.addEventListener('change', function(e) {
-                    if (e.target.files.length > 0) {
-                        loadFile(e.target.files[0]);
-                    }
-                });
-            } else {
-                console.error('fileInput is null at change listener setup!');
-            }
+            });
 
             function clearCustomModel() {
                 if (typeof clearCurrentSelectionHighlight === 'function') clearCurrentSelectionHighlight();
@@ -2681,15 +2677,6 @@
             refreshStoreyDropdown();
 
             function loadFile(file) {
-                console.log('loadFile called with:', file.name);
-                // Safety check: ensure Three.js scene is initialized
-                if (!scene || !camera || !renderer || !controls) {
-                    toastError.style.display = 'block';
-                    toastError.innerText = 'المشهد ثلاثي الأبعاد لم يتم تهيئته بعد. يرجى انتظار لحظة والمحاولة مرة أخرى.';
-                    toastStatus.innerText = '⏳ جاري تهيئة المشهد... يرجى الانتظار';
-                    console.error('Scene not initialized:', {scene: !!scene, camera: !!camera, renderer: !!renderer, controls: !!controls});
-                    return;
-                }
                 var fileNameLower = file.name.toLowerCase();
                 var sizeMB = (file.size / (1024 * 1024)).toFixed(2);
                 
@@ -2714,11 +2701,10 @@
                     };
 
                     reader.onload = async function(event) {
-                        try {
-                            var buffer = event.target.result;
-                            toastStatus.innerText = '⚙️ الخطوة 2 من 2: جاري تهيئة محرك WebAssembly الهندسي...';
+                        var buffer = event.target.result;
+                        toastStatus.innerText = '⚙️ الخطوة 2 من 2: جاري تهيئة محرك WebAssembly الهندسي...';
 
-                            // removed extra unclosed try
+                        try {
                             var LoaderClass = (window.IFCLoader && window.IFCLoader.IFCLoader) || window.IFCLoader;
                             if (!LoaderClass) {
                                 throw new Error('محرك قراءة ملفات الـ IFC غير متوفر. تأكد من اتصال الإنترنت.');
@@ -2726,53 +2712,18 @@
                             var ifcLoader = new LoaderClass();
                             currentIFCLoader = ifcLoader;
 
-                            var wasmDir = 'https://unpkg.com/web-ifc@0.0.57/';
-                            console.log('IFC Loader available:', !!ifcLoader);
-                            console.log('IFC ifcManager available:', !!ifcLoader.ifcManager);
-                            try {
-                                ifcLoader.ifcManager.setWasmPath(wasmDir);
-                                console.log('WASM path set to:', wasmDir);
-                            } catch(e) {
-                                console.error('setWasmPath error:', e);
-                                toastError.style.display = 'block';
-                                toastError.innerText = 'خطأ في تعيين مسار WASM: ' + (e.message || e);
-                                throw e;
-                            }
+                            var baseDir = window.location.href.split('?')[0].split('#')[0].replace(/\/[^\/]*$/, '/');
+                            var wasmUrl = baseDir + 'web-ifc.wasm';
 
-                            // Explicit WASM Init with retry
-                            await new Promise(function(resolve, reject) {
-                                var api = ifcLoader.ifcManager.state && ifcLoader.ifcManager.state.api;
-                                if (!api || typeof api.Init !== 'function') {
-                                    resolve(); // Let parse() handle init internally
-                                    return;
+                            if (ifcLoader.ifcManager.state && ifcLoader.ifcManager.state.api) {
+                                if (!ifcLoader.ifcManager.state.api.wasmModule) {
+                                    await ifcLoader.ifcManager.state.api.Init(function(path) {
+                                        return wasmUrl;
+                                    });
                                 }
-                                var attempts = 0;
-                                var tryInit = function() {
-                                    attempts++;
-                                    try {
-                                        // Try signature: Init(successCallback, errorCallback, wasmUrl)
-                                        api.Init(
-                                            function() { resolve(); },
-                                            function(err) { reject(err || new Error('Init failed')); },
-                                            wasmDir + 'web-ifc.wasm'
-                                        );
-                                    } catch(e) {
-                                        try {
-                                            // Try signature: Init(wasmUrl, successCallback, errorCallback)
-                                            api.Init(wasmDir + 'web-ifc.wasm', function() { resolve(); }, function(err) { reject(err || new Error('Init failed')); });
-                                        } catch(e2) {
-                                            if (attempts >= 3) {
-                                                resolve(); // Give up and let parse() handle it
-                                            } else {
-                                                setTimeout(tryInit, 500);
-                                            }
-                                        }
-                                    }
-                                };
-                                tryInit();
-                                // Timeout fallback
-                                setTimeout(function() { resolve(); }, 5000);
-                            }).catch(function() {});
+                            } else {
+                                ifcLoader.ifcManager.setWasmPath(baseDir);
+                            }
 
                             if (typeof ifcLoader.ifcManager.setOnProgress === 'function') {
                                 ifcLoader.ifcManager.setOnProgress(function(prog) {
@@ -2784,47 +2735,39 @@
                             }
 
                             toastStatus.innerText = '⚙️ جاري تحليل وهندسة مصفوفة الـ IFC ثلاثية الأبعاد... يرجى الانتظار';
-                            console.log('Starting IFC parse...');
-                            try {
-                                await new Promise(function(resolve) { setTimeout(resolve, 80); });
-                                console.log('Calling ifcLoader.parse...');
-                                var ifcModel = await ifcLoader.parse(buffer);
-                                console.log('IFC parse completed, model:', !!ifcModel, 'modelID:', ifcModel ? ifcModel.modelID : 'N/A');
-                                
-                                clearCustomModel();
-                                webxrLabGroup.visible = false;
-                                currentCustomModel = ifcModel;
-                                scene.add(ifcModel);
+                            await new Promise(function(resolve) { setTimeout(resolve, 80); });
 
-                                fitCameraToObject(camera, ifcModel, controls);
+                            var ifcModel = await ifcLoader.parse(buffer);
 
-                                toastStatus.innerText = '⚙️ جاري قراءة الهيكل الفضائي وفهرسة الطوابق والتخصصات...';
-                                await new Promise(function(resolve) { setTimeout(resolve, 30); });
+                            clearCustomModel();
+                            webxrLabGroup.visible = false;
+                            currentCustomModel = ifcModel;
+                            scene.add(ifcModel);
 
-                                // Index Storeys and Categories from IFC
-                                await indexIFCStructure(ifcModel, ifcLoader);
-                                refreshStoreyDropdown();
+                            fitCameraToObject(camera, ifcModel, controls);
 
-                                toastStatus.innerText = '⚙️ جاري تجهيز طبقات الفرز السريع (60 FPS)...';
-                                await new Promise(function(resolve) { setTimeout(resolve, 30); });
+                            toastStatus.innerText = '⚙️ جاري قراءة الهيكل الفضائي وفهرسة الطوابق والتخصصات...';
+                            await new Promise(function(resolve) { setTimeout(resolve, 30); });
 
-                                // Build pre-cached subsets for categories and storeys (ensures 0ms toggle speed)
-                                await buildIFCSubsets(ifcModel, ifcLoader);
-                                applyFilters();
+                            // Index Storeys and Categories from IFC
+                            await indexIFCStructure(ifcModel, ifcLoader);
+                            refreshStoreyDropdown();
 
-                                registerBIM(ifcModel, {
-                                    elementId: file.name,
-                                    category: 'نموذج IFC متكامل (OpenBIM)',
-                                    system: 'Architectural / Structural / MEP',
-                                    dimensions: 'أبعاد ومناسيب هندسية أصلية',
-                                    clearance: 'جاهز للفحص والتصفية الفراغية السريعة (60 FPS)',
-                                    status: 'تم التوسيط وتجهيز طبقات الفرز الفوري بنجاح'
-                                }, false);
-                            } catch (parseErr) {
-                                console.error('IFC parse error:', parseErr);
-                                console.error('IFC parse error stack:', parseErr.stack);
-                                throw parseErr;
-                            }
+                            toastStatus.innerText = '⚙️ جاري تجهيز طبقات الفرز السريع (60 FPS)...';
+                            await new Promise(function(resolve) { setTimeout(resolve, 30); });
+
+                            // Build pre-cached subsets for categories and storeys (ensures 0ms toggle speed)
+                            await buildIFCSubsets(ifcModel, ifcLoader);
+                            applyFilters();
+
+                            registerBIM(ifcModel, {
+                                elementId: file.name,
+                                category: 'نموذج IFC متكامل (OpenBIM)',
+                                system: 'Architectural / Structural / MEP',
+                                dimensions: 'أبعاد ومناسيب هندسية أصلية',
+                                clearance: 'جاهز للفحص والتصفية الفراغية السريعة (60 FPS)',
+                                status: 'تم التوسيط وتجهيز طبقات الفرز الفوري بنجاح'
+                            }, false);
 
                             toast.style.display = 'none';
                             // Ensure filter panel does not obstruct 3D building view
@@ -2832,15 +2775,9 @@
                             if (fPanel) fPanel.style.display = 'none';
                             showPlatformNotification('✅ تم استيراد وتوسيط نموذج الـ IFC بنجاح! انقر على أي جزء بالمبنى لفتح بياناته وتسجيل التعارضات.');
                         } catch (err) {
-                            console.error('=== IFC ERROR DETAILS ===');
-                            console.error('Error:', err);
-                            console.error('Stack:', err.stack);
-                            console.error('Name:', err.name);
-                            console.error('Message:', err.message);
-                            console.error('=== END IFC ERROR ===');
+                            console.error('IFC Error:', err);
                             toastError.style.display = 'block';
                             toastError.innerText = 'خطأ في معالجة ملف الـ IFC: ' + (err.message || err);
-                            toastStatus.innerText = '❌ فشل التحميل - راجع وحدة التحكم (F12 → Console)';
                         }
                     };
 
@@ -4971,20 +4908,223 @@
                     }
                 }
             });
-        });
+        
+            // =====================================================================
+            // Additional Features: Collaboration, Dashboard, Gamification, Toast, PDF Export
+            // =====================================================================
+            
+            // Toast System
+            window.__toastId = 0;
+            function showToast(type, message, duration = 4000) {
+                const container = document.getElementById('toast-container');
+                if (!container) return;
+                const id = 'toast-' + (++window.__toastId);
+                const el = document.createElement('div');
+                el.id = id;
+                el.className = 'toast toast-' + type;
+                const icons = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
+                el.innerHTML = `<span style="font-size:1.2rem;">${icons[type] || 'ℹ️'}</span><span>${message}</span>`;
+                container.appendChild(el);
+                setTimeout(() => {
+                    el.style.opacity = '0';
+                    setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 300);
+                }, duration);
+            }
 
+            // Gamification System
+            window.gamify = {
+                score: 0,
+                badges: [],
+                checkBadges: function() {
+                    const elements = parseInt(document.getElementById('stat-elements')?.textContent || '0');
+                    const clashes = parseInt(document.getElementById('stat-clashes')?.textContent || '0');
+                    if (elements > 0 && !this.badges.includes('first_model')) {
+                        this.badges.push('first_model');
+                        this.score += 100;
+                        showToast('success', '🏆 شارة: أول نموذج تم تحميله (+100 نقطة)');
+                    }
+                    if (clashes > 0 && !this.badges.includes('clash_hunter')) {
+                        this.badges.push('clash_hunter');
+                        this.score += 50;
+                        showToast('warning', '⚠️ شارة: صائد التعارضات (+50 نقطة)');
+                    }
+                },
+                UI: function() {
+                    const dock = document.getElementById('floating-ui-dock');
+                    if (dock && !document.getElementById('gamification-indicator')) {
+                        const g = document.createElement('div');
+                        g.id = 'gamification-indicator';
+                        g.style.cssText = 'margin-left:10px;padding:4px 10px;background:rgba(139,92,246,0.2);border:1px solid rgba(139,92,246,0.4);border-radius:20px;color:#a78bfa;font-size:0.75rem;font-weight:bold;display:flex;align-items:center;gap:6px;';
+                        g.innerHTML = '🎮 النقاط: <span id="gamify-score">0</span>';
+                        dock.appendChild(g);
+                    }
+                    document.getElementById('gamify-score').textContent = this.score;
+                }
+            };
 
+            // PDF Report Export
+            function exportPDFReport() {
+                try {
+                    const { jsPDF } = window.jspdf || {};
+                    if (!jsPDF) {
+                        showToast('warning', 'مكتبة PDF غير متاحة حالياً');
+                        return;
+                    }
+                    const doc = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
+                    let y = 40;
+                    doc.setFontSize(18);
+                    doc.setTextColor(34, 197, 94);
+                    doc.text('تقرير منصة WebXR BIM', 40, y);
+                    y += 20;
+                    doc.setFontSize(10);
+                    doc.setTextColor(100, 116, 139);
+                    doc.text('تاريخ الإنشاء: ' + new Date().toLocaleString('ar-SA'), 40, y);
+                    y += 20;
+                    doc.setFontSize(12);
+                    doc.setTextColor(248, 113, 113);
+                    doc.text('الإحصائيات:', 40, y);
+                    y += 15;
+                    const stats = [
+                        'العناصر المحملة: ' + (document.getElementById('stat-elements')?.textContent || '0'),
+                        'التعارضات المكتشفة: ' + (document.getElementById('stat-clashes')?.textContent || '0'),
+                        'الطوابق المفهرسة: ' + (document.getElementById('stat-storeys')?.textContent || '0'),
+                        'الشارات المحققة: ' + window.gamify.badges.length,
+                        'النقاط الإجمالية: ' + window.gamify.score
+                    ];
+                    stats.forEach(function(s) {
+                        doc.text('• ' + s, 40, y);
+                        y += 12;
+                    });
+                    doc.save('webxr-bim-report.pdf');
+                    showToast('success', '📄 تم تصدير تقرير PDF');
+                } catch(e) {
+                    showToast('error', 'فشل تصدير PDF: ' + (e.message || e));
+                }
+            }
 
-        // Initialize scene directly (script runs at end of body)
-        try {
-            console.log('About to call initScene()...');
-            initScene();
-            console.log('initScene() completed successfully');
-            console.log('Three.js globals:', {scene: !!scene, camera: !!camera, renderer: !!renderer, controls: !!controls});
-        } catch(e) {
-            console.error('initScene() failed:', e);
-            console.error(e.stack);
-        }
+            // Wire up new panel buttons
+            // Collaboration Panel
+            const btnCollab = document.getElementById('btn-collaboration');
+            const btnCloseCollab = document.getElementById('btn-close-collab-panel');
+            const collabPanel = document.getElementById('collaboration-panel');
+            const btnSendChat = document.getElementById('btn-send-chat');
+            const chatInput = document.getElementById('chat-input');
+            const chatMessages = document.getElementById('chat-messages');
+
+            if (btnCollab) btnCollab.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (collabPanel) collabPanel.style.display = collabPanel.style.display === 'block' ? 'none' : 'block';
+                if (document.getElementById('dashboard-panel')) document.getElementById('dashboard-panel').style.display = 'none';
+            });
+            if (btnCloseCollab) btnCloseCollab.addEventListener('click', function() {
+                if (collabPanel) collabPanel.style.display = 'none';
+            });
+            if (btnSendChat && chatInput && chatMessages) {
+                btnSendChat.addEventListener('click', function() {
+                    const v = chatInput.value.trim();
+                    if (!v) return;
+                    const now = new Date().toLocaleTimeString('ar-SA');
+                    const d = document.createElement('div');
+                    d.style.cssText = 'margin:6px 0;padding:8px;background:rgba(56,189,248,0.15);border-radius:6px;font-size:0.8rem;color:#f1f5f9;';
+                    d.innerHTML = '<strong style="color:#38bdf8;">أنت:</strong> ' + v + ' <span style="font-size:0.7rem;color:#94a3b8;float:right;">' + now + '</span>';
+                    chatMessages.appendChild(d);
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                    chatInput.value = '';
+                    setTimeout(() => {
+                        const r = document.createElement('div');
+                        r.style.cssText = 'margin:6px 0;padding:8px;background:rgba(34,197,94,0.15);border-radius:6px;font-size:0.8rem;color:#f1f5f9;';
+                        r.innerHTML = '<strong style="color:#22c55e;">النظام:</strong> تم استلام الرسالة وتسجيلها <span style="font-size:0.7rem;color:#94a3b8;float:right;">' + new Date().toLocaleTimeString('ar-SA') + '</span>';
+                        chatMessages.appendChild(r);
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                    }, 600);
+                });
+                chatInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') btnSendChat.click();
+                });
+            }
+
+            // Dashboard Panel
+            const btnDashboard = document.getElementById('btn-dashboard');
+            const btnCloseDash = document.getElementById('btn-close-dashboard-panel');
+            const dashPanel = document.getElementById('dashboard-panel');
+
+            if (btnDashboard) btnDashboard.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (dashPanel) dashPanel.style.display = dashPanel.style.display === 'block' ? 'none' : 'block';
+                if (collabPanel) collabPanel.style.display = 'none';
+            });
+            if (btnCloseDash) btnCloseDash.addEventListener('click', function() {
+                if (dashPanel) dashPanel.style.display = 'none';
+            });
+
+            // Export dashboard JSON
+            const btnExportDash = document.getElementById('btn-export-dashboard-json');
+            if (btnExportDash) btnExportDash.addEventListener('click', function() {
+                const data = {
+                    timestamp: new Date().toISOString(),
+                    elements: document.getElementById('stat-elements')?.textContent || '0',
+                    clashes: document.getElementById('stat-clashes')?.textContent || '0',
+                    storeys: document.getElementById('stat-storeys')?.textContent || '0'
+                };
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'dashboard-report.json';
+                a.click();
+                URL.revokeObjectURL(url);
+                showToast('success', '📥 تم تصدير تقرير لوحة التحكم');
+            });
+
+            // Export PDF Report
+            const btnExportPDF = document.getElementById('btn-export-pdf');
+            if (btnExportPDF) btnExportPDF.addEventListener('click', function() {
+                exportPDFReport();
+            });
+
+            // Export benchmark
+            const btnBench = document.getElementById('btn-export-benchmark');
+            if (btnBench) btnBench.addEventListener('click', function() {
+                const data = {
+                    timestamp: new Date().toISOString(),
+                    telemetry: { fps: 60, elements: document.getElementById('stat-elements')?.textContent || '0' },
+                    clashes: document.getElementById('stat-clashes')?.textContent || '0',
+                    generated: new Date().toISOString()
+                };
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'benchmark-report.json';
+                a.click();
+                URL.revokeObjectURL(url);
+                showToast('success', '📊 تم تصدير تقرير الأداء');
+            });
+
+            // Quick Bypass Login Button
+            const btnBypass = document.getElementById('quick-bypass-btn');
+            if (btnBypass) {
+                btnBypass.addEventListener('click', function() {
+                    const overlay = document.getElementById('login-portal-overlay');
+                    if (overlay) overlay.style.display = 'none';
+                    if (typeof applyUserSession === 'function') {
+                        applyUserSession('admin', 'د. أحمد لؤي أحمد');
+                    }
+                    showToast('success', '✅ تم تسجيل الدخول كمدير');
+                });
+            }
+
+            // Gamification periodic check
+            setInterval(function() {
+                if (window.gamify) {
+                    window.gamify.checkBadges();
+                    window.gamify.UI();
+                }
+            }, 2000);
+
+            console.log('✅ Additional features initialized successfully');
+
+});
     </script>
     <!-- ===================================================================== -->
     <!-- Authentication & Role-Based Access Control JavaScript -->
@@ -5125,8 +5265,6 @@
             }
         }
 
-        // Initialize scene directly (script runs at end of body, DOMContentLoaded may have passed)
-
         // Initialize auth on page load
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', initAuthSystem);
@@ -5135,390 +5273,5 @@
         }
     </script>
 
-
-    <!-- ===================================================================== -->
-    <!-- Enhanced Features: Collaboration, Dashboard, Gamification, Reports -->
-    <!-- ===================================================================== -->
-    <script>
-        // Global toast system
-        window.__toastId = 0;
-        function showToast(type, message, duration = 4000) {
-            const container = document.getElementById('toast-container');
-            if (!container) return;
-            const id = 'toast-' + (++window.__toastId);
-            const el = document.createElement('div');
-            el.id = id;
-            el.className = 'toast toast-' + type;
-            const icons = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
-            el.innerHTML = `<span style="font-size:1.2rem;">${icons[type] || 'ℹ️'}</span><span>${message}</span>`;
-            container.appendChild(el);
-            setTimeout(() => {
-                el.style.opacity = '0';
-                setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 300);
-            }, duration);
-        }
-
-        // Toast shortcuts
-        window.toastSuccess = function(m, d) { showToast('success', m, d); };
-        window.toastError = function(m, d) { showToast('error', m, d); };
-        window.toastInfo = function(m, d) { showToast('info', m, d); };
-        window.toastWarning = function(m, d) { showToast('warning', m, d); };
-
-        // Wait for DOM to be ready then wire up enhanced buttons
-        function wireEnhancedButtons() {
-            // Collaboration panel
-            const btnCollab = document.getElementById('btn-collaboration');
-            const btnCloseCollab = document.getElementById('btn-close-collab-panel');
-            const collabPanel = document.getElementById('collaboration-panel');
-            const btnSendChat = document.getElementById('btn-send-chat');
-            const chatInput = document.getElementById('chat-input');
-            const chatMessages = document.getElementById('chat-messages');
-
-            if (btnCollab) btnCollab.addEventListener('click', function(e) {
-                e.stopPropagation();
-                if (collabPanel) collabPanel.style.display = collabPanel.style.display === 'block' ? 'none' : 'block';
-                if (document.getElementById('dashboard-panel')) document.getElementById('dashboard-panel').style.display = 'none';
-            });
-            if (btnCloseCollab) btnCloseCollab.addEventListener('click', function() {
-                if (collabPanel) collabPanel.style.display = 'none';
-            });
-            if (btnSendChat && chatInput && chatMessages) {
-                btnSendChat.addEventListener('click', function() {
-                    const v = chatInput.value.trim();
-                    if (!v) return;
-                    const now = new Date().toLocaleTimeString('ar-SA');
-                    const d = document.createElement('div');
-                    d.style.cssText = 'margin:6px 0;padding:8px;background:rgba(56,189,248,0.15);border-radius:6px;font-size:0.8rem;color:#f1f5f9;';
-                    d.innerHTML = `<strong style="color:#38bdf8;">أنت:</strong> ${v} <span style="font-size:0.7rem;color:#94a3b8;float:right;">${now}</span>`;
-                    chatMessages.appendChild(d);
-                    chatMessages.scrollTop = chatMessages.scrollHeight;
-                    chatInput.value = '';
-                    setTimeout(() => {
-                        const r = document.createElement('div');
-                        r.style.cssText = 'margin:6px 0;padding:8px;background:rgba(34,197,94,0.15);border-radius:6px;font-size:0.8rem;color:#f1f5f9;';
-                        r.innerHTML = `<strong style="color:#22c55e;">النظام:</strong> تم استلام الرسالة وتسجيلها <span style="font-size:0.7rem;color:#94a3b8;float:right;">${new Date().toLocaleTimeString('ar-SA')}</span>`;
-                        chatMessages.appendChild(r);
-                        chatMessages.scrollTop = chatMessages.scrollHeight;
-                    }, 600);
-                });
-                chatInput.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter') btnSendChat.click();
-                });
-            }
-
-            // Dashboard panel
-            const btnDashboard = document.getElementById('btn-dashboard');
-            const btnCloseDash = document.getElementById('btn-close-dashboard-panel');
-            const dashPanel = document.getElementById('dashboard-panel');
-            if (btnDashboard) btnDashboard.addEventListener('click', function(e) {
-                e.stopPropagation();
-                if (dashPanel) dashPanel.style.display = dashPanel.style.display === 'block' ? 'none' : 'block';
-                if (collabPanel) collabPanel.style.display = 'none';
-            });
-            if (btnCloseDash) btnCloseDash.addEventListener('click', function() {
-                if (dashPanel) dashPanel.style.display = 'none';
-            });
-
-            // Export dashboard JSON
-            const btnExportDash = document.getElementById('btn-export-dashboard-json');
-            if (btnExportDash) btnExportDash.addEventListener('click', function() {
-                const data = {
-                    timestamp: new Date().toISOString(),
-                    elements: document.getElementById('stat-elements')?.textContent || '0',
-                    clashes: document.getElementById('stat-clashes')?.textContent || '0',
-                    storeys: document.getElementById('stat-storeys')?.textContent || '0'
-                };
-                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'dashboard-report.json';
-                a.click();
-                URL.revokeObjectURL(url);
-                showToast('success', '📥 تم تصدير تقرير لوحة التحكم');
-            });
-
-            // Export benchmark
-            const btnBench = document.getElementById('btn-export-benchmark');
-            if (btnBench) btnBench.addEventListener('click', function() {
-                const data = {
-                    timestamp: new Date().toISOString(),
-                    telemetry: { fps: 60, elements: document.getElementById('stat-elements')?.textContent || '0' },
-                    clashes: document.getElementById('stat-clashes')?.textContent || '0',
-                    generated: new Date().toISOString()
-                };
-                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'benchmark-report.json';
-                a.click();
-                URL.revokeObjectURL(url);
-                showToast('success', '📊 تم تصدير تقرير الأداء');
-            });
-
-            showToast('info', '🚀 المنصة جاهزة - جميع الخصائص مفعلة');
-        }
-
-        // Gamification system
-        window.gamify = {
-            score: 0,
-            badges: [],
-            checkBadges: function() {
-                const elements = parseInt(document.getElementById('stat-elements')?.textContent || '0');
-                const clashes = parseInt(document.getElementById('stat-clashes')?.textContent || '0');
-                if (elements > 0 && !this.badges.includes('first_model')) {
-                    this.badges.push('first_model');
-                    this.score += 100;
-                    showToast('success', '🏆 شارة: أول نموذج تم تحميله (+100 نقطة)');
-                }
-                if (clashes > 0 && !this.badges.includes('clash_hunter')) {
-                    this.badges.push('clash_hunter');
-                    this.score += 50;
-                    showToast('warning', '⚠️ شارة: صائد التعارضات (+50 نقطة)');
-                }
-            },
-            UI: function() {
-                // Add gamification indicator
-                const dock = document.getElementById('floating-ui-dock');
-                if (dock && !document.getElementById('gamification-indicator')) {
-                    const g = document.createElement('div');
-                    g.id = 'gamification-indicator';
-                    g.style.cssText = 'margin-left:10px;padding:4px 10px;background:rgba(139,92,246,0.2);border:1px solid rgba(139,92,246,0.4);border-radius:20px;color:#a78bfa;font-size:0.75rem;font-weight:bold;display:flex;align-items:center;gap:6px;';
-                    g.innerHTML = '🎮 النقاط: <span id="gamify-score">0</span>';
-                    dock.appendChild(g);
-                }
-                document.getElementById('gamify-score').textContent = this.score;
-            }
-        };
-
-        // PDF Report export
-        function exportPDFReport() {
-            try {
-                const { jsPDF } = window.jspdf || {};
-                if (!jsPDF) {
-                    showToast('warning', 'مكتبة PDF غير متاحة حالياً');
-                    return;
-                }
-                const doc = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
-                let y = 40;
-                doc.setFontSize(18);
-                doc.setTextColor(34, 197, 94);
-                doc.text('تقرير منصة WebXR BIM', 40, y);
-                y += 20;
-                doc.setFontSize(10);
-                doc.setTextColor(100, 116, 139);
-                doc.text('تاريخ الإنشاء: ' + new Date().toLocaleString('ar-SA'), 40, y);
-                y += 20;
-                doc.setFontSize(12);
-                doc.setTextColor(248, 113, 113);
-                doc.text('الإحصائيات:', 40, y);
-                y += 15;
-                const stats = [
-                    'العناصر المحملة: ' + (document.getElementById('stat-elements')?.textContent || '0'),
-                    'التعارضات المكتشفة: ' + (document.getElementById('stat-clashes')?.textContent || '0'),
-                    'الطوابق المفهرسة: ' + (document.getElementById('stat-storeys')?.textContent || '0'),
-                    'الشارات المحققة: ' + window.gamify.badges.length,
-                    'النقاط الإجمالية: ' + window.gamify.score
-                ];
-                stats.forEach(function(s) {
-                    doc.text('• ' + s, 40, y);
-                    y += 12;
-                });
-                doc.save('webxr-bim-report.pdf');
-                showToast('success', '📄 تم تصدير تقرير PDF');
-            } catch(e) {
-                showToast('error', 'فشل تصدير PDF: ' + (e.message || e));
-            }
-        }
-
-        // Wire gamification buttons
-        function wireGamification() {
-            const btnExportPDF = document.getElementById('btn-export-pdf');
-            if (btnExportPDF) {
-                btnExportPDF.addEventListener('click', function() {
-                    exportPDFReport();
-                });
-            }
-            // Check badges periodically
-            setInterval(function() {
-                if (window.gamify) window.gamify.checkBadges();
-                if (window.gamify) window.gamify.UI();
-            }, 2000);
-        }
-
-        // Run after a short delay
-        setTimeout(wireGamification, 800);
-
-        // Run enhanced buttons
-        setTimeout(wireEnhancedButtons, 500);
-
-
-    </script>
-
-    <script>
-        // Emergency Debug & Bypass Bridge
-        function _initBridge() {
-            console.log('⚡ Emergency Debug Bridge active');
-            
-            // Add a floating quick-login button in top-right for instant testing without typing
-            if (!document.getElementById('quick-bypass-btn')) {
-                const qb = document.createElement('buttonid');
-                qb.id = 'quick-bypass-btn';
-                qb.innerHTML = '⚡ دخول مباشر (Admin)';
-                qb.style.cssText = 'position:fixed;top:10px;right:10px;z-index:9999999;background:#22c55e;color:#fff;border:none;padding:8px 14px;border-radius:8px;font-weight:bold;cursor:pointer;font-size:0.8rem;box-shadow:0 4px 12px rgba(0,0,0,0.4);';
-                qb.onclick = function() {
-                    const overlay = document.getElementById('login-portal-overlay');
-                    if (overlay) overlay.style.display = 'none';
-                    if (typeof applyUserSession === 'function') {
-                        applyUserSession('admin', 'د. أحمد لؤي أحمد');
-                    }
-                    console.log('Bypassed login via quick button');
-                };
-                document.body.appendChild(qb);
-            }
-        }
-            _initBridge();
-        });
-    </script>
-
-    <script>
-        // Universal UI & Feature Guarantee Bridge
-        function _initBridge() {
-            console.log('⚡ Universal UI Guarantee Bridge activated');
-            
-            // Map every button to its respective action
-            const handlers = {
-                'btn-trigger-upload': () => { document.getElementById('file-input')?.click(); },
-                'btn-center-model': () => {
-                    if (typeof currentCustomModel !== 'undefined' && currentCustomModel && typeof fitCameraToObject === 'function') {
-                        fitCameraToObject(camera, currentCustomModel, controls);
-                    } else if (typeof resetWebXRLabCamera === 'function') {
-                        resetWebXRLabCamera();
-                    } else if (typeof camera !== 'undefined' && typeof controls !== 'undefined') {
-                        camera.position.set(0, 2.2, 5.8);
-                        controls.target.set(0, 1.8, 0);
-                        controls.update();
-                    }
-                    if (typeof showToast === 'function') showToast('success', '🎯 تم توسيط المشهد بنجاح');
-                },
-                'btn-view-clashes': () => {
-                    const m = document.getElementById('clash-review-modal');
-                    if (m) {
-                        m.style.display = m.style.display === 'block' ? 'none' : 'block';
-                    } else if (typeof toggleClashPanel === 'function') {
-                        toggleClashPanel();
-                    }
-                },
-                'btn-collaboration': () => {
-                    const p = document.getElementById('collaboration-panel');
-                    if (p) {
-                        document.querySelectorAll('.sidebar-right-panel, .sidebar-left-panel, #clash-review-modal, #dashboard-panel').forEach(x => x.style.display = 'none');
-                        p.style.display = p.style.display === 'block' ? 'none' : 'block';
-                    }
-                },
-                'btn-dashboard': () => {
-                    const p = document.getElementById('dashboard-panel');
-                    if (p) {
-                        document.querySelectorAll('.sidebar-right-panel, .sidebar-left-panel, #clash-review-modal, #collaboration-panel').forEach(x => x.style.display = 'none');
-                        p.style.display = p.style.display === 'block' ? 'none' : 'block';
-                    }
-                },
-                'btn-toggle-measure': () => {
-                    const h = document.getElementById('measure-hud');
-                    if (h) h.style.display = h.style.display === 'flex' ? 'none' : 'flex';
-                    if (typeof showToast === 'function') showToast('info', '📏 أداة القياس مفعلة');
-                },
-                'btn-toggle-section': () => {
-                    const p = document.getElementById('section-panel');
-                    if (p) {
-                        document.querySelectorAll('.sidebar-right-panel, .sidebar-left-panel, #clash-review-modal').forEach(x => x.style.display = 'none');
-                        p.style.display = p.style.display === 'block' ? 'none' : 'block';
-                    }
-                },
-                'btn-toggle-telemetry': () => {
-                    const p = document.getElementById('telemetry-panel');
-                    if (p) {
-                        document.querySelectorAll('.sidebar-right-panel, .sidebar-left-panel, #clash-review-modal').forEach(x => x.style.display = 'none');
-                        p.style.display = p.style.display === 'block' ? 'none' : 'block';
-                    }
-                },
-                'btn-toggle-filters-panel': () => {
-                    const p = document.getElementById('bim-filter-panel');
-                    if (p) {
-                        document.querySelectorAll('.sidebar-right-panel, .sidebar-left-panel, #clash-review-modal').forEach(x => x.style.display = 'none');
-                        p.style.display = p.style.display === 'block' ? 'none' : 'block';
-                    }
-                },
-                'btn-quick-color-toggle': () => {
-                    if (typeof toggleColorMode === 'function') toggleColorMode();
-                    else if (typeof showToast === 'function') showToast('info', '🎨 تبديل ألوان التخصصات');
-                },
-                'btn-quick-lighting': () => {
-                    if (typeof toggleLighting === 'function') toggleLighting();
-                    else if (typeof showToast === 'function') showToast('info', '💡 تعديل إضاءة البيئة');
-                },
-                'btn-vr-guide': () => {
-                    const m = document.getElementById('vr-guide-modal');
-                    if (m) m.style.display = 'flex';
-                },
-                'btn-export-pdf': () => {
-                    if (typeof exportPDFReport === 'function') exportPDFReport();
-                    else if (typeof showToast === 'function') showToast('success', '📄 تم تصدير التقرير');
-                },
-                'btn-toggle-topbar': () => {
-                    const h = document.getElementById('header-bar');
-                    if (h) h.classList.toggle('ui-hidden');
-                    const d = document.getElementById('floating-ui-dock');
-                    if (d) d.style.display = h && h.classList.contains('ui-hidden') ? 'flex' : 'none';
-                },
-                'btn-toggle-sidebars': () => {
-                    document.querySelectorAll('.sidebar-right-panel, .sidebar-left-panel').forEach(p => {
-                        p.classList.toggle('ui-sidebar-hidden');
-                    });
-                },
-                'btn-toggle-zen': () => {
-                    const h = document.getElementById('header-bar');
-                    if (h) h.classList.add('ui-hidden');
-                    document.querySelectorAll('.sidebar-right-panel, .sidebar-left-panel').forEach(p => p.classList.add('ui-sidebar-hidden'));
-                    const d = document.getElementById('floating-ui-dock');
-                    if (d) d.style.display = 'flex';
-                }
-            };
-
-            // Attach click handlers universally
-            Object.keys(handlers).forEach(id => {
-                const el = document.getElementById(id);
-                if (el) {
-                    el.onclick = function(e) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        console.log('Universal handler triggered for:', id);
-                        handlers[id]();
-                    };
-                }
-            });
-
-            // Floating sidebar toggles
-            const rt = document.getElementById('floating-sidebar-toggle-right');
-            if (rt) {
-                rt.onclick = function(e) {
-                    e.stopPropagation();
-                    const p = document.getElementById('bim-filter-panel');
-                    if (p) p.style.display = p.style.display === 'block' ? 'none' : 'block';
-                };
-            }
-            const lt = document.getElementById('floating-sidebar-toggle-left');
-            if (lt) {
-                lt.onclick = function(e) {
-                    e.stopPropagation();
-                    const i = document.getElementById('instructions');
-                    if (i) i.style.display = i.style.display === 'block' ? 'none' : 'block';
-                };
-            }
-        }
-            _initBridge();
-        });
-    </script>
 </body>
 </html>
