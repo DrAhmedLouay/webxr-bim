@@ -2601,11 +2601,15 @@
                 console.error('btn-trigger-upload not found in DOM!');
             }
 
-            fileInput.addEventListener('change', function(e) {
-                if (e.target.files.length > 0) {
-                    loadFile(e.target.files[0]);
-                }
-            });
+            if (fileInput) {
+                fileInput.addEventListener('change', function(e) {
+                    if (e.target.files.length > 0) {
+                        loadFile(e.target.files[0]);
+                    }
+                });
+            } else {
+                console.error('fileInput is null at change listener setup!');
+            }
 
             function clearCustomModel() {
                 if (typeof clearCurrentSelectionHighlight === 'function') clearCurrentSelectionHighlight();
