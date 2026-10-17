@@ -2714,15 +2714,16 @@
 
                             var baseDir = window.location.href.split('?')[0].split('#')[0].replace(/\/[^\/]*$/, '/');
                             var wasmUrl = baseDir + 'web-ifc.wasm';
+                            var wasmCdnUrl = 'https://unpkg.com/web-ifc@0.0.57/web-ifc.wasm';
 
                             if (ifcLoader.ifcManager.state && ifcLoader.ifcManager.state.api) {
                                 if (!ifcLoader.ifcManager.state.api.wasmModule) {
                                     await ifcLoader.ifcManager.state.api.Init(function(path) {
-                                        return wasmUrl;
+                                        return wasmCdnUrl;
                                     });
                                 }
                             } else {
-                                ifcLoader.ifcManager.setWasmPath(baseDir);
+                                ifcLoader.ifcManager.setWasmPath(wasmCdnUrl);
                             }
 
                             if (typeof ifcLoader.ifcManager.setOnProgress === 'function') {
