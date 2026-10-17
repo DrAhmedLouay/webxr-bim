@@ -2715,15 +2715,38 @@
                             var wasmDir = 'https://unpkg.com/web-ifc@0.0.57/';
                             var wasmUrl = wasmDir + 'web-ifc.wasm';
 
+                            toastStatus.innerText = '⚙️ جاري تحميل محرك WebAssembly (WASM)...';
+
+                            // Initialize WASM properly - critical for IFC parsing
+                            try {
+                                ifcLoader.ifcManager.setWasmPath(wasmDir);
+                            } catch(e) {
+                                console.error('setWasmPath error:', e);
+                            }
+
                             if (ifcLoader.ifcManager.state && ifcLoader.ifcManager.state.api) {
-                                if (!ifcLoader.ifcManager.state.api.wasmModule) {
-                                    await ifcLoader.ifcManager.state.api.Init(function(path) {
-                                        return wasmDir;
-                                    });
+                                var api = ifcLoader.ifcManager.state.api;
+                                if (!api.wasmModule) {
+                                    try {
+                                        // Try direct URL first
+                                        await api.Init(wasmUrl);
+                                    } catch(e) {
+                                        try {
+                                            // Fallback to callback pattern
+                                            await api.Init(function() { return wasmUrl; });
+                                        } catch(e2) {
+                                            console.error('WASM Init failed:', e2);
+                                            throw new Error('فشل تهيئة محرك WASM: ' + (e2.message || e2));
+                                        }
+                                    }
                                 }
                             } else {
-                                ifcLoader.ifcManager.setWasmPath(wasmDir);
+                                // state.api not ready yet, try setWasmPath and hope parse() handles it
+                                console.warn('ifcManager.state.api not available yet');
                             }
+
+                            // Wait briefly for WASM to be ready
+                            await new Promise(function(resolve) { setTimeout(resolve, 500); });
 
                             if (typeof ifcLoader.ifcManager.setOnProgress === 'function') {
                                 ifcLoader.ifcManager.setOnProgress(function(prog) {
@@ -2737,7 +2760,9 @@
                             toastStatus.innerText = '⚙️ جاري تحليل وهندسة مصفوفة الـ IFC ثلاثية الأبعاد... يرجى الانتظار';
                             await new Promise(function(resolve) { setTimeout(resolve, 80); });
 
+                            console.log('Calling ifcLoader.parse...');
                             var ifcModel = await ifcLoader.parse(buffer);
+                            console.log('ifcLoader.parse completed, model:', !!ifcModel);
 
                             clearCustomModel();
                             webxrLabGroup.visible = false;
@@ -2775,7 +2800,8 @@
                             if (fPanel) fPanel.style.display = 'none';
                             showPlatformNotification('✅ تم استيراد وتوسيط نموذج الـ IFC بنجاح! انقر على أي جزء بالمبنى لفتح بياناته وتسجيل التعارضات.');
                         } catch (err) {
-                            console.error('IFC Error:', err);
+                            console.error('IFC Error at step:', err);
+                            console.error('Error stack:', err.stack);
                             toastError.style.display = 'block';
                             toastError.innerText = 'خطأ في معالجة ملف الـ IFC: ' + (err.message || err);
                         }
