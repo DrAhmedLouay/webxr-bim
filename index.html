@@ -2712,20 +2712,18 @@
                             var ifcLoader = new LoaderClass();
                             currentIFCLoader = ifcLoader;
 
-                            var wasmDir = 'https://unpkg.com/web-ifc@0.0.57/';
+                            var baseDir = window.location.href.split('?')[0].split('#')[0].replace(/\/[^\/]*$/, '/');
+                            var wasmUrl = baseDir + 'web-ifc.wasm';
 
-                            toastStatus.innerText = '⚙️ جاري تحميل محرك WebAssembly (WASM)...';
-
-                            // Initialize WASM path - IFCLoader handles Init internally during parse()
-                            try {
-                                ifcLoader.ifcManager.setWasmPath(wasmDir);
-                                console.log('WASM path set to:', wasmDir);
-                            } catch(e) {
-                                console.error('setWasmPath error:', e);
+                            if (ifcLoader.ifcManager.state && ifcLoader.ifcManager.state.api) {
+                                if (!ifcLoader.ifcManager.state.api.wasmModule) {
+                                    await ifcLoader.ifcManager.state.api.Init(function(path) {
+                                        return wasmUrl;
+                                    });
+                                }
+                            } else {
+                                ifcLoader.ifcManager.setWasmPath(baseDir);
                             }
-
-                            // Brief wait for any async setup
-                            await new Promise(function(resolve) { setTimeout(resolve, 200); });
 
                             if (typeof ifcLoader.ifcManager.setOnProgress === 'function') {
                                 ifcLoader.ifcManager.setOnProgress(function(prog) {
