@@ -1767,6 +1767,7 @@
 
             // Build laser raycaster target list for fast pointer-move performance
             buildSimTargetList();
+            buildClickTargetList();
 
             // Register BIM helper (propagates metadata and shadows to all children)
             function registerBIM(obj, data, isLabElem) {
@@ -2651,6 +2652,8 @@
                 ifcStoreyElementMap = {};
                 ifcCategoryMap = {};
                 ifcAllIds.clear();
+                clickTargetList = [];
+                simTargetList = [];
                 updateCategoryCounters();
             }
 
@@ -2751,6 +2754,7 @@
                             scene.add(ifcModel);
 
                             buildSimTargetList();
+                            buildClickTargetList();
                             fitCameraToObject(camera, ifcModel, controls);
 
                             toastStatus.innerText = '⚙️ جاري قراءة الهيكل الفضائي وفهرسة الطوابق والتخصصات...';
@@ -2836,6 +2840,7 @@
 
                                 scene.add(model);
                                 buildSimTargetList();
+                                buildClickTargetList();
                                 fitCameraToObject(camera, model, controls);
                                 refreshStoreyDropdown();
 
@@ -3586,38 +3591,8 @@
 
                 // 1. Inspect IFC Model Element if custom IFC model is active
                 if (currentCustomModel) {
-                    var ifcTargets = [];
-                    if (currentCustomModel.visible) ifcTargets.push(currentCustomModel);
-                    if (activeSubsetMesh && activeSubsetMesh.visible) ifcTargets.push(activeSubsetMesh);
-                    for (var catId in ifcCategoryMeshes) {
-                        if (ifcCategoryMeshes[catId] && ifcCategoryMeshes[catId].visible) {
-                            ifcTargets.push(ifcCategoryMeshes[catId]);
-                        }
-                    }
-                    for (var sid in ifcStoreyMeshes) {
-                        if (ifcStoreyMeshes[sid] && ifcStoreyMeshes[sid].visible) {
-                            ifcTargets.push(ifcStoreyMeshes[sid]);
-                        }
-                    }
-                    if (explodedSubsets && explodedSubsets.length > 0) {
-                        ifcTargets = ifcTargets.concat(explodedSubsets);
-                    }
-
-                    // Collect all meshes inside currentCustomModel
-                    currentCustomModel.traverse(function(c) {
-                        if (c.isMesh && ifcTargets.indexOf(c) === -1) {
-                            ifcTargets.push(c);
-                        }
-                    });
-
-                    // Collect any active meshes in scene that are not lab elements or UI markers
-                    scene.traverse(function(c) {
-                        if (c.isMesh && c !== ifcHighlightMesh && !(c.userData && c.userData.isClashSphere) && !(c.userData && c.userData.isLabElem)) {
-                            if (ifcTargets.indexOf(c) === -1) {
-                                ifcTargets.push(c);
-                            }
-                        }
-                    });
+                    // Use cached click target list for fast raycasting (no scene.traverse on every click)
+                    var ifcTargets = clickTargetList.length > 0 ? clickTargetList : [currentCustomModel];
 
                     var ifcHits = raycaster.intersectObjects(ifcTargets, true);
                     if (ifcHits.length > 0) {
@@ -3698,7 +3673,8 @@
                 }
 
                 // 2. Default WebXR Lab Environment Selection
-                var intersects = raycaster.intersectObjects(scene.children, true);
+                var labTargets = clickTargetList.length > 0 ? clickTargetList : [webxrLabGroup];
+                var intersects = raycaster.intersectObjects(labTargets, true);
                 var hitBIM = null;
                 for (var i = 0; i < intersects.length; i++) {
                     var obj = intersects[i].object;
@@ -4647,7 +4623,7 @@
             var simMouseRaycaster = new THREE.Raycaster();
             var simPointer = new THREE.Vector2();
             var lastLaserUpdate = 0;
-            var laserUpdateInterval = 16; // ~60fps max, throttle raycasting
+            var laserUpdateInterval = 16;
             var simTargetList = [];
 
             // Build cached target list for fast raycasting (excludes UI/helpers)
@@ -4658,6 +4634,37 @@
                     if (obj.parent === simLaserGroup || obj.parent === measureGroup || obj === ifcHighlightMesh) return;
                     if (obj.userData && obj.userData.isClashSphere) return;
                     if (obj.isMesh) simTargetList.push(obj);
+                });
+            }
+
+            // Cached target list for click selection (rebuilt on model load / filter change)
+            var clickTargetList = [];
+            function buildClickTargetList() {
+                clickTargetList = [];
+                if (currentCustomModel) {
+                    currentCustomModel.traverse(function(c) {
+                        if (c.isMesh) clickTargetList.push(c);
+                    });
+                }
+                if (activeSubsetMesh && activeSubsetMesh.visible) clickTargetList.push(activeSubsetMesh);
+                for (var catId in ifcCategoryMeshes) {
+                    if (ifcCategoryMeshes[catId] && ifcCategoryMeshes[catId].visible) {
+                        clickTargetList.push(ifcCategoryMeshes[catId]);
+                    }
+                }
+                for (var sid in ifcStoreyMeshes) {
+                    if (ifcStoreyMeshes[sid] && ifcStoreyMeshes[sid].visible) {
+                        clickTargetList.push(ifcStoreyMeshes[sid]);
+                    }
+                }
+                if (explodedSubsets && explodedSubsets.length > 0) {
+                    clickTargetList = clickTargetList.concat(explodedSubsets);
+                }
+                // Add visible lab elements
+                scene.traverse(function(c) {
+                    if (c.isMesh && c.userData && c.userData.isLabElem && c.visible) {
+                        clickTargetList.push(c);
+                    }
                 });
             }
 
@@ -4707,11 +4714,12 @@
                 posAttr.needsUpdate = true;
             });
 
-            // Rebuild target list when model loads/changes
+            // Rebuild target lists when model loads/changes
             var originalApplyFilters = applyFilters;
             applyFilters = function() {
                 originalApplyFilters();
                 buildSimTargetList();
+                buildClickTargetList();
             };
 
             // =====================================================================
