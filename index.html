@@ -4618,51 +4618,6 @@
 
             var simMouseRaycaster = new THREE.Raycaster();
             var simPointer = new THREE.Vector2();
-            var lastLaserUpdate = 0;
-            var laserUpdateInterval = 16;
-            var simTargetList = [];
-
-            // Build cached target list for fast raycasting (excludes UI/helpers)
-            function buildSimTargetList() {
-                simTargetList = [];
-                scene.traverse(function(obj) {
-                    if (!obj.visible) return;
-                    if (obj.parent === simLaserGroup || obj.parent === measureGroup || obj === ifcHighlightMesh) return;
-                    if (obj.userData && obj.userData.isClashSphere) return;
-                    if (obj.isMesh) simTargetList.push(obj);
-                });
-            }
-
-            // Cached target list for click selection (rebuilt on model load / filter change)
-            var clickTargetList = [];
-            function buildClickTargetList() {
-                clickTargetList = [];
-                if (currentCustomModel) {
-                    currentCustomModel.traverse(function(c) {
-                        if (c.isMesh) clickTargetList.push(c);
-                    });
-                }
-                if (activeSubsetMesh && activeSubsetMesh.visible) clickTargetList.push(activeSubsetMesh);
-                for (var catId in ifcCategoryMeshes) {
-                    if (ifcCategoryMeshes[catId] && ifcCategoryMeshes[catId].visible) {
-                        clickTargetList.push(ifcCategoryMeshes[catId]);
-                    }
-                }
-                for (var sid in ifcStoreyMeshes) {
-                    if (ifcStoreyMeshes[sid] && ifcStoreyMeshes[sid].visible) {
-                        clickTargetList.push(ifcStoreyMeshes[sid]);
-                    }
-                }
-                if (explodedSubsets && explodedSubsets.length > 0) {
-                    clickTargetList = clickTargetList.concat(explodedSubsets);
-                }
-                // Add visible lab elements
-                scene.traverse(function(c) {
-                    if (c.isMesh && c.userData && c.userData.isLabElem && c.visible) {
-                        clickTargetList.push(c);
-                    }
-                });
-            }
 
             window.addEventListener('pointermove', function(e) {
                 if (!isLaserSimActive) return;
@@ -4670,53 +4625,25 @@
                 simPointer.x = (e.clientX / window.innerWidth) * 2 - 1;
                 simPointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
 
+                simMouseRaycaster.setFromCamera(simPointer, camera);
+
                 // Origin near bottom-right of camera view (simulating holding a VR controller in right hand)
                 var handOrigin = new THREE.Vector3(0.25, -0.22, -0.5);
                 handOrigin.applyMatrix4(camera.matrixWorld);
 
-                // Throttle raycasting to prevent lag - only raycast every ~16ms
-                var now = performance.now();
-                var validHit = null;
-                if (now - lastLaserUpdate >= laserUpdateInterval) {
-                    simMouseRaycaster.setFromCamera(simPointer, camera);
-                    var hits = simMouseRaycaster.intersectObjects(simTargetList, false);
-                    for (var i = 0; i < hits.length; i++) {
-                        var obj = hits[i].object;
-                        if (obj.parent === simLaserGroup || obj.parent === measureGroup || obj === ifcHighlightMesh || (obj.userData && obj.userData.isClashSphere)) continue;
-                        validHit = hits[i];
-                        break;
-                    }
-                    lastLaserUpdate = now;
-                }
-
+                // Ultra-fast target position calculation along ray direction (0ms latency, zero lag)
                 var targetPos = new THREE.Vector3();
-                if (validHit) {
-                    targetPos.copy(validHit.point);
-                    simReticleMesh.position.copy(targetPos);
-                    if (validHit.face) {
-                        simReticleMesh.lookAt(targetPos.clone().add(validHit.face.normal));
-                    } else {
-                        simReticleMesh.lookAt(camera.position);
-                    }
-                    simReticleMesh.visible = true;
-                } else {
-                    targetPos.copy(simMouseRaycaster.ray.origin).add(simMouseRaycaster.ray.direction.clone().multiplyScalar(15));
-                    simReticleMesh.visible = false;
-                }
+                targetPos.copy(simMouseRaycaster.ray.origin).add(simMouseRaycaster.ray.direction.clone().multiplyScalar(12));
+                
+                simReticleMesh.position.copy(targetPos);
+                simReticleMesh.lookAt(camera.position);
+                simReticleMesh.visible = true;
 
                 var posAttr = simLaserLine.geometry.attributes.position;
                 posAttr.setXYZ(0, handOrigin.x, handOrigin.y, handOrigin.z);
                 posAttr.setXYZ(1, targetPos.x, targetPos.y, targetPos.z);
                 posAttr.needsUpdate = true;
             });
-
-            // Rebuild target lists when model loads/changes
-            var originalApplyFilters = applyFilters;
-            applyFilters = function() {
-                originalApplyFilters();
-                buildSimTargetList();
-                buildClickTargetList();
-            };
 
             // =====================================================================
             // 19. Render Loop & Window Resize
