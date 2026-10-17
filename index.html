@@ -1404,8 +1404,11 @@
         var camera = null;
         var renderer = null;
         var controls = null;
-        raycaster = null;
-        mouse = null;
+        var raycaster = null;
+        var mouse = null;
+        var fileInput = null;
+        var currentIFCLoader = null;
+        var currentCustomModel = null;
 
         // Global error handler to catch silent JS failures
         window.onerror = function(msg, url, line, col, error) {
@@ -2566,7 +2569,7 @@
                 }, 3800);
             }
 
-            var fileInput = document.getElementById('file-input');
+            fileInput = document.getElementById('file-input');
             var dropOverlay = document.getElementById('drop-overlay');
             var toast = document.getElementById('loading-toast');
             var toastTitle = document.getElementById('toast-title');
