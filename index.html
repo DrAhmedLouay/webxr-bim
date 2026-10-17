@@ -1410,11 +1410,11 @@
         var currentIFCLoader = null;
         var currentCustomModel = null;
 
-        // Global error handler to catch silent JS failures
+        // Global error handler
         window.onerror = function(msg, url, line, col, error) {
             console.error('GLOBAL JS ERROR:', msg, 'at', url + ':' + line + ':' + col);
             if (error && error.stack) console.error(error.stack);
-            return true;
+            return false; // Don't suppress, let it show in console
         };
 
         function initScene() {
@@ -1430,9 +1430,14 @@
             // =====================================================================
             console.log('Getting container...');
             container = document.getElementById('webgl-container');
-            console.log('Container:', !!container);
+            console.log('Container:', !!container, container ? 'found' : 'MISSING!');
+            if (!container) {
+                console.error('CRITICAL: webgl-container element not found in DOM!');
+                return;
+            }
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x0b0f19);
+            console.log('Scene created:', !!scene);
 
             camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.05, 500000);
             camera.position.set(0, 2.2, 5.8);
