@@ -5350,5 +5350,88 @@
 
 
     </script>
+
+    <!-- ===================================================================== -->
+    <!-- Bulletproof UI Healing & Event Binding Bridge -->
+    <!-- ===================================================================== -->
+    <script>
+        (function() {
+            window.addEventListener('DOMContentLoaded', function() {
+                console.log('🔗 UI Healing Bridge activated');
+                
+                // 1. Upload Button Bridge
+                const btnUpload = document.getElementById('btn-trigger-upload');
+                const fileInput = document.getElementById('file-input');
+                if (btnUpload && fileInput) {
+                    btnUpload.onclick = function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('Upload button clicked via healing bridge');
+                        fileInput.click();
+                    };
+                }
+
+                // 2. Center Model Bridge
+                const btnCenter = document.getElementById('btn-center-model');
+                if (btnCenter) {
+                    btnCenter.onclick = function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('Center model clicked');
+                        if (typeof currentCustomModel !== 'undefined' && currentCustomModel && typeof fitCameraToObject === 'function' && typeof camera !== 'undefined' && typeof controls !== 'undefined') {
+                            fitCameraToObject(camera, currentCustomModel, controls);
+                        } else if (typeof camera !== 'undefined' && typeof controls !== 'undefined') {
+                            camera.position.set(0, 2.2, 5.8);
+                            controls.target.set(0, 1.8, 0);
+                            controls.update();
+                        }
+                    };
+                }
+
+                // 3. Panel Toggles Bridge
+                const toggles = [
+                    { btn: 'btn-toggle-filters-panel', panel: 'bim-filter-panel' },
+                    { btn: 'btn-view-clashes', panel: 'clash-review-modal' },
+                    { btn: 'btn-collaboration', panel: 'collaboration-panel' },
+                    { btn: 'btn-dashboard', panel: 'dashboard-panel' },
+                    { btn: 'btn-toggle-measure', hud: 'measure-hud' },
+                    { btn: 'btn-toggle-section', panel: 'section-panel' },
+                    { btn: 'btn-toggle-telemetry', panel: 'telemetry-panel' }
+                ];
+
+                toggles.forEach(t => {
+                    const b = document.getElementById(t.btn);
+                    if (b) {
+                        b.onclick = function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log('Toggle clicked:', t.btn);
+                            if (t.panel) {
+                                const p = document.getElementById(t.panel);
+                                if (p) {
+                                    const isOpen = p.style.display === 'block' || p.style.display === 'flex';
+                                    // Close all panels first
+                                    document.querySelectorAll('.sidebar-right-panel, .sidebar-left-panel, #clash-review-modal').forEach(x => x.style.display = 'none');
+                                    if (!isOpen) p.style.display = 'block';
+                                }
+                            } else if (t.hud) {
+                                const h = document.getElementById(t.hud);
+                                if (h) h.style.display = h.style.display === 'flex' ? 'none' : 'flex';
+                            }
+                        };
+                    }
+                });
+
+                // 4. Close buttons
+                document.querySelectorAll('[id^="btn-close-"]').forEach(btn => {
+                    btn.onclick = function(e) {
+                        e.preventDefault();
+                        const p = this.closest('.sidebar-right-panel, .sidebar-left-panel, .modal, div[id$="-modal"]');
+                        if (p) p.style.display = 'none';
+                    };
+                });
+            });
+        })();
+    </script>
 </body>
 </html>
