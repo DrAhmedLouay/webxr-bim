@@ -945,7 +945,7 @@
 
             <!-- BIM Filters & Storeys Button -->
             <button class="btn btn-filter" id="btn-toggle-filters-panel" title="فصل الطوابق وتصفية عناصر المبنى والتأسيسات وضبط الإضاءة">🎛️ تصفية العناصر والإضاءة</button>
-            <button class="btn btn-upload" id="btn-trigger-upload" onclick="triggerUpload()">📂 استيراد نموذج آخر (GLB / IFC)</button>
+            <button class="btn btn-upload" id="btn-trigger-upload" onclick="window.triggerUpload && window.triggerUpload()">📂 استيراد نموذج آخر (GLB / IFC)</button>📂 استيراد نموذج آخر (GLB / IFC)</button>
             <button class="btn btn-center" id="btn-center-model" title="إعادة الكاميرا وتوسيط الموديل في منتصف الشاشة">🎯 وضع المجسم في المنتصف</button>
             <button class="btn btn-clash-view" id="btn-view-clashes" title="مشاهدة واستعراض التعارضات في المشهد الثلاثي الأبعاد">⚠️ مشاهدة التعارضات</button>
             <button class="btn btn-outline" id="btn-collaboration" title="لوحة التعاون المتعدد المستخدمين والمحادثة الفورية">👥 التعاون</button>
@@ -2577,16 +2577,29 @@
             var toastStatus = document.getElementById('toast-status');
             var toastError = document.getElementById('toast-error');
 
-            function triggerUpload() {
-                console.log('triggerUpload called');
-                if (!fileInput) {
-                    console.error('fileInput is null!');
+            window.triggerUpload = function() {
+                console.log('window.triggerUpload called');
+                var fi = document.getElementById('file-input');
+                if (!fi) {
+                    console.error('file-input element not found in DOM!');
+                    alert('عنصر إدخال الملفات غير موجود.');
                     return;
                 }
-                console.log('Clicking fileInput...');
-                fileInput.click();
+                console.log('Triggering fileInput click...');
+                fi.click();
+            };
+
+            var btnUpload = document.getElementById('btn-trigger-upload');
+            if (btnUpload) {
+                btnUpload.onclick = window.triggerUpload;
+                btnUpload.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    window.triggerUpload();
+                });
+                console.log('Upload button wired successfully');
+            } else {
+                console.error('btn-trigger-upload not found in DOM!');
             }
-            document.getElementById('btn-trigger-upload').addEventListener('click', triggerUpload);
 
             fileInput.addEventListener('change', function(e) {
                 if (e.target.files.length > 0) {
