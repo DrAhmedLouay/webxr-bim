@@ -2713,40 +2713,19 @@
                             currentIFCLoader = ifcLoader;
 
                             var wasmDir = 'https://unpkg.com/web-ifc@0.0.57/';
-                            var wasmUrl = wasmDir + 'web-ifc.wasm';
 
                             toastStatus.innerText = '⚙️ جاري تحميل محرك WebAssembly (WASM)...';
 
-                            // Initialize WASM properly - critical for IFC parsing
+                            // Initialize WASM path - IFCLoader handles Init internally during parse()
                             try {
                                 ifcLoader.ifcManager.setWasmPath(wasmDir);
+                                console.log('WASM path set to:', wasmDir);
                             } catch(e) {
                                 console.error('setWasmPath error:', e);
                             }
 
-                            if (ifcLoader.ifcManager.state && ifcLoader.ifcManager.state.api) {
-                                var api = ifcLoader.ifcManager.state.api;
-                                if (!api.wasmModule) {
-                                    try {
-                                        // Try direct URL first
-                                        await api.Init(wasmUrl);
-                                    } catch(e) {
-                                        try {
-                                            // Fallback to callback pattern
-                                            await api.Init(function() { return wasmUrl; });
-                                        } catch(e2) {
-                                            console.error('WASM Init failed:', e2);
-                                            throw new Error('فشل تهيئة محرك WASM: ' + (e2.message || e2));
-                                        }
-                                    }
-                                }
-                            } else {
-                                // state.api not ready yet, try setWasmPath and hope parse() handles it
-                                console.warn('ifcManager.state.api not available yet');
-                            }
-
-                            // Wait briefly for WASM to be ready
-                            await new Promise(function(resolve) { setTimeout(resolve, 500); });
+                            // Brief wait for any async setup
+                            await new Promise(function(resolve) { setTimeout(resolve, 200); });
 
                             if (typeof ifcLoader.ifcManager.setOnProgress === 'function') {
                                 ifcLoader.ifcManager.setOnProgress(function(prog) {
