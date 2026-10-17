@@ -4619,6 +4619,10 @@
             var simMouseRaycaster = new THREE.Raycaster();
             var simPointer = new THREE.Vector2();
 
+            // Dummy stubs to prevent ReferenceError from old calls
+            function buildSimTargetList() {}
+            function buildClickTargetList() {}
+
             window.addEventListener('pointermove', function(e) {
                 if (!isLaserSimActive) return;
 
