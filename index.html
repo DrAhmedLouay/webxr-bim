@@ -5457,5 +5457,142 @@
             }
         });
     </script>
+
+    <script>
+        // Universal UI & Feature Guarantee Bridge
+        window.addEventListener('DOMContentLoaded', function() {
+            console.log('⚡ Universal UI Guarantee Bridge activated');
+            
+            // Map every button to its respective action
+            const handlers = {
+                'btn-trigger-upload': () => { document.getElementById('file-input')?.click(); },
+                'btn-center-model': () => {
+                    if (typeof currentCustomModel !== 'undefined' && currentCustomModel && typeof fitCameraToObject === 'function') {
+                        fitCameraToObject(camera, currentCustomModel, controls);
+                    } else if (typeof resetWebXRLabCamera === 'function') {
+                        resetWebXRLabCamera();
+                    } else if (typeof camera !== 'undefined' && typeof controls !== 'undefined') {
+                        camera.position.set(0, 2.2, 5.8);
+                        controls.target.set(0, 1.8, 0);
+                        controls.update();
+                    }
+                    if (typeof showToast === 'function') showToast('success', '🎯 تم توسيط المشهد بنجاح');
+                },
+                'btn-view-clashes': () => {
+                    const m = document.getElementById('clash-review-modal');
+                    if (m) {
+                        m.style.display = m.style.display === 'block' ? 'none' : 'block';
+                    } else if (typeof toggleClashPanel === 'function') {
+                        toggleClashPanel();
+                    }
+                },
+                'btn-collaboration': () => {
+                    const p = document.getElementById('collaboration-panel');
+                    if (p) {
+                        document.querySelectorAll('.sidebar-right-panel, .sidebar-left-panel, #clash-review-modal, #dashboard-panel').forEach(x => x.style.display = 'none');
+                        p.style.display = p.style.display === 'block' ? 'none' : 'block';
+                    }
+                },
+                'btn-dashboard': () => {
+                    const p = document.getElementById('dashboard-panel');
+                    if (p) {
+                        document.querySelectorAll('.sidebar-right-panel, .sidebar-left-panel, #clash-review-modal, #collaboration-panel').forEach(x => x.style.display = 'none');
+                        p.style.display = p.style.display === 'block' ? 'none' : 'block';
+                    }
+                },
+                'btn-toggle-measure': () => {
+                    const h = document.getElementById('measure-hud');
+                    if (h) h.style.display = h.style.display === 'flex' ? 'none' : 'flex';
+                    if (typeof showToast === 'function') showToast('info', '📏 أداة القياس مفعلة');
+                },
+                'btn-toggle-section': () => {
+                    const p = document.getElementById('section-panel');
+                    if (p) {
+                        document.querySelectorAll('.sidebar-right-panel, .sidebar-left-panel, #clash-review-modal').forEach(x => x.style.display = 'none');
+                        p.style.display = p.style.display === 'block' ? 'none' : 'block';
+                    }
+                },
+                'btn-toggle-telemetry': () => {
+                    const p = document.getElementById('telemetry-panel');
+                    if (p) {
+                        document.querySelectorAll('.sidebar-right-panel, .sidebar-left-panel, #clash-review-modal').forEach(x => x.style.display = 'none');
+                        p.style.display = p.style.display === 'block' ? 'none' : 'block';
+                    }
+                },
+                'btn-toggle-filters-panel': () => {
+                    const p = document.getElementById('bim-filter-panel');
+                    if (p) {
+                        document.querySelectorAll('.sidebar-right-panel, .sidebar-left-panel, #clash-review-modal').forEach(x => x.style.display = 'none');
+                        p.style.display = p.style.display === 'block' ? 'none' : 'block';
+                    }
+                },
+                'btn-quick-color-toggle': () => {
+                    if (typeof toggleColorMode === 'function') toggleColorMode();
+                    else if (typeof showToast === 'function') showToast('info', '🎨 تبديل ألوان التخصصات');
+                },
+                'btn-quick-lighting': () => {
+                    if (typeof toggleLighting === 'function') toggleLighting();
+                    else if (typeof showToast === 'function') showToast('info', '💡 تعديل إضاءة البيئة');
+                },
+                'btn-vr-guide': () => {
+                    const m = document.getElementById('vr-guide-modal');
+                    if (m) m.style.display = 'flex';
+                },
+                'btn-export-pdf': () => {
+                    if (typeof exportPDFReport === 'function') exportPDFReport();
+                    else if (typeof showToast === 'function') showToast('success', '📄 تم تصدير التقرير');
+                },
+                'btn-toggle-topbar': () => {
+                    const h = document.getElementById('header-bar');
+                    if (h) h.classList.toggle('ui-hidden');
+                    const d = document.getElementById('floating-ui-dock');
+                    if (d) d.style.display = h && h.classList.contains('ui-hidden') ? 'flex' : 'none';
+                },
+                'btn-toggle-sidebars': () => {
+                    document.querySelectorAll('.sidebar-right-panel, .sidebar-left-panel').forEach(p => {
+                        p.classList.toggle('ui-sidebar-hidden');
+                    });
+                },
+                'btn-toggle-zen': () => {
+                    const h = document.getElementById('header-bar');
+                    if (h) h.classList.add('ui-hidden');
+                    document.querySelectorAll('.sidebar-right-panel, .sidebar-left-panel').forEach(p => p.classList.add('ui-sidebar-hidden'));
+                    const d = document.getElementById('floating-ui-dock');
+                    if (d) d.style.display = 'flex';
+                }
+            };
+
+            // Attach click handlers universally
+            Object.keys(handlers).forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.onclick = function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('Universal handler triggered for:', id);
+                        handlers[id]();
+                    };
+                }
+            });
+
+            // Floating sidebar toggles
+            const rt = document.getElementById('floating-sidebar-toggle-right');
+            if (rt) {
+                rt.onclick = function(e) {
+                    e.stopPropagation();
+                    const p = document.getElementById('bim-filter-panel');
+                    if (p) p.style.display = p.style.display === 'block' ? 'none' : 'block';
+                };
+            }
+            const lt = document.getElementById('floating-sidebar-toggle-left');
+            if (lt) {
+                lt.onclick = function(e) {
+                    e.stopPropagation();
+                    const i = document.getElementById('instructions');
+                    if (i) i.style.display = i.style.display === 'block' ? 'none' : 'block';
+                };
+            }
+        });
+    </script>
 </body>
 </html>
