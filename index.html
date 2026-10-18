@@ -3503,7 +3503,24 @@
 
             function applyIFCHighlight(expressID) {
                 clearCurrentSelectionHighlight();
-                if (!currentCustomModel || !currentIFCLoader || expressID === undefined || expressID === null) return;
+                if (!currentIFCLoader || expressID === undefined || expressID === null) return;
+                
+                // Determine which model to use for highlight - use visible model/storey mesh
+                var highlightModel = null;
+                if (currentCustomModel && currentCustomModel.visible) {
+                    highlightModel = currentCustomModel;
+                } else if (selectStoreyFilter && selectStoreyFilter.value !== 'all') {
+                    var targetStoreyMesh = ifcStoreyMeshes[selectStoreyFilter.value];
+                    if (targetStoreyMesh && targetStoreyMesh.visible) {
+                        highlightModel = targetStoreyMesh;
+                    }
+                }
+                
+                if (!highlightModel) {
+                    if (selectedMesh) applyObjectHighlight(selectedMesh);
+                    return;
+                }
+                
                 try {
                     var subMesh = currentIFCLoader.ifcManager.createSubset({
                         modelID: currentCustomModel.modelID,
@@ -3514,9 +3531,9 @@
                         customID: 'user_selection_highlight'
                     });
                     if (subMesh) {
-                        subMesh.position.copy(currentCustomModel.position);
-                        subMesh.rotation.copy(currentCustomModel.rotation);
-                        subMesh.scale.copy(currentCustomModel.scale);
+                        subMesh.position.copy(highlightModel.position);
+                        subMesh.rotation.copy(highlightModel.rotation);
+                        subMesh.scale.copy(highlightModel.scale);
                         subMesh.visible = true;
                         subMesh.renderOrder = 999;
                         ifcHighlightMesh = subMesh;
@@ -4972,6 +4989,7 @@
             };
 
             // PDF Report Export with Arabic text support
+                        // PDF Report Export - Simple Arabic support
             function exportPDFReport() {
                 try {
                     const { jsPDF } = window.jspdf || {};
@@ -4981,41 +4999,37 @@
                     }
 
                     const doc = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
+                    let y = 40;
 
-                    // Try to load Cairo Arabic font from Google Fonts with timeout
-                    var fontLoaded = false;
-                    var fontTimeout = setTimeout(function() {
-                        if (!fontLoaded) {
-                            console.warn('Font load timed out, using default font');
-                            renderPDFContent(doc, false);
-                        }
-                    }, 3000);
+                    doc.setFontSize(18);
+                    doc.setTextColor(34, 197, 94);
+                    doc.text(reverseArabicText('تقرير منصة WebXR BIM'), 40, y);
+                    y += 20;
 
-                    fetch('https://fonts.gstatic.com/s/cairo/v15/ty7dClKfuyY4h1P1CyuQHQ.woff2')
-                        .then(response => {
-                            if (!response.ok) throw new Error('Font fetch failed');
-                            return response.arrayBuffer();
-                        })
-                        .then(buffer => {
-                            fontLoaded = true;
-                            clearTimeout(fontTimeout);
-                            const bytes = new Uint8Array(buffer);
-                            let binary = '';
-                            for (let i = 0; i < bytes.length; i++) {
-                                binary += String.fromCharCode(bytes[i]);
-                            }
-                            const base64Font = btoa(binary);
-                            doc.addFileToVFS('Cairo-Regular.ttf', base64Font);
-                            doc.addFont('Cairo-Regular.ttf', 'Cairo', 'normal');
-                            doc.setFont('Cairo');
-                            renderPDFContent(doc, true);
-                        })
-                        .catch(err => {
-                            fontLoaded = true;
-                            clearTimeout(fontTimeout);
-                            console.warn('Font load failed, using default font:', err);
-                            renderPDFContent(doc, false);
-                        });
+                    doc.setFontSize(10);
+                    doc.setTextColor(100, 116, 139);
+                    doc.text(reverseArabicText('تاريخ الإنشاء: ' + new Date().toLocaleString('ar-SA')), 40, y);
+                    y += 20;
+
+                    doc.setFontSize(12);
+                    doc.setTextColor(248, 113, 113);
+                    doc.text(reverseArabicText('الإحصائيات:'), 40, y);
+                    y += 15;
+
+                    const stats = [
+                        'العناصر المحملة: ' + (document.getElementById('stat-elements')?.textContent || '0'),
+                        'التعارضات المكتشفة: ' + (document.getElementById('stat-clashes')?.textContent || '0'),
+                        'الطوابق المفهرسة: ' + (document.getElementById('stat-storeys')?.textContent || '0'),
+                        'الشارات المحققة: ' + (window.gamify ? window.gamify.badges.length : 0),
+                        'النقاط الإجمالية: ' + (window.gamify ? window.gamify.score : 0)
+                    ];
+                    stats.forEach(function(s) {
+                        doc.text(reverseArabicText('• ' + s), 40, y);
+                        y += 12;
+                    });
+
+                    doc.save('webxr-bim-report.pdf');
+                    showToast('success', '📄 تم تصدير تقرير PDF');
                 } catch(e) {
                     showToast('error', 'فشل تصدير PDF: ' + (e.message || e));
                 }
@@ -5024,43 +5038,10 @@
             // Helper: Reverse Arabic text for jsPDF (which renders LTR only)
             function reverseArabicText(text) {
                 if (!text) return text;
-                // Reverse characters for basic RTL display in jsPDF
                 return text.split('').reverse().join('');
             }
 
-            function renderPDFContent(doc, hasArabicFont) {
-                let y = 40;
-                if (hasArabicFont) {
-                    doc.setFont('Cairo');
-                }
-                doc.setFontSize(18);
-                doc.setTextColor(34, 197, 94);
-                doc.text(reverseArabicText('تقرير منصة WebXR BIM'), 40, y);
-                y += 20;
-                doc.setFontSize(10);
-                doc.setTextColor(100, 116, 139);
-                doc.text(reverseArabicText('تاريخ الإنشاء: ' + new Date().toLocaleString('ar-SA')), 40, y);
-                y += 20;
-                doc.setFontSize(12);
-                doc.setTextColor(248, 113, 113);
-                doc.text(reverseArabicText('الإحصائيات:'), 40, y);
-                y += 15;
-                const stats = [
-                    'العناصر المحملة: ' + (document.getElementById('stat-elements')?.textContent || '0'),
-                    'التعارضات المكتشفة: ' + (document.getElementById('stat-clashes')?.textContent || '0'),
-                    'الطوابق المفهرسة: ' + (document.getElementById('stat-storeys')?.textContent || '0'),
-                    'الشارات المحققة: ' + (window.gamify ? window.gamify.badges.length : 0),
-                    'النقاط الإجمالية: ' + (window.gamify ? window.gamify.score : 0)
-                ];
-                stats.forEach(function(s) {
-                    doc.text(reverseArabicText('• ' + s), 40, y);
-                    y += 12;
-                });
-                doc.save('webxr-bim-report.pdf');
-                showToast('success', '📄 تم تصدير تقرير PDF');
-            }
-
-            // Wire up new panel buttons
+// Wire up new panel buttons
             // Collaboration Panel
             const btnCollab = document.getElementById('btn-collaboration');
             const btnCloseCollab = document.getElementById('btn-close-collab-panel');
