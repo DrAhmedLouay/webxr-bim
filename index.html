@@ -4933,7 +4933,7 @@
                 }
             };
 
-            // PDF Report Export
+            // PDF Report Export with Arabic font support
             function exportPDFReport() {
                 try {
                     const { jsPDF } = window.jspdf || {};
@@ -4941,36 +4941,60 @@
                         showToast('warning', 'مكتبة PDF غير متاحة حالياً');
                         return;
                     }
+
                     const doc = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
-                    let y = 40;
-                    doc.setFontSize(18);
-                    doc.setTextColor(34, 197, 94);
-                    doc.text('تقرير منصة WebXR BIM', 40, y);
-                    y += 20;
-                    doc.setFontSize(10);
-                    doc.setTextColor(100, 116, 139);
-                    doc.text('تاريخ الإنشاء: ' + new Date().toLocaleString('ar-SA'), 40, y);
-                    y += 20;
-                    doc.setFontSize(12);
-                    doc.setTextColor(248, 113, 113);
-                    doc.text('الإحصائيات:', 40, y);
-                    y += 15;
-                    const stats = [
-                        'العناصر المحملة: ' + (document.getElementById('stat-elements')?.textContent || '0'),
-                        'التعارضات المكتشفة: ' + (document.getElementById('stat-clashes')?.textContent || '0'),
-                        'الطوابق المفهرسة: ' + (document.getElementById('stat-storeys')?.textContent || '0'),
-                        'الشارات المحققة: ' + window.gamify.badges.length,
-                        'النقاط الإجمالية: ' + window.gamify.score
-                    ];
-                    stats.forEach(function(s) {
-                        doc.text('• ' + s, 40, y);
-                        y += 12;
-                    });
-                    doc.save('webxr-bim-report.pdf');
-                    showToast('success', '📄 تم تصدير تقرير PDF');
+
+                    // Load Cairo Arabic font for proper Arabic text rendering
+                    fetch('https://fonts.gstatic.com/s/cairo/v15/ty7dClKfuyY4h1P1CyuQHQ.woff2')
+                        .then(response => response.arrayBuffer())
+                        .then(buffer => {
+                            const bytes = new Uint8Array(buffer);
+                            let binary = '';
+                            for (let i = 0; i < bytes.length; i++) {
+                                binary += String.fromCharCode(bytes[i]);
+                            }
+                            const base64Font = btoa(binary);
+                            doc.addFileToVFS('Cairo-Regular.ttf', base64Font);
+                            doc.addFont('Cairo-Regular.ttf', 'Cairo', 'normal');
+                            doc.setFont('Cairo');
+                            renderPDFContent(doc);
+                        })
+                        .catch(err => {
+                            console.warn('Font load failed, using default font:', err);
+                            renderPDFContent(doc);
+                        });
                 } catch(e) {
                     showToast('error', 'فشل تصدير PDF: ' + (e.message || e));
                 }
+            }
+
+            function renderPDFContent(doc) {
+                let y = 40;
+                doc.setFontSize(18);
+                doc.setTextColor(34, 197, 94);
+                doc.text('تقرير منصة WebXR BIM', 40, y);
+                y += 20;
+                doc.setFontSize(10);
+                doc.setTextColor(100, 116, 139);
+                doc.text('تاريخ الإنشاء: ' + new Date().toLocaleString('ar-SA'), 40, y);
+                y += 20;
+                doc.setFontSize(12);
+                doc.setTextColor(248, 113, 113);
+                doc.text('الإحصائيات:', 40, y);
+                y += 15;
+                const stats = [
+                    'العناصر المحملة: ' + (document.getElementById('stat-elements')?.textContent || '0'),
+                    'التعارضات المكتشفة: ' + (document.getElementById('stat-clashes')?.textContent || '0'),
+                    'الطوابق المفهرسة: ' + (document.getElementById('stat-storeys')?.textContent || '0'),
+                    'الشارات المحققة: ' + (window.gamify ? window.gamify.badges.length : 0),
+                    'النقاط الإجمالية: ' + (window.gamify ? window.gamify.score : 0)
+                ];
+                stats.forEach(function(s) {
+                    doc.text('• ' + s, 40, y);
+                    y += 12;
+                });
+                doc.save('webxr-bim-report.pdf');
+                showToast('success', '📄 تم تصدير تقرير PDF');
             }
 
             // Wire up new panel buttons
