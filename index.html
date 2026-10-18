@@ -3025,6 +3025,18 @@
                 if (ifcStoreysList && ifcStoreysList.length > 0) {
                     ifcStoreysList.forEach(function(s) {
                         var sIds = ifcStoreyElementMap[s.id];
+                        // Fallback: if storey element map is empty, use all category elements
+                        if (!sIds || sIds.size === 0) {
+                            var allCatIds = new Set();
+                            BIM_CATEGORIES.forEach(function(cat) {
+                                if (ifcCategoryMap[cat.id]) {
+                                    ifcCategoryMap[cat.id].forEach(function(eid) {
+                                        allCatIds.add(eid);
+                                    });
+                                }
+                            });
+                            sIds = allCatIds;
+                        }
                         if (sIds && sIds.size > 0) {
                             var sArr = Array.from(sIds);
                             try {
@@ -3182,45 +3194,12 @@
                             }
                         }
 
-                        // If no storey mesh or if user unchecked categories, create filtered subset
-                        var isAllCatsChecked = BIM_CATEGORIES.every(function(cat) { return categoryState[cat.id]; });
-                        if (!targetMeshFound || !isAllCatsChecked) {
-                            for (var sid in ifcStoreyMeshes) {
-                                if (ifcStoreyMeshes[sid]) ifcStoreyMeshes[sid].visible = false;
-                            }
-
-                            var allowedStoreyIds = [];
-                            var targetStoreySet = ifcStoreyElementMap[selectedStorey];
-                            if (targetStoreySet) {
-                                for (var catId in categoryState) {
-                                    if (categoryState[catId] && ifcCategoryMap[catId]) {
-                                        ifcCategoryMap[catId].forEach(function(elemId) {
-                                            if (targetStoreySet.has(elemId)) {
-                                                allowedStoreyIds.push(elemId);
-                                            }
-                                        });
-                                    }
-                                }
-                            }
-
-                            if (allowedStoreyIds.length > 0) {
-                                try {
-                                    var subset = currentIFCLoader.ifcManager.createSubset({
-                                        modelID: currentCustomModel.modelID,
-                                        ids: allowedStoreyIds,
-                                        scene: scene,
-                                        removePrevious: true,
-                                        customID: 'user_active_subset'
-                                    });
-                                    activeSubsetMesh = subset;
-                                    if (activeSubsetMesh) {
-                                        activeSubsetMesh.position.copy(currentCustomModel.position);
-                                        activeSubsetMesh.rotation.copy(currentCustomModel.rotation);
-                                        activeSubsetMesh.scale.copy(currentCustomModel.scale);
-                                        activeSubsetMesh.visible = true;
-                                    }
-                                } catch(e) {
-                                    console.error('Error creating filtered storey subset:', e);
+                        // If no storey mesh found for this storey, fall back to category-based display
+                        if (!targetMeshFound) {
+                            // Show all category meshes based on category state
+                            for (var catId in categoryState) {
+                                if (ifcCategoryMeshes[catId]) {
+                                    ifcCategoryMeshes[catId].visible = !!categoryState[catId];
                                 }
                             }
                         }
