@@ -3571,6 +3571,25 @@
                     // Use cached click target list for fast raycasting (no scene.traverse on every click)
                     var ifcTargets = clickTargetList.length > 0 ? clickTargetList : [currentCustomModel];
 
+                    // Filter targets to only include the selected storey when storey isolation is active
+                    if (selectStoreyFilter && selectStoreyFilter.value !== 'all') {
+                        var selectedStoreyId = selectStoreyFilter.value;
+                        ifcTargets = ifcTargets.filter(function(obj) {
+                            return obj.userData && obj.userData.storeyId === selectedStoreyId;
+                        });
+                        // If no storey-specific mesh matches, fall back to all visible targets
+                        if (ifcTargets.length === 0) {
+                            ifcTargets = clickTargetList.filter(function(obj) {
+                                return obj.visible;
+                            });
+                        }
+                    } else {
+                        // Only include visible targets when not isolating a specific storey
+                        ifcTargets = ifcTargets.filter(function(obj) {
+                            return obj.visible;
+                        });
+                    }
+
                     var ifcHits = raycaster.intersectObjects(ifcTargets, true);
                     if (ifcHits.length > 0) {
                         var hit = ifcHits[0];
