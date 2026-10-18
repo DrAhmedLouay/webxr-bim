@@ -1012,7 +1012,8 @@
             <button class="btn btn-outline" id="btn-toggle-topbar" title="إخفاء الشريط العلوي لتوسيع المشهد الثلاثي الأبعاد (اختصار: T)" style="border-color: rgba(56, 189, 248, 0.5); color: #38bdf8;">🔼 إخفاء الشريط</button>
             <button class="btn btn-outline" id="btn-toggle-sidebars" title="إخفاء أو إظهار كافة القوائم واللوحات الجانبية (اختصار: S)">📑 القوائم الجانبية</button>
             <button class="btn btn-outline" id="btn-toggle-zen" title="وضع العرض الفراغي الكامل والتركيز (إخفاء كافة الشرائط) (اختصار: H أو Z)">🔲 عرض كامل</button>
-            <a href="full_research_conversations_log.html" target="_blank" class="btn btn-outline" id="btn-conversations-log" style="border-color: rgba(34, 197, 94, 0.5); color: #86efac; text-decoration: none;" title="سجل المحادثات والأوامر والمسار البحثي الشامل مع المخططات والجداول (HTML)">📜 سجل المحادثات والمخططات (HTML)</a>
+            <button class="btn btn-outline" id="btn-conversations-log" style="border-color: rgba(34, 197, 94, 0.5); color: #86efac; text-decoration: none;" title="سجل المحادثات والأوامر والمسار البحثي الشامل مع المخططات والجداول (HTML)">📜 سجل المحادثات والمخططات (HTML)</a>
+            <button class="btn btn-outline" id="btn-lang-toggle" title="تبديل اللغة بين العربية والإنجليزية">🌐 English</button>
             <div id="user-session-bar" class="user-session-container">
                 <div id="user-session-pill" class="user-session-pill">
                     <span id="user-session-name">👨‍🏫 د. أحمد لؤي أحمد (Admin)</span>
@@ -5026,8 +5027,6 @@
             };
 
             // PDF Report Export with Arabic text support
-                                    // PDF Report Export
-                        // PDF Report Export
             function exportPDFReport() {
                 try {
                     const { jsPDF } = window.jspdf || {};
@@ -5171,6 +5170,128 @@
                 URL.revokeObjectURL(url);
                 showToast('success', '📊 تم تصدير تقرير الأداء');
             });
+
+            // Language Toggle (Arabic / English)
+            let currentLang = 'ar';
+            const langTexts = {
+                ar: {
+                    title: '🥽 غرفة فحص التعارضات (WebXR Lab)',
+                    subtitle: 'مراجعة التصاميم وتنسيق النماذج المعمارية والـ MEP بمقياس 1:1',
+                    btnLab: '🥽 غرفة التعارضات (WebXR Lab)',
+                    btnSpeckle: '🏢 نموذج Speckle السحابي',
+                    btnVR: '🥽 دليل الواقع الافتراضي (VR)',
+                    btnColor: '🎨 تمييز الألوان',
+                    btnLighting: '💡 إضاءة البيئة',
+                    btnMeasure: '📏 قياس الأبعاد',
+                    btnSection: '✂️ قطاع هندسي',
+                    btnTelemetry: '📊 مؤشرات الأداء',
+                    btnFilters: '🎛️ تصفية العناصر والإضاءة',
+                    btnUpload: '📂 استيراد نموذج آخر (GLB / IFC)',
+                    btnCenter: '🎯 وضع المجسم في المنتصف',
+                    btnClash: '⚠️ مشاهدة التعارضات',
+                    btnBCF: '📋 تسجيل الانحراف (BCF)',
+                    btnImportBCF: '📥 دعم BCF',
+                    btnCalibrate: '⚙️ معايرة',
+                    btnIssues: 'تقرير (CSV)',
+                    btnPDF: '📄 تقرير PDF',
+                    btnTopbar: '🔼 إخفاء الشريط',
+                    btnSidebars: '📑 القوائم الجانبية',
+                    btnZen: '🔲 عرض كامل',
+                    btnLog: '📜 سجل المحادثات والمخططات (HTML)',
+                    btnLang: '🌐 English',
+                    clashCounter: '🔴 التعارضات المرصودة: 0',
+                    userSession: '👨‍🏫 د. أحمد لؤي أحمد (Admin)'
+                },
+                en: {
+                    title: '🥽 WebXR Clash Room',
+                    subtitle: 'Review designs and coordinate architectural & MEP models at 1:1 scale',
+                    btnLab: '🥽 WebXR Clash Room',
+                    btnSpeckle: '🏢 Speckle Cloud Model',
+                    btnVR: '🥽 VR Guide (Meta Quest)',
+                    btnColor: '🎨 Color Coding',
+                    btnLighting: '💡 Environment Lighting',
+                    btnMeasure: '📏 Measure Dimensions',
+                    btnSection: '✂️ Section View',
+                    btnTelemetry: '📊 Performance Metrics',
+                    btnFilters: '🎛️ Filters & Lighting',
+                    btnUpload: '📂 Import Model (GLB / IFC)',
+                    btnCenter: '🎯 Center Model',
+                    btnClash: '⚠️ View Clashes',
+                    btnBCF: '📋 Log Clash (BCF)',
+                    btnImportBCF: '📥 Import BCF Issues',
+                    btnCalibrate: '⚙️ Calibrate',
+                    btnIssues: 'Report (CSV)',
+                    btnPDF: '📄 PDF Report',
+                    btnTopbar: '🔼 Hide Topbar',
+                    btnSidebars: '📑 Sidebars',
+                    btnZen: '🔲 Full View',
+                    btnLog: '📜 Logs & Charts (HTML)',
+                    btnLang: '🌐 العربية',
+                    clashCounter: '🔴 Clashes detected: 0',
+                    userSession: '👨‍🏫 Dr. Ahmed Louay Ahmed (Admin)'
+                }
+            };
+
+            function setLanguage(lang) {
+                currentLang = lang;
+                const t = langTexts[lang];
+                
+                // Header
+                const titleEl = document.querySelector('#header-bar h1');
+                const subtitleEl = document.querySelector('#header-bar p');
+                if (titleEl) titleEl.textContent = t.title;
+                if (subtitleEl) subtitleEl.textContent = t.subtitle;
+                
+                // Buttons
+                const btnMap = {
+                    'btn-lab-view': t.btnLab,
+                    'tab-speckle-view': t.btnSpeckle,
+                    'btn-vr-guide': t.btnVR,
+                    'btn-quick-color-toggle': t.btnColor,
+                    'btn-quick-lighting': t.btnLighting,
+                    'btn-toggle-measure': t.btnMeasure,
+                    'btn-toggle-section': t.btnSection,
+                    'btn-toggle-telemetry': t.btnTelemetry,
+                    'btn-toggle-filters-panel': t.btnFilters,
+                    'btn-trigger-upload': t.btnUpload,
+                    'btn-center-model': t.btnCenter,
+                    'btn-view-clashes': t.btnClash,
+                    'btn-export-bcf': t.btnBCF,
+                    'btn-import-bcf-header': t.btnImportBCF,
+                    'btn-calibrate-header': t.btnCalibrate,
+                    'btn-export-issues': t.btnIssues,
+                    'btn-export-pdf': t.btnPDF,
+                    'btn-toggle-topbar': t.btnTopbar,
+                    'btn-toggle-sidebars': t.btnSidebars,
+                    'btn-toggle-zen': t.btnZen,
+                    'btn-conversations-log': t.btnLog,
+                    'btn-lang-toggle': t.btnLang
+                };
+                Object.keys(btnMap).forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.textContent = btnMap[id];
+                });
+                
+                // Status
+                const clashCounter = document.getElementById('clash-counter');
+                if (clashCounter) clashCounter.textContent = t.clashCounter;
+                
+                const userSession = document.getElementById('user-session-name');
+                if (userSession) userSession.textContent = t.userSession;
+                
+                // Update direction
+                document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+                document.body.style.direction = lang === 'ar' ? 'rtl' : 'ltr';
+            }
+
+            const btnLang = document.getElementById('btn-lang-toggle');
+            if (btnLang) {
+                btnLang.addEventListener('click', function() {
+                    const newLang = currentLang === 'ar' ? 'en' : 'ar';
+                    setLanguage(newLang);
+                    showToast('success', newLang === 'ar' ? 'تم التحويل إلى اللغة العربية' : 'Switched to English');
+                });
+            }
 
             // Quick Bypass Login Button
             const btnBypass = document.getElementById('quick-bypass-btn');
