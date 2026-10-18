@@ -4621,9 +4621,54 @@
             var simMouseRaycaster = new THREE.Raycaster();
             var simPointer = new THREE.Vector2();
 
-            // Dummy stubs to prevent ReferenceError from old calls
-            function buildSimTargetList() {}
-            function buildClickTargetList() {}
+            // Build cached target list for fast raycasting (excludes UI/helpers)
+            var simTargetList = [];
+            function buildSimTargetList() {
+                simTargetList = [];
+                scene.traverse(function(obj) {
+                    if (!obj.visible) return;
+                    if (obj.parent === simLaserGroup || obj.parent === measureGroup || obj === ifcHighlightMesh) return;
+                    if (obj.userData && obj.userData.isClashSphere) return;
+                    if (obj.isMesh) simTargetList.push(obj);
+                });
+            }
+
+            // Cached target list for click selection (rebuilt on model load / filter change)
+            var clickTargetList = [];
+            function buildClickTargetList() {
+                clickTargetList = [];
+                if (currentCustomModel) {
+                    currentCustomModel.traverse(function(c) {
+                        if (c.isMesh) clickTargetList.push(c);
+                    });
+                }
+                if (activeSubsetMesh && activeSubsetMesh.visible) clickTargetList.push(activeSubsetMesh);
+                for (var catId in ifcCategoryMeshes) {
+                    if (ifcCategoryMeshes[catId] && ifcCategoryMeshes[catId].visible) {
+                        clickTargetList.push(ifcCategoryMeshes[catId]);
+                    }
+                }
+                for (var sid in ifcStoreyMeshes) {
+                    if (ifcStoreyMeshes[sid] && ifcStoreyMeshes[sid].visible) {
+                        clickTargetList.push(ifcStoreyMeshes[sid]);
+                    }
+                }
+                if (explodedSubsets && explodedSubsets.length > 0) {
+                    clickTargetList = clickTargetList.concat(explodedSubsets);
+                }
+                // Add visible lab elements
+                scene.traverse(function(c) {
+                    if (c.isMesh && c.userData && c.userData.isLabElem && c.visible) {
+                        clickTargetList.push(c);
+                    }
+                });
+                // If no custom model loaded, ensure webxrLabGroup children are included
+                if (!currentCustomModel && webxrLabGroup) {
+                    webxrLabGroup.traverse(function(c) {
+                        if (c.isMesh && c.visible) clickTargetList.push(c);
+                    });
+                }
+            }
 
             window.addEventListener('pointermove', function(e) {
                 if (!isLaserSimActive) return;
