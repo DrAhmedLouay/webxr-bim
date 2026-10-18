@@ -4989,7 +4989,7 @@
             };
 
             // PDF Report Export with Arabic text support
-                        // PDF Report Export - Simple Arabic support
+                                    // PDF Report Export
             function exportPDFReport() {
                 try {
                     const { jsPDF } = window.jspdf || {};
@@ -5003,17 +5003,17 @@
 
                     doc.setFontSize(18);
                     doc.setTextColor(34, 197, 94);
-                    doc.text(reverseArabicText('تقرير منصة WebXR BIM'), 40, y);
+                    doc.text('تقرير منصة WebXR BIM', 40, y);
                     y += 20;
 
                     doc.setFontSize(10);
                     doc.setTextColor(100, 116, 139);
-                    doc.text(reverseArabicText('تاريخ الإنشاء: ' + new Date().toLocaleString('ar-SA')), 40, y);
+                    doc.text('تاريخ الإنشاء: ' + new Date().toLocaleString('ar-SA'), 40, y);
                     y += 20;
 
                     doc.setFontSize(12);
                     doc.setTextColor(248, 113, 113);
-                    doc.text(reverseArabicText('الإحصائيات:'), 40, y);
+                    doc.text('الإحصائيات:', 40, y);
                     y += 15;
 
                     const stats = [
@@ -5024,7 +5024,7 @@
                         'النقاط الإجمالية: ' + (window.gamify ? window.gamify.score : 0)
                     ];
                     stats.forEach(function(s) {
-                        doc.text(reverseArabicText('• ' + s), 40, y);
+                        doc.text(s, 40, y);
                         y += 12;
                     });
 
@@ -5033,12 +5033,6 @@
                 } catch(e) {
                     showToast('error', 'فشل تصدير PDF: ' + (e.message || e));
                 }
-            }
-
-            // Helper: Reverse Arabic text for jsPDF (which renders LTR only)
-            function reverseArabicText(text) {
-                if (!text) return text;
-                return text.split('').reverse().join('');
             }
 
 // Wire up new panel buttons
