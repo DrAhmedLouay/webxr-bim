@@ -4971,7 +4971,7 @@
                 }
             };
 
-            // PDF Report Export with Arabic font support
+            // PDF Report Export with Arabic text support
             function exportPDFReport() {
                 try {
                     const { jsPDF } = window.jspdf || {};
@@ -4982,13 +4982,23 @@
 
                     const doc = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
 
-                    // Load Cairo Arabic font for proper Arabic text rendering
+                    // Try to load Cairo Arabic font from Google Fonts with timeout
+                    var fontLoaded = false;
+                    var fontTimeout = setTimeout(function() {
+                        if (!fontLoaded) {
+                            console.warn('Font load timed out, using default font');
+                            renderPDFContent(doc, false);
+                        }
+                    }, 3000);
+
                     fetch('https://fonts.gstatic.com/s/cairo/v15/ty7dClKfuyY4h1P1CyuQHQ.woff2')
                         .then(response => {
                             if (!response.ok) throw new Error('Font fetch failed');
                             return response.arrayBuffer();
                         })
                         .then(buffer => {
+                            fontLoaded = true;
+                            clearTimeout(fontTimeout);
                             const bytes = new Uint8Array(buffer);
                             let binary = '';
                             for (let i = 0; i < bytes.length; i++) {
@@ -4998,11 +5008,13 @@
                             doc.addFileToVFS('Cairo-Regular.ttf', base64Font);
                             doc.addFont('Cairo-Regular.ttf', 'Cairo', 'normal');
                             doc.setFont('Cairo');
-                            renderPDFContent(doc);
+                            renderPDFContent(doc, true);
                         })
                         .catch(err => {
+                            fontLoaded = true;
+                            clearTimeout(fontTimeout);
                             console.warn('Font load failed, using default font:', err);
-                            renderPDFContent(doc);
+                            renderPDFContent(doc, false);
                         });
                 } catch(e) {
                     showToast('error', 'فشل تصدير PDF: ' + (e.message || e));
@@ -5012,12 +5024,15 @@
             // Helper: Reverse Arabic text for jsPDF (which renders LTR only)
             function reverseArabicText(text) {
                 if (!text) return text;
-                // Simple character reversal for basic Arabic display in jsPDF
+                // Reverse characters for basic RTL display in jsPDF
                 return text.split('').reverse().join('');
             }
 
-            function renderPDFContent(doc) {
+            function renderPDFContent(doc, hasArabicFont) {
                 let y = 40;
+                if (hasArabicFont) {
+                    doc.setFont('Cairo');
+                }
                 doc.setFontSize(18);
                 doc.setTextColor(34, 197, 94);
                 doc.text(reverseArabicText('تقرير منصة WebXR BIM'), 40, y);
