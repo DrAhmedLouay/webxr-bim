@@ -3509,16 +3509,53 @@
                 var highlightModel = null;
                 if (currentCustomModel && currentCustomModel.visible) {
                     highlightModel = currentCustomModel;
-                } else if (selectStoreyFilter && selectStoreyFilter.value !== 'all') {
+                } else if (typeof selectStoreyFilter !== 'undefined' && selectStoreyFilter.value !== 'all') {
                     var targetStoreyMesh = ifcStoreyMeshes[selectStoreyFilter.value];
                     if (targetStoreyMesh && targetStoreyMesh.visible) {
                         highlightModel = targetStoreyMesh;
+                    } else {
+                        // Fallback: create storey mesh on demand if missing
+                        var targetStoreySet = ifcStoreyElementMap[selectStoreyFilter.value];
+                        if (targetStoreySet && targetStoreySet.size > 0) {
+                            var sArr = Array.from(targetStoreySet);
+                            try {
+                                var newStoreyMesh = currentIFCLoader.ifcManager.createSubset({
+                                    modelID: currentCustomModel.modelID,
+                                    ids: sArr,
+                                    scene: scene,
+                                    removePrevious: true,
+                                    customID: 'storey_' + selectStoreyFilter.value
+                                });
+                                if (newStoreyMesh) {
+                                    newStoreyMesh.position.copy(currentCustomModel.position);
+                                    newStoreyMesh.rotation.copy(currentCustomModel.rotation);
+                                    newStoreyMesh.scale.copy(currentCustomModel.scale);
+                                    newStoreyMesh.visible = true;
+                                    newStoreyMesh.userData = {
+                                        storeyId: selectStoreyFilter.value,
+                                        basePosY: currentCustomModel.position.y,
+                                        originalMaterial: newStoreyMesh.material
+                                    };
+                                    ifcStoreyMeshes[selectStoreyFilter.value] = newStoreyMesh;
+                                    highlightModel = newStoreyMesh;
+                                }
+                            } catch(e) {
+                                console.warn('Error creating storey subset on demand:', e);
+                            }
+                        }
                     }
                 }
                 
                 if (!highlightModel) {
-                    if (selectedMesh) applyObjectHighlight(selectedMesh);
-                    return;
+                    // Fallback: use currentCustomModel even if hidden, or selectedMesh
+                    if (currentCustomModel) {
+                        highlightModel = currentCustomModel;
+                    } else if (selectedMesh) {
+                        applyObjectHighlight(selectedMesh);
+                        return;
+                    } else {
+                        return;
+                    }
                 }
                 
                 try {
@@ -4990,6 +5027,7 @@
 
             // PDF Report Export with Arabic text support
                                     // PDF Report Export
+                        // PDF Report Export
             function exportPDFReport() {
                 try {
                     const { jsPDF } = window.jspdf || {};
