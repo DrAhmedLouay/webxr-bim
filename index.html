@@ -1041,6 +1041,7 @@
             <button class="btn btn-upload" id="btn-trigger-upload">📂 استيراد نموذج آخر (GLB / IFC)</button>
             <button class="btn btn-outline" id="btn-export-glb" title="تصدير النموذج الحالي كـ GLB محسّن للاستخدام في AR/VR">📤 تصدير GLB (محسّن)</button>
             <button class="btn btn-outline" id="btn-ar-page" style="border-color: rgba(0, 240, 255, 0.45); color: #00f0ff;" title="فتح صفحة الواقع المعزز المستقلة بنفس النموذج المحمّل (تثبيت المبنى على الأرض بمقياس 1:1)">📱 صفحة AR</button>
+            <button class="btn btn-outline" id="btn-copy-ar-link" style="border-color: rgba(0, 240, 255, 0.5); color: #00f0ff;" title="نسخ رابط صفحة الواقع المعزز (مع النموذج الحالي) — أرسله لنفسك أو لأي زميل">🔗 نسخ رابط AR</button>
             <button class="btn btn-outline" id="btn-nft-marker" style="border-color: rgba(168, 85, 247, 0.5); color: #c084fc; background: rgba(168, 85, 247, 0.12); font-weight: bold;" title="توليد علامة ارتساء (QR) تربط النموذج الحالي بعرض الواقع المعزز على الهاتف">📸 إنشاء علامة NFT</button>
 
             <button class="btn btn-center" id="btn-center-model" title="إعادة الكاميرا وتوسيط الموديل في منتصف الشاشة">🎯 وضع المجسم في المنتصف</button>
@@ -1305,6 +1306,27 @@
             <button id="btn-close-gh-publish" style="background: transparent; border: none; color: #94a3b8; font-size: 1.4rem; cursor: pointer; padding: 2px 8px;">✕</button>
         </div>
 
+        <!-- ONE decision: where does the model live? -->
+        <div style="background: rgba(0, 240, 255, 0.06); border: 1px solid rgba(0, 240, 255, 0.25); border-radius: 12px; padding: 13px 15px; margin-bottom: 14px; line-height: 1.7;">
+            <div style="font-weight: bold; color: #00f0ff; font-size: 0.92rem; margin-bottom: 3px;">📍 أولاً: أين سيُخزَّن النموذج؟</div>
+            <div style="font-size: 0.78rem; color: #cbd5e1;">اختر <b>مكاناً واحداً</b> فقط، ثم انسخ الرابط الناتج إلى نافذة «إنشاء علامة NFT».</div>
+            <div style="margin-top: 10px; display: grid; gap: 8px;">
+                <div style="background: rgba(0,240,255,.07); border:1px solid rgba(0,240,255,.3); border-radius:9px; padding:10px 12px;">
+                    <b style="color:#00f0ff;">① في هذا الموقع نفسه (موصى به — لأي حجم)</b>
+                    <div style="font-size:.76rem; color:#cbd5e1;">انسخ النموذج إلى مجلد <code style="direction:ltr;display:inline-block">models/</code> في مستودع الموقع. الرابط يكون على نفس النطاق ⇒ أسرع تحميل، بلا CORS، ويعمل دون اتصال.</div>
+                    <button id="btn-gh-git-commands" class="btn btn-outline" style="margin-top:8px; border-color: rgba(0,240,255,.5); color:#00f0ff; font-size:.76rem; padding:6px 12px;">📋 نسخ أوامر النشر (3 أوامر)</button>
+                </div>
+                <div style="background: rgba(88,166,255,.06); border:1px solid rgba(88,166,255,.25); border-radius:9px; padding:10px 12px;">
+                    <b style="color:#58a6ff;">② رفع مباشر من المتصفح (حتى 20 MB)</b>
+                    <div style="font-size:.76rem; color:#cbd5e1;">للملفات الصغيرة فقط — الـAPI يرفض ما فوق ~20 MB لأن المحتوى يُرسل base64 داخل JSON. للاستخدام: الرمز والمستودع بالأسفل.</div>
+                </div>
+                <div style="background: rgba(34,197,94,.06); border:1px solid rgba(34,197,94,.22); border-radius:9px; padding:10px 12px;">
+                    <b style="color:#86efac;">③ Google Drive (بلا git)</b>
+                    <div style="font-size:.76rem; color:#cbd5e1;">ارفع الملف وشاركه بـ«أي شخص لديه الرابط»، ثم الصق رابط المشاركة في نافذة «إنشاء علامة NFT» — تُحوَّل المنصة الرابط تلقائياً.</div>
+                </div>
+            </div>
+        </div>
+
         <div style="background: rgba(248, 113, 113, 0.08); border: 1px solid rgba(248, 113, 113, 0.25); border-radius: 10px; padding: 11px 13px; margin-bottom: 14px; font-size: 0.78rem; color: #cbd5e1; line-height: 1.65;">
             <b style="color:#f87171;">🔐 لا تُدخل كلمة مرور GitHub هنا.</b>
             GitHub ألغى مصادقة كلمة المرور في الـAPI منذ 2020. استخدم
@@ -1405,6 +1427,14 @@
                     <button id="btn-nft-download" class="btn btn-outline" data-i18n="nftDownload" style="border-color: rgba(168,85,247,0.6); color: #c084fc; background: rgba(168,85,247,0.15); font-weight: bold;">⬇️ تنزيل PNG</button>
                     <button id="btn-nft-copy" class="btn btn-outline" data-i18n="nftCopy" style="border-color: rgba(56,189,248,0.5); color: #38bdf8;">📋 نسخ الرابط</button>
                     <button id="btn-nft-reset" class="btn btn-outline" data-i18n="nftReset">↩️ إعادة توليد رابط النموذج</button>
+                </div>
+
+                <div style="background: rgba(0, 240, 255, 0.06); border: 1px solid rgba(0, 240, 255, 0.25); border-radius: 10px; padding: 12px 14px; margin-top: 14px; line-height: 1.75; font-size: 0.8rem; color: #cbd5e1;">
+                    <b style="color: #00f0ff;">📱 كيف تُستخدم العلامة (3 خطوات)</b><br>
+                    ① اطبع العلامة وألصقها على الجدار أو الطاولة في الموقع.<br>
+                    ② افتح <b>«🔗 نسخ رابط AR»</b> من المنصة وأرسل الرابط لنفسك (أو امسح العلامة بالقاتف).<br>
+                    ③ على الهاتف: افتح الرابط ← النموذج يُحمَّل تلقائياً ← «📱 بدء الواقع المعزز» → وجّه الكاميرا على السطح → <b>«📍 تثبيت هنا»</b> لوضع المبنى بمقياس 1:1.
+                    <div style="margin-top:6px; color:#94a3b8; font-size:.76rem;">ملاحظة: <b>iOS</b> لا يدعم WebXR — استخدم «🍎 عرض في Reality» (AR Quick Look) بدل ذلك، أو افتح الرابط على هاتف Android.</div>
                 </div>
 
                 <div style="background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.25); border-radius: 10px; padding: 12px 14px; margin-top: 14px; line-height: 1.6;">
@@ -2980,6 +3010,11 @@
                     params.push('modelKey=' + encodeURIComponent(currentModelStoreKey));
                 }
                 var modelName = (currentCustomModel && currentCustomModel.name) ? String(currentCustomModel.name) : '';
+                if (!modelName && window.ModelStore) {
+                    // fall back to the stored file name so the anchor is stable
+                    var rec = window.ModelStore.getLastName && window.ModelStore.getLastName();
+                    if (rec) modelName = rec;
+                }
                 if (modelName) {
                     var h = 2166136261;
                     for (var i = 0; i < modelName.length; i++) {
@@ -2994,6 +3029,25 @@
                     }
                 } catch (e) { /* ignore */ }
                 return base.replace(/[^/]*$/, 'ar.html') + (params.length ? '?' + params.join('&') : '');
+            }
+
+            // One-click sharing: copies the AR link (model included) so it can be
+            // sent to a phone, a colleague or a messaging app. No dialogs.
+            var btnCopyArLink = document.getElementById('btn-copy-ar-link');
+            if (btnCopyArLink) {
+                btnCopyArLink.addEventListener('click', function () {
+                    var url = buildArPageLink();
+                    function done() {
+                        showToast('success', 'تم نسخ رابط Reality المعزّز — افتحه على الهاتف\n' + url, 5000);
+                    }
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(url).then(done).catch(function () {
+                            showToast('error', 'تعذّر النسخ — الرابط: ' + url, 5000);
+                        });
+                    } else {
+                        showToast('info', 'رابط AR: ' + url, 5000);
+                    }
+                });
             }
 
             var btnArPage = document.getElementById('btn-ar-page');
@@ -5193,10 +5247,10 @@
                         fileInfoEl.innerHTML = 'الملف: <b>' + record.name + '</b> · الحجم: <b>' +
                             window.GitHubPublisher.humanSize(record.size) + '</b> · النوع: ' + (record.type || '—') +
                             (record.size > window.GitHubPublisher.MAX_CONTENTS_SIZE
-                                ? ' <span style="color:#f87171;">— يتجاوز حد Contents API (' +
+                                ? ' <span style="color:#fbbf24;">— أكبر من حد الرفع من المتصفح (' +
                                   window.GitHubPublisher.humanSize(window.GitHubPublisher.MAX_CONTENTS_SIZE) +
-                                  ')؛ استخدم أمر curl أو Git LFS</span>'
-                                : '');
+                                  '). استخدم الخيار ① (أوامر git) أو ③ (Google Drive) — الرفع المباشر سيُرفض.</span>'
+                                : ' <span style="color:#86efac;">— يمكن رفعه مباشرة من المتصفح</span>');
                         if (!pathInput.value) {
                             pathInput.value = 'models/' + record.name.replace(/[^a-zA-Z0-9._-]/g, '-');
                         }
@@ -5307,6 +5361,32 @@
                                 log('Upload failed: ' + (err && err.message ? err.message : 'unknown error'), true);
                             }
                         });
+                    });
+                }
+
+                var btnGit = document.getElementById('btn-gh-git-commands');
+                if (btnGit) {
+                    btnGit.addEventListener('click', function () {
+                        var repo = selectedRepo();
+                        var owner = repo ? repo.fullName.split('/')[0] : 'DrAhmedLouay';
+                        var name = repo ? repo.fullName.split('/')[1] : 'webxr-bim';
+                        var path = (pathInput.value || 'models/model.glb').trim();
+                        var branch = (branchInput.value || 'main').trim();
+                        var cmd = window.GitHubPublisher.gitPushCommands({
+                            owner: owner,
+                            repo: name,
+                            branch: branch,
+                            path: path,
+                            siteUrl: 'https://' + owner.toLowerCase() + '.github.io/' + name + '/'
+                        });
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                            navigator.clipboard.writeText(cmd).then(function () {
+                                log('publish commands copied to the clipboard.');
+                                showToast('success', 'تم نسخ أوامر النشر — نفّذها في الطرفية ثم الصق الرابط الناتج', 4200);
+                            }).catch(function () { log(cmd); });
+                        } else {
+                            log(cmd);
+                        }
                     });
                 }
 

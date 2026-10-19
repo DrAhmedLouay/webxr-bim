@@ -97,6 +97,9 @@
             <br><span style="color:#64748b;">بدون AR مدعوم: اسحب بإصبعك لتدوير المبنى، وضمّ إصبعين للتقريب.</span>
         </div>
         <div id="ar-support" style="font-size: .74rem; color: #94a3b8; margin-top: 8px; direction: ltr; text-align: left;">… جارٍ التحقق من دعم Reality المعزز</div>
+        <div id="ar-why-wrap" style="display:none; margin-top: 6px;">
+            <a id="ar-why" href="#" style="font-size: .74rem; color: #38bdf8; text-decoration: underline;">لماذا لا يعمل Reality المعزز هنا؟ وما البدائل؟</a>
+        </div>
         <div class="scale-row" id="scaleRow" style="display:none;">
             <span>المقياس</span>
             <input type="range" id="scaleInput" min="0.05" max="3" step="0.05" value="1">
@@ -605,6 +608,11 @@
     }
 
     // ---- capability panel ---------------------------------------------
+    function showWhyLink() {
+        var wrap = document.getElementById('ar-why-wrap');
+        if (wrap) wrap.style.display = 'block';
+    }
+
     function showCapability() {
         var panel = document.getElementById('device-capability');
         var body = document.getElementById('capability-body');
@@ -648,6 +656,7 @@
             arSupport = ok ? 'yes' : 'no';
             renderSupport();
             if (!ok) {
+                showWhyLink();
                 setStatus('النموذج جاهز — Reality المعزز غير مدعوم هنا، يمكنك فحص النموذج باللمس');
             }
         }).catch(function () {
@@ -665,8 +674,8 @@
         if (!supportsAR()) {
             arSupport = 'no';
             renderSupport();
-            setStatus('Reality المعزز غير متاح على هذا الجهاز — افتح «قدرات هذا الجهاز» للبدائل');
-            showCapability();
+            setStatus('Reality المعزز غير متاح على هذا المتصفح — يمكنك فحص النموذج باللمس');
+            showWhyLink();
             return;
         }
         setStatus('جارٍ تشغيل جلسة AR…');
@@ -699,17 +708,15 @@
         }).catch(function (err) {
             arSupport = 'no';
             renderSupport();
-            setStatus('تعذّر بدء AR على هذا الجهاز — افتح «قدرات هذا الجهاز» للبدائل');
-            // A failed session is exactly when the user needs to know what
-            // this device CAN do — show the capability panel, not a raw error.
-            showCapability();
-            var reason = (err && err.message) ? err.message : 'خطأ غير متوقع';
+            setStatus('تعذّر بدء Reality المعزز على هذا الجهاز — يمكنك فحص النموذج باللمس');
+            showWhyLink();
+            var reason = (err && err.message) ? err.message : '';
             if (/activation/i.test(reason)) {
                 reason = 'يلزم تفاعل مباشر (ضغطة) لبدء الجلسة';
             } else if (/not supported|unsupported/i.test(reason)) {
-                reason = 'الجهاز لا يدعمReality المعزز';
+                reason = 'الجهاز لا يدعم Reality المعزز';
             }
-            toast('تعذّر بدء AR: ' + reason, 4000);
+            if (reason) toast('تعذّر بدء AR: ' + reason, 4000);
         });
     });
 
@@ -756,6 +763,14 @@
             if (!url) { toast('ألصق رابط النموذج أولاً', 2200); return; }
             hideMissingPanel();
             loadGlb(url, function (reason) { showMissingPanel(reason || 'تعذّر تحميل النموذج من الرابط.'); });
+        });
+    }
+
+    var whyLink = document.getElementById('ar-why');
+    if (whyLink) {
+        whyLink.addEventListener('click', function (e) {
+            e.preventDefault();
+            showCapability();
         });
     }
 

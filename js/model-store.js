@@ -87,7 +87,7 @@
             return withStore('readwrite', function (store) {
                 store.put(record);
                 return record;
-            }).then(function () { return storageKey; });
+            }).then(function () { lastName = record.name; return storageKey; });
         });
     }
 
@@ -101,8 +101,10 @@
         return withStore('readonly', function (store) {
             var req = store.get(storageKey);
             return { __req: req };
-        }).then(function (record) { return record || null; })
-            .catch(function () { return null; });
+        }).then(function (record) {
+            if (record) lastName = record.name;
+            return record || null;
+        }).catch(function () { return null; });
     }
 
     function remove(key) {
@@ -240,8 +242,12 @@
         return !!driveFileId(url);
     }
 
+    var lastName = '';
+    function getLastName() { return lastName; }
+
     global.ModelStore = {
         CURRENT_KEY: CURRENT_KEY,
+        getLastName: getLastName,
         save: save,
         load: load,
         remove: remove,

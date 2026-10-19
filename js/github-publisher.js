@@ -21,9 +21,12 @@
     'use strict';
 
     var API_BASE = 'https://api.github.com';
-    var MAX_CONTENTS_SIZE = 50 * 1024 * 1024; // practical ceiling for the
-    // base64-in-JSON Contents API (GitHub's hard limit is 100 MB, but the
-    // JSON request body is the real bottleneck)
+    // The Contents API sends the file base64-encoded inside a JSON body, so the
+    // request is ~1.37x the file size. GitHub rejects bodies over ~30 MB, which
+    // puts the practical ceiling for an in-browser upload at ~20 MB.
+    // Bigger files must be pushed with git (no size problem) — the UI offers
+    // the exact commands for that.
+    var MAX_CONTENTS_SIZE = 20 * 1024 * 1024;
 
     function setApiBase(url) { API_BASE = String(url || API_BASE).replace(/\/+$/, ''); }
     function getApiBase() { return API_BASE; }
@@ -243,6 +246,43 @@
         ].join('\n');
     }
 
+    /**
+     * The simple path for large models: copy the file into the repository and
+     * push it. No token, no size limit (up to GitHub's 100 MB per file), and
+     * the file ends up on the same origin as the site.
+     * @param {Object} options { owner, repo, branch, path, fileName, siteUrl }
+     * @returns {string}
+     */
+    function gitPushCommands(options) {
+        var owner = options.owner || 'OWNER';
+        var repo = options.repo || 'REPO';
+        var branch = options.branch || 'main';
+        var path = options.path || ('models/' + (options.fileName || 'model.glb'));
+        var fileName = path.split('/').pop();
+        var siteUrl = options.siteUrl || ('https://' + owner.toLowerCase() + '.github.io/' + repo + '/');
+        return [
+            '# ═══ نشر نموذج BIM على GitHub (يعمل لأي حجم حتى 100 MB) ═══',
+            '# 1) احصل على نسخة من المستودع (مرة واحدة فقط)',
+            'git clone https://github.com/' + owner + '/' + repo + '.git',
+            'cd ' + repo,
+            '',
+            '# 2) ضع ملف النموذج في مجلد models/',
+            'mkdir -p models',
+            'cp "/مسار/الملف/على/جهازك/' + fileName + '" models/',
+            '',
+            '# 3) انشره',
+            'git add models/',
+            'git commit -m "Add BIM model: ' + fileName + '"',
+            'git push origin ' + branch,
+            '',
+            '# ═══ الرابط الجاهز (نفس نطاق الموقع — الأسرع والأضمن) ═══',
+            siteUrl + path,
+            '',
+            '# استخدمه في: نافذة «إنشاء علامة NFT» ← حقل «رابط النموذج المباشر»',
+            '# أو افتح صفحة AR مباشرة: ' + siteUrl + 'ar.html?model=' + path
+        ].join('\n');
+    }
+
     global.GitHubPublisher = {
         setApiBase: setApiBase,
         getApiBase: getApiBase,
@@ -257,6 +297,7 @@
         uploadFile: uploadFile,
         rawUrl: rawUrl,
         curlCommand: curlCommand,
+        gitPushCommands: gitPushCommands,
         encodeRepoPath: encodeRepoPath,
         arrayBufferToBase64: arrayBufferToBase64,
         humanSize: humanSize,
