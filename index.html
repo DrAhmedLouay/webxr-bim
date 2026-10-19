@@ -4889,10 +4889,17 @@
                         c.getVersions()
                             .then(function (res) {
                                 var versions = (res && res.versions) ? res.versions : res;
-                                log('Connected. Supported BCF versions: ' + JSON.stringify(versions));
-                                if (versions && versions.length) {
-                                    var preferred = (res && res.recommendedVersion) ? res.recommendedVersion : versions[versions.length - 1];
-                                    if (versions.indexOf(c.version) === -1 && versions.indexOf(preferred) !== -1) {
+                                // BIMcollab returns objects ({version_id, build_version}), other
+                                // BCF-API servers may return plain strings.
+                                var versionIds = (versions || []).map(function (v) {
+                                    if (v && typeof v === 'object') return v.version_id || v.versionId || v.id || '';
+                                    return String(v);
+                                }).filter(function (v) { return !!v; });
+                                log('Connected. Supported BCF versions: ' + (versionIds.length ? versionIds.join(', ') : JSON.stringify(versions)));
+                                if (versionIds.length) {
+                                    var preferred = versionIds.indexOf(c.version) !== -1 ? c.version
+                                        : (versionIds.indexOf('2.1') !== -1 ? '2.1' : versionIds[versionIds.length - 1]);
+                                    if (c.version !== preferred) {
                                         c.version = preferred;
                                         log('Using BCF version ' + c.version);
                                     }
