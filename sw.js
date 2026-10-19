@@ -69,9 +69,29 @@ self.addEventListener('fetch', function (event) {
     if (isApiTraffic(url) || request.headers.get('accept') === 'application/json') return;
     if (url.protocol === 'data:' || url.protocol === 'blob:') return;
 
-    // App shell: cache-first with background refresh
-    if (!isThirdParty(url) && SHELL_ASSETS.indexOf(url.pathname.replace(/^\/webxr-bim\//, './')) !== -1 ||
-        (!isThirdParty(url) && /\.(html|js|png|json|md)$/i.test(url.pathname))) {
+    // HTML documents: network-first, cache as the offline fallback.
+    // The platform is updated often, so a cached page would hide new features
+    // until the service worker happens to refresh.
+    if (!isThirdParty(url) && /\.html$/i.test(url.pathname)) {
+        event.respondWith(
+            fetch(request).then(function (response) {
+                if (response && response.ok) {
+                    var copy = response.clone();
+                    caches.open(SHELL_CACHE).then(function (cache) { cache.put(request, copy); });
+                }
+                return response;
+            }).catch(function () {
+                return caches.match(request).then(function (cached) {
+                    return cached || caches.match('./index.html');
+                });
+            })
+        );
+        return;
+    }
+
+    // Other app-shell assets: cache-first with a background refresh
+    if (!isThirdParty(url) && (SHELL_ASSETS.indexOf(url.pathname.replace(/^\/webxr-bim\//, './')) !== -1 ||
+        /\.(js|png|json|md)$/i.test(url.pathname))) {
         event.respondWith(
             caches.match(request).then(function (cached) {
                 var network = fetch(request).then(function (response) {
