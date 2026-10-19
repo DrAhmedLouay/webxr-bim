@@ -235,6 +235,7 @@ https://drahmedlouay.github.io/webxr-bim/
 ### الميزات الجديدة
 | الميزة | الملف | الوصف |
 |---|---|---|
+| **الجسر بين VR/AR** | `js/model-store.js` | مخزن IndexedDB مشترك: المنصة تحفظ النموذج المحمّل، و`ar.html` تستعيده عبر `?modelKey=` — والعلامة NFT تحمل هذا الرابط مباشرة |
 | **صفحة AR مستقلة** | `ar.html` | صفحة للهاتف: جلسة `immersive-ar` + `hit-test` + تثبيت النموذج بمقياس 1:1 على السطح الحقيقي |
 | **تصدير BCF 2.1 حقيقي** | `js/bcf.js` | أرشيف `.bcf` مطابق لمرجع buildingSMART (bcf.version + project.bcfp + markup.bcf + Viewpoint .bcfv) |
 | **موصّل BIMcollab / BCF-API** | `js/bcf.js` | اختبار اتصال، جلب المشاريع، سحب المواضيع، دفع التعارضات (BCF-API 2.1) |

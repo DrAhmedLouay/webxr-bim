@@ -927,6 +927,8 @@
     <script src="./js/nft-marker.js"></script>
     <!-- OpenBIM BCF 2.1 writer + buildingSMART BCF-API client — local -->
     <script src="./js/bcf.js"></script>
+    <!-- Shared model store (IndexedDB) — bridges index.html and ar.html -->
+    <script src="./js/model-store.js"></script>
     <!-- PWA -->
     <link rel="manifest" href="./manifest.json">
     <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
@@ -1036,7 +1038,7 @@
             <button class="btn btn-filter" id="btn-toggle-filters-panel" title="فصل الطوابق وتصفية عناصر المبنى والتأسيسات وضبط الإضاءة">🎛️ تصفية العناصر والإضاءة</button>
             <button class="btn btn-upload" id="btn-trigger-upload">📂 استيراد نموذج آخر (GLB / IFC)</button>
             <button class="btn btn-outline" id="btn-export-glb" title="تصدير النموذج الحالي كـ GLB محسّن للاستخدام في AR/VR">📤 تصدير GLB (محسّن)</button>
-            <a class="btn btn-outline" id="btn-ar-page" href="./ar.html" target="_blank" rel="noopener" style="border-color: rgba(0, 240, 255, 0.45); color: #00f0ff; text-decoration: none;" title="فتح صفحة الواقع المعزز المستقلة للهاتف (تثبيت المبنى على الأرض بمقياس 1:1)">📱 صفحة AR</a>
+            <button class="btn btn-outline" id="btn-ar-page" style="border-color: rgba(0, 240, 255, 0.45); color: #00f0ff;" title="فتح صفحة الواقع المعزز المستقلة بنفس النموذج المحمّل (تثبيت المبنى على الأرض بمقياس 1:1)">📱 صفحة AR</button>
             <button class="btn btn-outline" id="btn-nft-marker" style="border-color: rgba(168, 85, 247, 0.5); color: #c084fc; background: rgba(168, 85, 247, 0.12); font-weight: bold;" title="توليد علامة ارتساء (QR) تربط النموذج الحالي بعرض الواقع المعزز على الهاتف">📸 إنشاء علامة NFT</button>
 
             <button class="btn btn-center" id="btn-center-model" title="إعادة الكاميرا وتوسيط الموديل في منتصف الشاشة">🎯 وضع المجسم في المنتصف</button>
@@ -2879,6 +2881,8 @@
             }
 
             var fileInput = document.getElementById('file-input');
+            // Key of the model persisted in the shared IndexedDB store (index.html <-> ar.html)
+            var currentModelStoreKey = window.ModelStore ? window.ModelStore.CURRENT_KEY : null;
             var dropOverlay = document.getElementById('drop-overlay');
             var toast = document.getElementById('loading-toast');
             var toastTitle = document.getElementById('toast-title');
@@ -2890,6 +2894,47 @@
                 fileInput.click();
             }
             document.getElementById('btn-trigger-upload').addEventListener('click', triggerUpload);
+
+            // ---------------------------------------------------------------
+            // Bridge to the standalone AR page (ar.html)
+            // The AR page runs on the same origin, so it can pick up the very
+            // same model through the shared IndexedDB store (modelKey) and can
+            // also read a plain https URL (?model=...).
+            // ---------------------------------------------------------------
+            function buildArPageLink() {
+                var base = location.href.split('?')[0].split('#')[0];
+                var params = [];
+                if (currentModelStoreKey) params.push('modelKey=' + encodeURIComponent(currentModelStoreKey));
+                var modelName = (currentCustomModel && currentCustomModel.name) ? String(currentCustomModel.name) : '';
+                if (modelName) {
+                    var h = 2166136261;
+                    for (var i = 0; i < modelName.length; i++) {
+                        h ^= modelName.charCodeAt(i);
+                        h = (h * 16777619) >>> 0;
+                    }
+                    params.push('anchor=' + encodeURIComponent('bim-' + h.toString(16)));
+                }
+                try {
+                    if (typeof selectStoreyFilter !== 'undefined' && selectStoreyFilter && selectStoreyFilter.value !== 'all') {
+                        params.push('storey=' + encodeURIComponent(selectStoreyFilter.value));
+                    }
+                } catch (e) { /* ignore */ }
+                return base.replace(/[^/]*$/, 'ar.html') + (params.length ? '?' + params.join('&') : '');
+            }
+
+            var btnArPage = document.getElementById('btn-ar-page');
+            if (btnArPage) {
+                btnArPage.addEventListener('click', function () {
+                    var url = buildArPageLink();
+                    window.open(url, '_blank', 'noopener');
+                    if (currentModelStoreKey) {
+                        showToast('success', 'تم فتح صفحة AR بنفس النموذج — ثبّته على السطح بمقياس 1:1.', 4000);
+                    } else {
+                        showToast('info', 'افتحت صفحة AR — استورد النموذج داخلها (أو حمّله هنا أولاً ليرتبط تلقائياً).', 4500);
+                    }
+                });
+            }
+
             document.getElementById('btn-export-glb').addEventListener('click', exportCurrentModelAsGLB);
 
             // =====================================================================
@@ -3140,6 +3185,13 @@
                             webxrLabGroup.visible = false;
                             currentCustomModel = ifcModel;
                             scene.add(ifcModel);
+                            // Persist the source file so the standalone AR page can
+                            // pick up exactly the same model (shared IndexedDB).
+                            if (window.ModelStore) {
+                                window.ModelStore.save(file, window.ModelStore.CURRENT_KEY, { name: file.name, type: file.type })
+                                    .then(function (key) { currentModelStoreKey = key; })
+                                    .catch(function (err) { console.warn('[ModelStore] save failed:', err && err.message); });
+                            }
 
                             buildSimTargetList();
                             buildClickTargetList();
@@ -3231,6 +3283,14 @@
                                 buildClickTargetList();
                                 fitCameraToObject(camera, model, controls);
                                 refreshStoreyDropdown();
+
+                                // Persist the source file so the standalone AR page can
+                                // pick up exactly the same model (shared IndexedDB).
+                                if (window.ModelStore) {
+                                    window.ModelStore.save(file, window.ModelStore.CURRENT_KEY, { name: file.name, type: file.type })
+                                        .then(function (key) { currentModelStoreKey = key; })
+                                        .catch(function (err) { console.warn('[ModelStore] save failed:', err && err.message); });
+                                }
 
                                 toast.style.display = 'none';
                             }, function(err) {
@@ -5272,12 +5332,17 @@
 
                 function defaultPayload() {
                     var model = currentModelLabel();
-                    return window.NFTMarker.buildDeepLink({
-                        baseUrl: location.href.split('?')[0].split('#')[0],
-                        anchor: 'bim-' + hashToken(model + '|' + location.origin),
-                        model: model,
-                        storey: currentStorey()
-                    });
+                    // The marker opens the standalone AR page and carries the shared
+                    // model key, so scanning it (on the same device) restores the
+                    // exact model in the AR session.
+                    var base = location.href.split('?')[0].split('#')[0];
+                    var params = [];
+                    if (typeof currentModelStoreKey !== 'undefined' && currentModelStoreKey) {
+                        params.push('modelKey=' + encodeURIComponent(currentModelStoreKey));
+                    }
+                    params.push('anchor=' + encodeURIComponent('bim-' + hashToken(model + '|' + location.origin)));
+                    if (currentStorey()) params.push('storey=' + encodeURIComponent(currentStorey()));
+                    return base.replace(/[^/]*$/, 'ar.html') + '?' + params.join('&');
                 }
 
                 function render() {

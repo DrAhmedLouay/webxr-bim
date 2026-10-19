@@ -80,12 +80,14 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <script src="https://unpkg.com/web-ifc@0.0.57/web-ifc-api-iife.js"></script>
 <script src="https://unpkg.com/web-ifc-three@0.0.126/IFCLoader.umd.cjs"></script>
+<script src="./js/model-store.js"></script>
 <script>
 (function () {
     'use strict';
 
     var params = new URLSearchParams(location.search);
-    var modelUrl = params.get('model') || '';
+    var modelUrl = params.get('model') || '';        // https URL to a .glb
+    var modelKey = params.get('modelKey') || '';      // key in the shared IndexedDB store
     var anchorToken = params.get('anchor') || '';
     var storey = params.get('storey') || '';
 
@@ -181,7 +183,32 @@
         });
     }
 
-    if (modelUrl && /\.glb(\?|$)/i.test(modelUrl)) {
+    function loadFromStore(key) {
+        setStatus('جارٍ استرجاع النموذج من مخزن المنصة…');
+        return window.ModelStore.load(key).then(function (record) {
+            if (!record) {
+                setStatus('لم يُعثر على النموذج في المخزن — اختر ملفاً يدوياً');
+                toast('النموذج غير موجود في مخزن هذا المتصفح. افتحه في المنصة أولاً أو استورده هنا.', 4000);
+                return false;
+            }
+            var blob = new Blob([record.bytes], { type: record.type || 'application/octet-stream' });
+            var isIfc = /\.ifc$/i.test(record.name || '') || /ifc/i.test(record.type || '');
+            if (isIfc) {
+                loadIfc(new File([blob], record.name || 'model.ifc'));
+            } else {
+                loadGlb(URL.createObjectURL(blob));
+            }
+            return true;
+        }).catch(function (err) {
+            setStatus('تعذّر استرجاع النموذج من المخزن');
+            toast('خطأ في المخزن: ' + (err && err.message ? err.message : 'غير متوقع'), 3500);
+            return false;
+        });
+    }
+
+    if (modelKey && window.ModelStore) {
+        loadFromStore(modelKey);
+    } else if (modelUrl && /\.glb(\?|$)/i.test(modelUrl)) {
         loadGlb(modelUrl);
     } else if (modelUrl) {
         toast('الرابط لا يشير إلى ملف GLB — افتح نموذجاً يدوياً', 3200);
