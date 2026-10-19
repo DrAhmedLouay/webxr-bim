@@ -17,9 +17,9 @@
     html,body { margin:0; padding:0; height:100%; background:var(--bg); color:var(--text);
         font-family:"Segoe UI", Tahoma, system-ui, -apple-system, sans-serif; overflow:hidden; }
     #scene { position:fixed; inset:0; }
-    .overlay { position:fixed; inset:0; display:flex; flex-direction:column; justify-content:space-between;
-        padding:calc(env(safe-area-inset-top) + 14px) 14px calc(env(safe-area-inset-bottom) + 14px);
-        pointer-events:none; }
+    .overlay { position:fixed; inset:0; display:flex; flex-direction:column; justify-content:flex-start;
+        padding:calc(env(safe-area-inset-top) + 12px) 12px calc(env(safe-area-inset-bottom) + 12px);
+        pointer-events:none; overflow-y:auto; }
     .overlay > * { pointer-events:auto; }
     .card { background:var(--panel); backdrop-filter:blur(14px); border:1px solid var(--line);
         border-radius:14px; padding:14px 16px; box-shadow:0 14px 40px rgba(0,0,0,.6); }
@@ -31,13 +31,13 @@
     button.ghost { background:transparent; color:var(--blue); border:1px solid var(--line); }
     button:disabled { opacity:.5; cursor:not-allowed; }
     input[type=file] { display:none; }
-    #status { position:fixed; left:50%; top:calc(env(safe-area-inset-top) + 14px); transform:translateX(-50%);
-        background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:7px 16px;
-        font-size:.74rem; color:var(--muted); max-width:92vw; text-align:center; z-index:20; }
-    #reticle { position:fixed; left:50%; top:50%; width:74px; height:74px; margin:-37px 0 0 -37px;
-        border:2px solid var(--cyan); border-radius:50%; box-shadow:0 0 22px rgba(0,240,255,.6);
+    #status { font-size:.74rem; color:var(--muted); line-height:1.55; margin-top:8px;
+        border-top:1px solid rgba(255,255,255,.08); padding-top:8px; }
+    /* A thin, calm ring marking the detected surface — not a glowing object. */
+    #reticle { position:fixed; left:50%; top:50%; width:58px; height:58px; margin:-29px 0 0 -29px;
+        border:2px solid rgba(255,255,255,.85); border-radius:50%; box-shadow:0 0 0 1px rgba(0,0,0,.35);
         display:none; pointer-events:none; z-index:5; }
-    #reticle::after { content:""; position:absolute; inset:32%; border-radius:50%; background:var(--cyan); opacity:.85; }
+    #reticle::after { content:""; position:absolute; inset:44%; border-radius:50%; background:rgba(255,255,255,.9); }
     #toast { position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom) + 96px); transform:translateX(-50%);
         background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:10px 16px;
         font-size:.78rem; color:var(--text); max-width:90vw; text-align:center; display:none; z-index:30; }
@@ -49,20 +49,39 @@
 <body>
 <div id="scene"></div>
 <div id="reticle"></div>
-<div id="status">جارٍ التحميل…</div>
 
-<!-- Device capability panel: explains what this device can and cannot do -->
-<div id="device-capability" class="card" style="display:none; position:fixed; z-index:39; left:50%; top:50%; transform:translate(-50%,-50%); width:min(520px,92vw); border-color:rgba(0,240,255,.4);">
-    <h1 style="color:#00f0ff;">ℹ️ قدرات هذا الجهاز</h1>
-    <div id="capability-body" style="font-size:.8rem; color:#cbd5e1; margin-top:8px; line-height:1.7;"></div>
-    <div class="row">
-        <button id="btn-capability-close" class="ghost">✕ إغلاق</button>
-    </div>
-</div>
+<div class="overlay">
+    <div class="card">
+        <h1>🥽 وضع الواقع المعزز — WebXR BIM</h1>
+        <div class="sub" id="intro">
+            ضع المبنى على الأرض بحجم حقيقي 1:1. وجّه الكاميرا نحو السطح ثم اضغط زر
+            <b>التثبيت</b> داخل جلسة AR لتثبيت النموذج في مكانه.
+            <br><span style="color:#64748b;">بدون AR مدعوم: اسحب بإصبعك لتدوير المبنى، وضمّ إصبعين للتقريب.</span>
+        </div>
+        <div id="status">جارٍ التحميل…</div>
+        <div id="ar-support" style="font-size: .74rem; color: #94a3b8; margin-top: 6px; direction: ltr; text-align: left;">… جارٍ التحقق من دعم Reality المعزز</div>
+        <div id="ar-why-wrap" style="display:none; margin-top: 6px;">
+            <a id="ar-why" href="#" style="font-size: .74rem; color: #38bdf8; text-decoration: underline;">لماذا لا يعمل Reality المعزز هنا؟ وما البدائل؟</a>
+        </div>
+        <div class="scale-row" id="scaleRow" style="display:none;">
+            <span>المقياس</span>
+            <input type="range" id="scaleInput" min="0.05" max="3" step="0.05" value="1">
+            <b id="scaleLabel">1.00×</b>
+        </div>
+        <div class="row">
+            <button id="btn-ar">📱 بدء الواقع المعزز (AR)</button>
+            <a id="ar-ql-link" rel="ar" href="#" style="display:none; text-decoration:none;">
+                <img id="ar-ql-poster" alt="عرض في الواقع" style="width:48px; height:48px; border-radius:9px; border:1px solid rgba(148,163,184,.45);">
+            </a>
+            <button id="btn-usdz" class="ghost" style="display:none;">🍎 تنزيل USDZ</button>
+            <button id="btn-file" class="ghost">📂 فتح نموذج (GLB/IFC)</button>
+            <button id="btn-place" class="ghost" style="display:none;">📍 تثبيت هنا</button>
+            <button id="btn-home" class="ghost">↩ المنصة الرئيسية</button>
+        </div>
 
-<!-- Recovery panel: shown when the linked model cannot be resolved on this device -->
-<div id="model-missing" class="card" style="display:none; position:fixed; z-index:40; left:50%; top:50%; transform:translate(-50%,-50%); width:min(540px,92vw); border-color:rgba(248,113,113,.55);">
-    <h1 style="color:#f87171;">⚠️ لم يُعثر على النموذج على هذا الجهاز</h1>
+        <!-- Sections shown in place (no floating modal on a phone) -->
+        <div id="model-missing" style="display:none; margin-top:14px; border-top:1px solid rgba(255,255,255,.1); padding-top:14px;">
+    <div style="color:#f87171; font-weight:bold; font-size:.95rem;">⚠️ لم يُعثر على النموذج على هذا الجهاز</div>
     <div class="sub" style="margin-top:6px;">
         علامة <b>NFT</b> تحمل رابطاً يشير إلى اسم النموذج داخل مخزن المتصفح
         (<code>modelKey</code>)، وهو مخزن خاص بهذا المتصفح على هذا الجهاز فقط.
@@ -80,42 +99,17 @@
     <div class="row">
         <button id="btn-missing-file">📂 استيراد نموذج من الجهاز</button>
         <button id="btn-missing-platform" class="ghost">🏢 فتح المنصة (تحميل النموذج هناك)</button>
-        <button id="btn-missing-dismiss" class="ghost">✕ إغلاق</button>
     </div>
     <div class="row" style="align-items:center;">
         <input id="missing-url" type="url" placeholder="https://example.com/model.glb" style="flex:1; min-width:180px; background:#0f172a; color:#f1f5f9; border:1px solid rgba(56,189,248,.35); border-radius:10px; padding:10px 12px; font-size:.78rem; direction:ltr; text-align:left;">
         <button id="btn-missing-url" class="ghost">تحميل من الرابط</button>
     </div>
-</div>
 
-<div class="overlay">
-    <div class="card">
-        <h1>🥽 وضع الواقع المعزز — WebXR BIM</h1>
-        <div class="sub" id="intro">
-            ضع المبنى على الأرض بحجم حقيقي 1:1. وجّه الكاميرا نحو السطح ثم اضغط زر
-            <b>التثبيت</b> داخل جلسة AR لتثبيت النموذج في مكانه.
-            <br><span style="color:#64748b;">بدون AR مدعوم: اسحب بإصبعك لتدوير المبنى، وضمّ إصبعين للتقريب.</span>
-        </div>
-        <div id="ar-support" style="font-size: .74rem; color: #94a3b8; margin-top: 8px; direction: ltr; text-align: left;">… جارٍ التحقق من دعم Reality المعزز</div>
-        <div id="ar-why-wrap" style="display:none; margin-top: 6px;">
-            <a id="ar-why" href="#" style="font-size: .74rem; color: #38bdf8; text-decoration: underline;">لماذا لا يعمل Reality المعزز هنا؟ وما البدائل؟</a>
-        </div>
-        <div class="scale-row" id="scaleRow" style="display:none;">
-            <span>المقياس</span>
-            <input type="range" id="scaleInput" min="0.05" max="3" step="0.05" value="1">
-            <b id="scaleLabel">1.00×</b>
-        </div>
-        <div class="row">
-            <button id="btn-ar">📱 بدء الواقع المعزز (AR)</button>
-            <a id="ar-ql-link" rel="ar" href="#" style="display:none; text-decoration:none;">
-                <img id="ar-ql-poster" alt="عرض في الواقع" style="width:54px; height:54px; border-radius:10px; border:1.5px solid rgba(0,240,255,.5);">
-            </a>
-            <button id="btn-usdz" class="ghost" style="display:none;">🍎 تنزيل USDZ</button>
-            <button id="btn-file" class="ghost">📂 فتح نموذج (GLB/IFC)</button>
-            <button id="btn-place" class="ghost" style="display:none;">📍 تثبيت هنا</button>
-            <button id="btn-home" class="ghost">↩ المنصة الرئيسية</button>
-        </div>
-        <input type="file" id="file-input" accept=".glb,.gltf,.ifc">
+<div id="device-capability" style="display:none; margin-top:14px; border-top:1px solid rgba(255,255,255,.1); padding-top:14px;">
+    <div style="color:#00f0ff; font-weight:bold; font-size:.95rem;">ℹ️ قدرات هذا الجهاز</div>
+    <div id="capability-body" style="font-size:.8rem; color:#cbd5e1; margin-top:8px; line-height:1.7;"></div>
+</div>
+    <input type="file" id="file-input" accept=".glb,.gltf,.ifc">
     </div>
     <div></div>
 </div>
@@ -548,24 +542,32 @@
 
     // ---- AR Quick Look (the native AR path on iOS) --------------------
     var usdzUrl = '';
+    // A neutral badge for the AR Quick Look entry. It deliberately avoids a
+    // glowing cyan building glyph, which was mistaken for a default model.
     function drawPoster() {
         var poster = document.getElementById('ar-ql-poster');
         if (!poster) return;
         var c = document.createElement('canvas');
         c.width = 108; c.height = 108;
         var ctx = c.getContext('2d');
-        var grad = ctx.createLinearGradient(0, 0, 108, 108);
-        grad.addColorStop(0, '#0b0f19'); grad.addColorStop(1, '#12324a');
-        ctx.fillStyle = grad; ctx.fillRect(0, 0, 108, 108);
-        ctx.strokeStyle = '#00f0ff'; ctx.lineWidth = 3;
-        ctx.strokeRect(6, 6, 96, 96);
-        // simple building glyph
-        ctx.fillStyle = '#00f0ff';
-        ctx.fillRect(28, 46, 14, 34);
-        ctx.fillRect(47, 30, 14, 50);
-        ctx.fillRect(66, 56, 14, 24);
-        ctx.fillStyle = '#f43f5e';
-        ctx.fillRect(22, 82, 64, 4);
+        ctx.fillStyle = '#1f2937';
+        ctx.fillRect(0, 0, 108, 108);
+        ctx.strokeStyle = 'rgba(148,163,184,.55)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(1, 1, 106, 106);
+        // a simple neutral cube outline
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(54, 26); ctx.lineTo(80, 40); ctx.lineTo(80, 68);
+        ctx.lineTo(54, 82); ctx.lineTo(28, 68); ctx.lineTo(28, 40);
+        ctx.closePath();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(54, 26); ctx.lineTo(54, 54);
+        ctx.moveTo(54, 54); ctx.lineTo(80, 40);
+        ctx.moveTo(54, 54); ctx.lineTo(28, 40);
+        ctx.stroke();
         poster.src = c.toDataURL('image/png');
     }
 
@@ -770,7 +772,15 @@
     if (whyLink) {
         whyLink.addEventListener('click', function (e) {
             e.preventDefault();
-            showCapability();
+            var panel = document.getElementById('device-capability');
+            if (!panel) return;
+            if (panel.style.display === 'block') {
+                // clicking again folds the section away
+                panel.style.display = 'none';
+            } else {
+                showCapability();          // fill it for this device
+                panel.style.display = 'block';
+            }
         });
     }
 
