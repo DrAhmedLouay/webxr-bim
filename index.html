@@ -482,7 +482,7 @@
             font-weight: bold;
             pointer-events: none;
         }
-        #VRButton {
+        #VRButton, .vr-entry-btn {
             border-radius: 8px !important;
             font-weight: bold !important;
             box-shadow: 0 4px 20px rgba(37, 99, 235, 0.5) !important;
@@ -490,6 +490,8 @@
             bottom: 25px !important;
             padding: 10px 24px !important;
             font-size: 0.9rem !important;
+            text-decoration: none !important;
+            display: inline-block !important;
         }
         /* Step 1 (AR): Custom entry button using native WebXR Device API */
         .ar-entry-btn {
@@ -905,7 +907,8 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/BufferGeometryUtils.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/webxr/VRButton.js"></script>
+    <!-- NOTE: three@0.128 does not ship examples/js/webxr/VRButton.js (that CDN path
+         returns 404). VR/AR entry points are created with the native WebXR Device API below. -->
 
     <!-- Compatibility Bridge for IFC buffer geometry merging -->
     <script>
@@ -1020,7 +1023,7 @@
             <!-- BIM Filters & Storeys Button -->
             <button class="btn btn-filter" id="btn-toggle-filters-panel" title="فصل الطوابق وتصفية عناصر المبنى والتأسيسات وضبط الإضاءة">🎛️ تصفية العناصر والإضاءة</button>
             <button class="btn btn-upload" id="btn-trigger-upload">📂 استيراد نموذج آخر (GLB / IFC)</button>
-            <button class="btn btn-outline" id="btn-export-glb" title="تصدير النمودج الحالي كـ GLB محسّن للاستخدام في AR/VR">📤 تصدير GLB (محسّن)</button>
+            <button class="btn btn-outline" id="btn-export-glb" title="تصدير النموذج الحالي كـ GLB محسّن للاستخدام في AR/VR">📤 تصدير GLB (محسّن)</button>
 
             <button class="btn btn-center" id="btn-center-model" title="إعادة الكاميرا وتوسيط الموديل في منتصف الشاشة">🎯 وضع المجسم في المنتصف</button>
             <button class="btn btn-clash-view" id="btn-view-clashes" title="مشاهدة واستعراض التعارضات في المشهد الثلاثي الأبعاد">⚠️ مشاهدة التعارضات</button>
@@ -1500,30 +1503,90 @@
             renderer.xr.enabled = true;
             container.appendChild(renderer.domElement);
 
-            if (THREE.VRButton) {
-                document.body.appendChild(THREE.VRButton.createButton(renderer));
+            // =====================================================================
+            // Step 0 (VR): Custom VR entry button via native WebXR Device API
+            // (three@0.128 npm package ships no examples/js/webxr/VRButton.js)
+            // =====================================================================
+            var vrEntryBtn = null;
+            var activeVRSession = null;
+
+            function setupVREntry() {
+                if (!navigator.xr || !navigator.xr.isSessionSupported || vrEntryBtn) {
+                    return;
+                }
+                navigator.xr.isSessionSupported('immersive-vr').then(function(supported) {
+                    if (!supported || vrEntryBtn) return;
+                    vrEntryBtn = document.createElement('a');
+                    vrEntryBtn.id = 'VRButton';
+                    vrEntryBtn.className = 'vr-entry-btn';
+                    vrEntryBtn.title = 'فتح تجربة الواقع الافتراضي الغامر (VR)';
+                    vrEntryBtn.href = '#';
+                    vrEntryBtn.setAttribute('role', 'button');
+                    vrEntryBtn.innerHTML = '🥽 دخول VR';
+                    vrEntryBtn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        launchVRExperience();
+                    });
+                    document.body.appendChild(vrEntryBtn);
+                }).catch(function() {});
             }
 
+            function launchVRExperience() {
+                if (!navigator.xr || !navigator.xr.requestSession) {
+                    showToast('error', 'هذا المتصفح لا يدعم WebXR. يرجى استخدام Chrome/Edge على جهاز يدعم VR.', 4000);
+                    return;
+                }
+                if (activeVRSession) {
+                    activeVRSession.end().catch(function() {});
+                    return;
+                }
+                showToast('info', 'جارٍ تشغيل جلسة الواقع الافتراضي (VR)...', 2500);
+                navigator.xr.requestSession('immersive-vr', {
+                    requiredFeatures: [],
+                    optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
+                })
+                    .then(function(session) {
+                        activeVRSession = session;
+                        renderer.xr.enabled = true;
+                        if (renderer.xr.setReferenceSpaceType) {
+                            renderer.xr.setReferenceSpaceType('local-floor');
+                        }
+                        renderer.xr.setSession(session);
+                        session.addEventListener('end', function() {
+                            activeVRSession = null;
+                            showToast('info', 'تم إنهاء جلسة الواقع الافتراضي (VR)', 2500);
+                        });
+                        showToast('success', 'تم تشغيل جلسة الواقع الافتراضي (VR) بنجاح', 3000);
+                    })
+                    .catch(function(err) {
+                        console.error('VR session failed:', err);
+                        activeVRSession = null;
+                        showToast('error', 'فشل تشغيل VR: ' + (err && err.message ? err.message : 'خطأ غير متوقع'), 4000);
+                    });
+            }
+
+            setupVREntry();
+
             // =====================================================================
-                        // =====================================================================
             // Step 1 (AR): Custom AR entry button via native WebXR Device API
-            // (ARButton.js not shipped in three@0.128 UMD builds; use native API)
+            // (ARButton.js is not shipped in three@0.128 UMD builds; use the native API)
             // =====================================================================
             var arEntryBtn = null;
             var activeXRSession = null;
 
             function setupAREntry() {
-                if (!navigator.xr || !navigator.xr.isSessionSupported) {
+                if (!navigator.xr || !navigator.xr.isSessionSupported || arEntryBtn) {
                     return;
                 }
-                navigator.xr.isSessionSupported('immersland').then(function(supported) {
+                navigator.xr.isSessionSupported('immersive-ar').then(function(supported) {
                     if (!supported || arEntryBtn) return;
                     arEntryBtn = document.createElement('a');
                     arEntryBtn.id = 'ar-entry-btn';
                     arEntryBtn.className = 'ar-entry-btn';
-                    arEntryBtn.title = 'فتح تجربة الواير (AR)';
+                    arEntryBtn.title = 'فتح تجربة الواقع المعزز (AR)';
                     arEntryBtn.href = '#';
-                    arEntryBtn.innerHTML = '\U0001f4f1 تجران AR';
+                    arEntryBtn.setAttribute('role', 'button');
+                    arEntryBtn.innerHTML = '📱 تجربة AR';
                     arEntryBtn.addEventListener('click', function(e) {
                         e.preventDefault();
                         launchARExperience();
@@ -1533,27 +1596,39 @@
             }
 
             function launchARExperience() {
-                if (!renderer || !camera) return;
-                if (activeXRSession) {
-                    activeXRSession.end().catch(function(){});
-                    activeXRSession = null;
-                    showToast('تم ايارة جترة AR', 'info', 2000);
+                if (!navigator.xr || !navigator.xr.requestSession) {
+                    showToast('error', 'هذا المتصفح لا يدعم WebXR. يرجى استخدام Chrome/Edge على جهاز يدعم AR.', 4000);
                     return;
                 }
-                showToast('جارىر الجلسة AR...', 'info', 2000);
-                navigator.xr.requestSession('immersland', { optionalFeatures: ['dom捕获'] })
+                if (activeXRSession) {
+                    activeXRSession.end().catch(function() {});
+                    return;
+                }
+                showToast('info', 'جارٍ تشغيل جلسة الواقع المعزز (AR)...', 2500);
+                var sessionInit = {
+                    requiredFeatures: [],
+                    optionalFeatures: ['dom-overlay', 'hit-test', 'anchors', 'local-floor'],
+                    domOverlay: { root: document.body }
+                };
+                navigator.xr.requestSession('immersive-ar', sessionInit)
                     .then(function(session) {
                         activeXRSession = session;
                         renderer.xr.enabled = true;
+                        if (renderer.xr.setReferenceSpaceType) {
+                            renderer.xr.setReferenceSpaceType('local-floor');
+                        }
+                        session.addEventListener('end', function() {
+                            activeXRSession = null;
+                            showToast('info', 'تم إنهاء جلسة الواقع المعزز (AR)', 2500);
+                        });
+                        showToast('success', 'تم تشغيل جلسة الواقع المعزز (AR) بنجاح', 3000);
                     })
                     .catch(function(err) {
                         console.error('AR session failed:', err);
-                        showToast('فشل تجران AR: ' + (err && err.message ? err.message : 'خطأ داherent'), 'error', 4000);
                         activeXRSession = null;
+                        showToast('error', 'فشل تشغيل AR: ' + (err && err.message ? err.message : 'خطأ غير متوقع'), 4000);
                     });
             }
-
-            setupAREntry();
 
             setupAREntry();
 
@@ -2691,6 +2766,112 @@
             document.getElementById('btn-trigger-upload').addEventListener('click', triggerUpload);
             document.getElementById('btn-export-glb').addEventListener('click', exportCurrentModelAsGLB);
 
+            // =====================================================================
+            // Step 2 (AR): Export Current Model as Optimized GLB
+            // Supports both IFC-loaded models and GLB/GLTF-loaded models, because
+            // in both cases currentCustomModel is a THREE.Object3D in the scene.
+            //
+            // NOTE: three's GLTFExporter exposes parse(input, onDone, options) — the
+            // options object is the THIRD parameter, so binary:true must be passed
+            // there. Older builds used parse(input, onDone, onError, options), so
+            // the call signature is selected by arity to stay version-proof.
+            // =====================================================================
+            function exportCurrentModelAsGLB() {
+                if (!currentCustomModel) {
+                    showToast('info', 'لا يوجد نموذج حالي لتحويله إلى GLB. يُرجى استيراد نموذج أولاً.', 3500);
+                    return;
+                }
+
+                if (!window.THREE || !THREE.GLTFExporter) {
+                    showToast('error', 'متصفحك لا يدعم تصدير GLB. يرجى استخدام متصفح حديث (Chrome/Edge).', 4000);
+                    return;
+                }
+
+                var isIFC = (currentCustomModel.modelID !== undefined);
+                showToast('info', '📤 جاري تصدير النموذج كـ GLB محسّن...', 2500);
+
+                function triggerDownload(blob, filename) {
+                    var url = URL.createObjectURL(blob);
+                    var a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+                }
+
+                function reportFailure(message) {
+                    console.error('GLTFExporter error:', message);
+                    var text = (message && message.message) ? message.message
+                               : (typeof message === 'string' ? message : 'خطأ غير متوقع');
+                    showToast('error', 'فشل تصدير GLB: ' + text, 4000);
+                }
+
+                function onExported(result) {
+                    try {
+                        var stamp = Date.now();
+                        if (result instanceof ArrayBuffer) {
+                            triggerDownload(new Blob([result], { type: 'model/gltf-binary' }), 'model-exported-' + stamp + '.glb');
+                            showToast('success', 'تم تصدير النموذج كـ GLB بنجاح' + (isIFC ? ' (من نموذج IFC)' : ' (من نموذج GLB/GLTF)') + '.', 4000);
+                            return;
+                        }
+                        if (result instanceof Blob) {
+                            triggerDownload(result, 'model-exported-' + stamp + '.glb');
+                            showToast('success', 'تم تصدير النموذج كـ GLB بنجاح.', 4000);
+                            return;
+                        }
+                        if (Array.isArray(result) && result.length === 2 && result[0] && typeof result[0] === 'object') {
+                            // Legacy exporter JSON mode: [glTF JSON, binary buffer]
+                            var json = result[0];
+                            var bin = result[1];
+                            if (bin) {
+                                var reader = new FileReader();
+                                reader.onload = function() {
+                                    try {
+                                        var bytes = new Uint8Array(reader.result);
+                                        var binary = '';
+                                        for (var i = 0; i < bytes.byteLength; i++) {
+                                            binary += String.fromCharCode(bytes[i]);
+                                        }
+                                        json.buffers = json.buffers || [];
+                                        json.buffers[0] = json.buffers[0] || {};
+                                        json.buffers[0].uri = 'data:application/octet-stream;base64,' + btoa(binary);
+                                        triggerDownload(new Blob([JSON.stringify(json)], { type: 'model/gltf+json' }), 'model-exported-' + stamp + '.gltf');
+                                        showToast('success', 'تم تصدير النموذج كـ GLTF (JSON) بنجاح.', 4000);
+                                    } catch (e) { reportFailure(e); }
+                                };
+                                reader.readAsArrayBuffer(bin);
+                                return;
+                            }
+                        }
+                        if (result && typeof result === 'object') {
+                            // JSON-only output carries no embedded binary buffer -> unusable file
+                            reportFailure('المخرج بصيغة JSON لا يحتوي على بيانات ثنائية مدمجة. أعد المحاولة لطلب التصدير الثنائي (binary).');
+                            return;
+                        }
+                        showToast('error', 'فشل التصدير: نتائج غير متوقعة.', 4000);
+                    } catch (e) {
+                        reportFailure(e);
+                    }
+                }
+
+                try {
+                    var exporter = new THREE.GLTFExporter();
+                    var options = { binary: true };
+                    if (typeof exporter.parse === 'function' && exporter.parse.length >= 4) {
+                        exporter.parse(currentCustomModel, onExported, reportFailure, options);
+                    } else if (typeof exporter.parse === 'function') {
+                        exporter.parse(currentCustomModel, onExported, options);
+                    } else {
+                        exporter.write(currentCustomModel, onExported, options);
+                    }
+                } catch (err) {
+                    console.error('GLTFExporter exception:', err);
+                    showToast('error', 'فشل تصدير GLB: ' + (err && err.message ? err.message : 'خطأ غير متوقع'), 4000);
+                }
+            }
+
             fileInput.addEventListener('change', function(e) {
                 if (e.target.files.length > 0) {
                     loadFile(e.target.files[0]);
@@ -2943,74 +3124,6 @@
 
                     reader.readAsArrayBuffer(file);
                 }
-            // =====================================================================
-            // Step 2 (AR): Export Current Model as Optimized GLB
-            // =====================================================================
-            function exportCurrentModelAsGLB() {
-                if (!currentCustomModel) {
-                    showToast('لا يوجد نمودج حالي للتەلد للتصدير', 'info');
-                    return;
-                }
-
-                var isIFC = !!(currentCustomModel && currentCustomModel.modelID !== undefined);
-
-                if (isIFC) {
-                    showToast(
-                        'مودج IFC يتطلب تحويل خارجي باستخدام gltf-pipeline CLI.' +
-                        'قم بتشغيل: gltf-pipeline -i model.ifc -o model.glb -d --draco' +
-                        'ث ثم استورد الملف .glb في المنصة لاستخراج.',
-                        'info',
-                        5000
-                    );
-                    return;
-                }
-
-                if (!window.THREE || !THREE.GLTFExporter) {
-                    showToast('متصفحك لا يدصر تصدير GLB. يرجى استخدام متصفح مدعدلتاً (Chrome/Edge).', 'error');
-                    return;
-                }
-
-                showToast('\U0001f4e4 جاري تصدير النمودج كـ GLB محسّن...', 'info');
-
-                var exporter = new THREE.GLTFExporter();
-                exporter.parse(
-                    currentCustomModel,
-                    function(result) {
-                        if (result instanceof ArrayBuffer) {
-                            var blob = new Blob([result], { type: 'model/gltf-binary' });
-                            var url = URL.createObjectURL(blob);
-                            var a = document.createElement('a');
-                            a.href = url;
-                            a.download = 'model-exported-' + Date.now() + '.glb';
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                            setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
-                            showToast('تم تصدير النمودج كـ GLB بنجاً', 'success');
-                        } else if (Array.isArray(result)) {
-                            var jsonStr = JSON.stringify(result[0]);
-                            var blob = new Blob([jsonStr], { type: 'model/gltf+json' });
-                            var url = URL.createObjectURL(blob);
-                            var a = document.createElement('a');
-                            a.href = url;
-                            a.download = 'model-exported-' + Date.now() + '.gltx';
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                            setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
-                            showToast('تم تصدير النمودج كـ GLTX (JSON)', 'success');
-                        } else {
-                            console.warn('Unexpected export result:', result);
-                            showToast('فشل التمودج: نتائج غير متوقعة', 'error');
-                        }
-                    },
-                    function(err) {
-                        console.error('GLTFExporter error:', err);
-                        showToast('فشل تصدير GLB: ' + (err && err.message ? err.message : 'خطأ داherent'), 'error');
-                    },
-                    { binary: true }
-                );
-            }
             }
 
             // =====================================================================
