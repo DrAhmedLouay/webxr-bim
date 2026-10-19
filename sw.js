@@ -20,6 +20,7 @@ var SHELL_ASSETS = [
     './js/nft-marker.js',
     './js/bcf.js',
     './js/model-store.js',
+    './js/github-publisher.js',
     './icons/icon-192.png',
     './icons/icon-512.png',
     './icons/apple-touch-icon.png',

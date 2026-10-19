@@ -929,6 +929,8 @@
     <script src="./js/bcf.js"></script>
     <!-- Shared model store (IndexedDB) — bridges index.html and ar.html -->
     <script src="./js/model-store.js"></script>
+    <!-- GitHub model publisher (PAT-based, no password) -->
+    <script src="./js/github-publisher.js"></script>
     <!-- PWA -->
     <link rel="manifest" href="./manifest.json">
     <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
@@ -1045,6 +1047,7 @@
             <button class="btn btn-clash-view" id="btn-view-clashes" title="مشاهدة واستعراض التعارضات في المشهد الثلاثي الأبعاد">⚠️ مشاهدة التعارضات</button>
             <button class="btn btn-outline" id="btn-export-bcf" title="تسجيل وتصدير تقرير الانحرافات بتنسيق BCF المفتوح">📋 تسجيل الانحراف (BCF)</button>
             <button class="btn btn-outline" id="btn-import-bcf-header" title="استيراد وتغذية قضايا وملفات BCF الميدانية">📥 دعم BCF</button>
+            <button class="btn btn-outline" id="btn-github-publish" style="border-color: rgba(240, 240, 240, 0.35); color: #e6edf3; background: rgba(240, 240, 240, 0.08); font-weight: bold;" title="نشر النموذج الحالي إلى مستودع GitHub ليصبح قابلاً للتحميل من صفحة AR على أي جهاز">🐙 نشر النموذج على GitHub</button>
             <button class="btn btn-outline" id="btn-bcf-sync" style="border-color: rgba(34, 197, 94, 0.5); color: #86efac; background: rgba(34, 197, 94, 0.12); font-weight: bold;" title="مزامنة التعارضات مع خادم BCF-API 2.1 (BIMcollab أو أي CDE متوافق)">☁️ مزامنة BCF</button>
             <button class="btn btn-outline" id="btn-calibrate-header" style="border-color: rgba(56, 189, 248, 0.5); color: #38bdf8;" title="إجراء المعايرة المكانية وضبط الانزياح بمقياس 1:1">⚙️ معايرة</button>
             <button class="btn btn-outline" id="btn-export-issues">تقرير (CSV)</button>
@@ -1287,6 +1290,67 @@
                 المنصة لا تنشئ حساباً على BIMcollab — يلزم حساب ورمز وصول من مساحة BIMcollab لديك.
             </div>
         </div>
+    </div>
+
+    <!-- GitHub Model Publisher Modal -->
+    <div id="gh-publish-modal" style="display: none; position: absolute; top: 75px; left: 50%; transform: translateX(-50%); width: 720px; max-width: 94vw; max-height: calc(100vh - 100px); background: rgba(15, 23, 42, 0.98); backdrop-filter: blur(20px); padding: 22px 24px; border-radius: 16px; border: 1.5px solid rgba(230, 237, 243, 0.35); z-index: 130; box-shadow: 0 20px 60px rgba(0,0,0,0.85); overflow-y: auto; color: #f8fafc;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 12px; margin-bottom: 16px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.5rem;">🐙</span>
+                <div>
+                    <h3 style="color: #e6edf3; font-size: 1.1rem; font-weight: bold; margin: 0;">نشر النموذج الحالي إلى مستودع GitHub</h3>
+                    <div style="font-size: 0.75rem; color: #94a3b8;">يُرفع الملف إلى مجلد <code style="direction:ltr;display:inline-block">models/</code> — فيصبح رابطه قابلاً للقراءة من أي جهاز عبر raw.githubusercontent.com</div>
+                </div>
+            </div>
+            <button id="btn-close-gh-publish" style="background: transparent; border: none; color: #94a3b8; font-size: 1.4rem; cursor: pointer; padding: 2px 8px;">✕</button>
+        </div>
+
+        <div style="background: rgba(248, 113, 113, 0.08); border: 1px solid rgba(248, 113, 113, 0.25); border-radius: 10px; padding: 11px 13px; margin-bottom: 14px; font-size: 0.78rem; color: #cbd5e1; line-height: 1.65;">
+            <b style="color:#f87171;">🔐 لا تُدخل كلمة مرور GitHub هنا.</b>
+            GitHub ألغى مصادقة كلمة المرور في الـAPI منذ 2020. استخدم
+            <b>Personal Access Token</b> بصلاحية <code style="direction:ltr;display:inline-block">Contents: read &amp; write</code>
+            على مستودع واحد فقط. يُحفظ الرمز في <code style="direction:ltr;display:inline-block">sessionStorage</code>
+            (يُمسح بإغلاق التبويب) ويمكنك حذفه في أي وقت.
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end;">
+            <div>
+                <label style="display: block; font-size: 0.8rem; color: #cbd5e1; margin-bottom: 5px; font-weight: bold;">🔑 رمز الوصول (Personal Access Token)</label>
+                <input type="password" id="gh-token" style="width: 100%; background: #0f172a; color: #f1f5f9; border: 1px solid rgba(230,237,243,0.35); border-radius: 8px; padding: 9px 10px; font-size: 0.8rem; direction: ltr; text-align: left;" placeholder="github_pat_…" autocomplete="off">
+            </div>
+            <div style="display: flex; gap: 6px;">
+                <button id="btn-gh-verify" class="btn btn-outline" style="border-color: rgba(240,240,240,.4); color:#e6edf3;">تحقّق</button>
+                <button id="btn-gh-forget" class="btn btn-outline" style="border-color: rgba(248,113,113,.5); color:#f87171;">نسيان الرمز</button>
+            </div>
+        </div>
+        <div id="gh-account" style="font-size: 0.76rem; color: #94a3b8; margin-top: 7px; direction: ltr; text-align: left;">—</div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px;">
+            <div>
+                <label style="display: block; font-size: 0.8rem; color: #cbd5e1; margin-bottom: 5px; font-weight: bold;">📁 المستودع</label>
+                <select id="gh-repo" style="width: 100%; background: #0f172a; color: #f1f5f9; border: 1px solid rgba(230,237,243,0.35); border-radius: 8px; padding: 9px 10px; font-size: 0.8rem;">
+                    <option value="">— تحقّق من الرمز أولاً —</option>
+                </select>
+            </div>
+            <div>
+                <label style="display: block; font-size: 0.8rem; color: #cbd5e1; margin-bottom: 5px; font-weight: bold;">🌿 الفرع</label>
+                <input type="text" id="gh-branch" value="main" style="width: 100%; background: #0f172a; color: #f1f5f9; border: 1px solid rgba(230,237,243,0.35); border-radius: 8px; padding: 9px 10px; font-size: 0.8rem; direction: ltr; text-align: left;">
+            </div>
+            <div style="grid-column: 1 / -1;">
+                <label style="display: block; font-size: 0.8rem; color: #cbd5e1; margin-bottom: 5px; font-weight: bold;">📄 مسار الملف داخل المستودع</label>
+                <input type="text" id="gh-path" style="width: 100%; background: #0f172a; color: #f1f5f9; border: 1px solid rgba(230,237,243,0.35); border-radius: 8px; padding: 9px 10px; font-size: 0.8rem; direction: ltr; text-align: left;" placeholder="models/tower-a.glb">
+            </div>
+        </div>
+
+        <div id="gh-file-info" style="font-size: 0.78rem; color: #cbd5e1; margin-top: 12px; padding: 9px 12px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 9px; direction: ltr; text-align: left;">—</div>
+
+        <div style="display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap;">
+            <button id="btn-gh-upload" class="btn btn-outline" style="border-color: rgba(88,166,255,.55); color: #58a6ff; font-weight: bold;">⬆️ رفع النموذج</button>
+            <button id="btn-gh-curl" class="btn btn-outline" style="border-color: rgba(240,240,240,.4); color:#e6edf3;">📋 نسخ أمر curl</button>
+            <button id="btn-gh-use-in-marker" class="btn btn-outline" style="border-color: rgba(168,85,247,.55); color:#c084fc;">🔗 استخدامه في علامة NFT</button>
+        </div>
+
+        <div id="gh-log" style="margin-top: 12px; background: #0b1220; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 10px 12px; font-size: 0.76rem; color: #94a3b8; max-height: 170px; overflow-y: auto; direction: ltr; text-align: left; font-family: 'JetBrains Mono', monospace; white-space: pre-wrap;">—</div>
     </div>
 
     <!-- NFT Anchor Marker Generator Modal (AR anchoring workflow) -->
@@ -5078,6 +5142,211 @@
                         document.body.removeChild(a);
                         setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
                         showToast('success', 'تم تنزيل أرشيف BCF 2.1 (' + topics.length + ' موضوع).', 3500);
+                    });
+                }
+            })();
+
+            // =====================================================================
+            // 16c. GitHub model publisher (PAT based — never a password)
+            // =====================================================================
+            (function setupGitHubPublisher() {
+                var btnOpen = document.getElementById('btn-github-publish');
+                var btnClose = document.getElementById('btn-close-gh-publish');
+                var modal = document.getElementById('gh-publish-modal');
+                var tokenInput = document.getElementById('gh-token');
+                var btnVerify = document.getElementById('btn-gh-verify');
+                var btnForget = document.getElementById('btn-gh-forget');
+                var accountEl = document.getElementById('gh-account');
+                var repoSelect = document.getElementById('gh-repo');
+                var branchInput = document.getElementById('gh-branch');
+                var pathInput = document.getElementById('gh-path');
+                var fileInfoEl = document.getElementById('gh-file-info');
+                var btnUpload = document.getElementById('btn-gh-upload');
+                var btnCurl = document.getElementById('btn-gh-curl');
+                var btnUseMarker = document.getElementById('btn-gh-use-in-marker');
+                var logEl = document.getElementById('gh-log');
+
+                if (!btnOpen || !modal || !window.GitHubPublisher) return;
+
+                var repos = [];
+                var lastRawUrl = '';
+
+                function log(message, isError) {
+                    var line = '[' + new Date().toLocaleTimeString('en-GB') + '] ' + message;
+                    logEl.textContent = (logEl.textContent === '—' ? '' : logEl.textContent + '\n') + line;
+                    logEl.scrollTop = logEl.scrollHeight;
+                    logEl.style.color = isError ? '#f87171' : '#94a3b8';
+                }
+
+                function selectedRepo() {
+                    var idx = repoSelect.selectedIndex;
+                    return (idx >= 0 && repos[idx]) ? repos[idx] : null;
+                }
+
+                function updateFileInfo() {
+                    if (!window.ModelStore) return;
+                    window.ModelStore.load(window.ModelStore.CURRENT_KEY).then(function (record) {
+                        if (!record) {
+                            fileInfoEl.textContent = 'لا يوجد نموذج محفوظ في المتصفح — استورد GLB/IFC أولاً.';
+                            return;
+                        }
+                        fileInfoEl.innerHTML = 'الملف: <b>' + record.name + '</b> · الحجم: <b>' +
+                            window.GitHubPublisher.humanSize(record.size) + '</b> · النوع: ' + (record.type || '—') +
+                            (record.size > window.GitHubPublisher.MAX_CONTENTS_SIZE
+                                ? ' <span style="color:#f87171;">— يتجاوز حد Contents API (' +
+                                  window.GitHubPublisher.humanSize(window.GitHubPublisher.MAX_CONTENTS_SIZE) +
+                                  ')؛ استخدم أمر curl أو Git LFS</span>'
+                                : '');
+                        if (!pathInput.value) {
+                            pathInput.value = 'models/' + record.name.replace(/[^a-zA-Z0-9._-]/g, '-');
+                        }
+                    }).catch(function () { /* ignore */ });
+                }
+
+                btnOpen.addEventListener('click', function () {
+                    modal.style.display = 'block';
+                    tokenInput.value = window.GitHubPublisher.getToken();
+                    updateFileInfo();
+                    log('Enter a Personal Access Token, then verify. Never a password.');
+                });
+                if (btnClose) btnClose.addEventListener('click', function () { modal.style.display = 'none'; });
+
+                if (btnForget) {
+                    btnForget.addEventListener('click', function () {
+                        window.GitHubPublisher.clearToken();
+                        tokenInput.value = '';
+                        accountEl.textContent = '—';
+                        repoSelect.innerHTML = '<option value="">— تحقّق من الرمز أولاً —</option>';
+                        repos = [];
+                        log('Token removed from this tab.', true);
+                    });
+                }
+
+                if (btnVerify) {
+                    btnVerify.addEventListener('click', function () {
+                        var token = (tokenInput.value || '').trim();
+                        if (!token) { log('ERROR: token is empty.', true); return; }
+                        if (!/^(ghp_|github_pat_)/.test(token)) {
+                            log('WARNING: this does not look like a Personal Access Token. GitHub removed password authentication for the API — do not paste your account password.', true);
+                        }
+                        window.GitHubPublisher.setToken(token);
+                        log('Verifying token ...');
+                        window.GitHubPublisher.verify()
+                            .then(function (account) {
+                                accountEl.innerHTML = 'signed in as <b>' + account.login + '</b>' +
+                                    (account.name ? ' (' + account.name + ')' : '') +
+                                    (account.scopes.length ? ' · scopes: ' + account.scopes.join(', ') : ' · scopes: (fine-grained token)');
+                                log('Token valid: ' + account.login);
+                                return window.GitHubPublisher.listRepos();
+                            })
+                            .then(function (list) {
+                                repos = list;
+                                repoSelect.innerHTML = '';
+                                if (!repos.length) {
+                                    repoSelect.innerHTML = '<option value="">— no repositories —</option>';
+                                    log('No repositories returned for this token.', true);
+                                    return;
+                                }
+                                repos.forEach(function (r) {
+                                    var opt = document.createElement('option');
+                                    opt.value = r.fullName;
+                                    opt.textContent = r.fullName + (r.private ? ' (private)' : '') + ' · ' + r.defaultBranch;
+                                    repoSelect.appendChild(opt);
+                                });
+                                log('Repositories loaded: ' + repos.length);
+                                var first = selectedRepo();
+                                if (first) branchInput.value = first.defaultBranch || 'main';
+                            })
+                            .catch(function (err) {
+                                log('Verification failed: ' + (err && err.message ? err.message : 'unknown error'), true);
+                                accountEl.textContent = '—';
+                            });
+                    });
+                }
+
+                if (repoSelect) {
+                    repoSelect.addEventListener('change', function () {
+                        var repo = selectedRepo();
+                        if (repo) branchInput.value = repo.defaultBranch || 'main';
+                    });
+                }
+
+                if (btnUpload) {
+                    btnUpload.addEventListener('click', function () {
+                        var repo = selectedRepo();
+                        if (!repo) { log('ERROR: select a repository first.', true); return; }
+                        if (!window.ModelStore) { log('ERROR: model store unavailable.', true); return; }
+                        var path = (pathInput.value || '').trim();
+                        if (!path) { log('ERROR: file path is required.', true); return; }
+                        var branch = (branchInput.value || 'main').trim();
+                        var parts = repo.fullName.split('/');
+
+                        window.ModelStore.load(window.ModelStore.CURRENT_KEY).then(function (record) {
+                            if (!record) { log('ERROR: no model stored in this browser — import a GLB/IFC first.', true); return; }
+                            log('Uploading ' + record.name + ' (' + window.GitHubPublisher.humanSize(record.size) + ') to ' + repo.fullName + '/' + path + ' ...');
+                            return window.GitHubPublisher.uploadFile({
+                                owner: parts[0],
+                                repo: parts[1],
+                                path: path,
+                                branch: branch,
+                                name: record.name,
+                                bytes: record.bytes
+                            });
+                        }).then(function (result) {
+                            if (!result) return;
+                            lastRawUrl = result.rawUrl;
+                            log((result.created ? 'Created' : 'Updated') + ' ' + result.path + ' · ' +
+                                window.GitHubPublisher.humanSize(result.size));
+                            log('raw URL (CORS friendly): ' + result.rawUrl);
+                            if (result.htmlUrl) log('commit: ' + result.htmlUrl);
+                            showToast('success', 'تم رفع النموذج إلى GitHub — الرابط جاهز للاستخدام في علامة NFT', 4000);
+                        }).catch(function (err) {
+                            if (err && err.code === 'TOO_LARGE') {
+                                log('ERROR: ' + err.message, true);
+                            } else {
+                                log('Upload failed: ' + (err && err.message ? err.message : 'unknown error'), true);
+                            }
+                        });
+                    });
+                }
+
+                if (btnCurl) {
+                    btnCurl.addEventListener('click', function () {
+                        var repo = selectedRepo();
+                        if (!repo) { log('ERROR: select a repository first.', true); return; }
+                        var parts = repo.fullName.split('/');
+                        var cmd = window.GitHubPublisher.curlCommand({
+                            owner: parts[0],
+                            repo: parts[1],
+                            path: (pathInput.value || 'models/model.glb').trim(),
+                            branch: (branchInput.value || 'main').trim(),
+                            fileName: (pathInput.value || 'model.glb').split('/').pop()
+                        });
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                            navigator.clipboard.writeText(cmd).then(function () {
+                                log('curl command copied to the clipboard.');
+                                showToast('success', 'تم نسخ أمر الرفع', 2500);
+                            }).catch(function () { log(cmd); });
+                        } else {
+                            log(cmd);
+                        }
+                    });
+                }
+
+                if (btnUseMarker) {
+                    btnUseMarker.addEventListener('click', function () {
+                        if (!lastRawUrl) { log('ERROR: upload a model first.', true); return; }
+                        var field = document.getElementById('nft-marker-model-url');
+                        if (!field) { log('ERROR: marker dialog is not available.', true); return; }
+                        field.value = lastRawUrl;
+                        try { localStorage.setItem('webxr_bim_model_url', lastRawUrl); } catch (e) { /* ignore */ }
+                        document.getElementById('btn-nft-marker').click();
+                        setTimeout(function () {
+                            var payload = document.getElementById('nft-marker-payload');
+                            if (payload) { payload.value = payload.value; }
+                        }, 50);
+                        log('Model URL copied into the NFT marker dialog.');
+                        showToast('success', 'تم إدخال الرابط في مولّد علامة NFT', 3000);
                     });
                 }
             })();
