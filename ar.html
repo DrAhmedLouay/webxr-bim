@@ -51,6 +51,15 @@
 <div id="reticle"></div>
 <div id="status">جارٍ التحميل…</div>
 
+<!-- Device capability panel: explains what this device can and cannot do -->
+<div id="device-capability" class="card" style="display:none; position:fixed; z-index:39; left:50%; top:50%; transform:translate(-50%,-50%); width:min(520px,92vw); border-color:rgba(0,240,255,.4);">
+    <h1 style="color:#00f0ff;">ℹ️ قدرات هذا الجهاز</h1>
+    <div id="capability-body" style="font-size:.8rem; color:#cbd5e1; margin-top:8px; line-height:1.7;"></div>
+    <div class="row">
+        <button id="btn-capability-close" class="ghost">✕ إغلاق</button>
+    </div>
+</div>
+
 <!-- Recovery panel: shown when the linked model cannot be resolved on this device -->
 <div id="model-missing" class="card" style="display:none; position:fixed; z-index:40; left:50%; top:50%; transform:translate(-50%,-50%); width:min(540px,92vw); border-color:rgba(248,113,113,.55);">
     <h1 style="color:#f87171;">⚠️ لم يُعثر على النموذج على هذا الجهاز</h1>
@@ -95,6 +104,10 @@
         </div>
         <div class="row">
             <button id="btn-ar">📱 بدء الواقع المعزز (AR)</button>
+            <a id="ar-ql-link" rel="ar" href="#" style="display:none; text-decoration:none;">
+                <img id="ar-ql-poster" alt="عرض في الواقع" style="width:54px; height:54px; border-radius:10px; border:1.5px solid rgba(0,240,255,.5);">
+            </a>
+            <button id="btn-usdz" class="ghost" style="display:none;">🍎 تنزيل USDZ</button>
             <button id="btn-file" class="ghost">📂 فتح نموذج (GLB/IFC)</button>
             <button id="btn-place" class="ghost" style="display:none;">📍 تثبيت هنا</button>
             <button id="btn-home" class="ghost">↩ المنصة الرئيسية</button>
@@ -122,6 +135,9 @@
 <script src="https://unpkg.com/web-ifc@0.0.57/web-ifc-api-iife.js"></script>
 <script src="https://unpkg.com/web-ifc-three@0.0.126/IFCLoader.umd.cjs"></script>
 <script src="./js/model-store.js"></script>
+<!-- USDZ export for AR Quick Look — the native AR path on iOS (no WebXR there) -->
+<script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/USDZExporter.js"></script>
 <script>
 (function () {
     'use strict';
@@ -511,6 +527,92 @@
         return !!(navigator.xr && navigator.xr.isSessionSupported);
     }
 
+    // Arabic text with embedded Latin terms renders badly without isolates.
+    function ltr(text) { return '\u2066' + text + '\u2069'; }
+
+    function detectPlatform() {
+        var ua = navigator.userAgent || '';
+        var isIOS = /iPad|iPhone|iPod/.test(ua) ||
+            (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        var isAndroid = /Android/.test(ua);
+        var isTouch = (navigator.maxTouchPoints || 0) > 0;
+        return { isIOS: isIOS, isAndroid: isAndroid, isTouch: isTouch, ua: ua };
+    }
+
+    var platform = detectPlatform();
+
+    // ---- AR Quick Look (the native AR path on iOS) --------------------
+    var usdzUrl = '';
+    function drawPoster() {
+        var poster = document.getElementById('ar-ql-poster');
+        if (!poster) return;
+        var c = document.createElement('canvas');
+        c.width = 108; c.height = 108;
+        var ctx = c.getContext('2d');
+        var grad = ctx.createLinearGradient(0, 0, 108, 108);
+        grad.addColorStop(0, '#0b0f19'); grad.addColorStop(1, '#12324a');
+        ctx.fillStyle = grad; ctx.fillRect(0, 0, 108, 108);
+        ctx.strokeStyle = '#00f0ff'; ctx.lineWidth = 3;
+        ctx.strokeRect(6, 6, 96, 96);
+        // simple building glyph
+        ctx.fillStyle = '#00f0ff';
+        ctx.fillRect(28, 46, 14, 34);
+        ctx.fillRect(47, 30, 14, 50);
+        ctx.fillRect(66, 56, 14, 24);
+        ctx.fillStyle = '#f43f5e';
+        ctx.fillRect(22, 82, 64, 4);
+        poster.src = c.toDataURL('image/png');
+    }
+
+    function exportUsdz() {
+        if (!window.THREE || !THREE.USDZExporter) {
+            return Promise.reject(new Error('مصدّر USDZ غير متوفر (تحقّق من الاتصال بالإنترنت)'));
+        }
+        if (!modelLoaded) {
+            return Promise.reject(new Error('حمّل النموذج أولاً'));
+        }
+        setStatus('جارٍ تحضير ملف USDZ…');
+        var exporter = new THREE.USDZExporter();
+        return Promise.resolve(exporter.parse(scene)).then(function (buffer) {
+            var blob = new Blob([buffer], { type: 'model/vnd.usdz+zip' });
+            if (usdzUrl) URL.revokeObjectURL(usdzUrl);
+            usdzUrl = URL.createObjectURL(blob);
+            var link = document.getElementById('ar-ql-link');
+            if (link) {
+                link.href = usdzUrl;
+                link.style.display = 'inline-block';
+                drawPoster();
+            }
+            var btnUsdz = document.getElementById('btn-usdz');
+            if (btnUsdz) btnUsdz.style.display = '';
+            return usdzUrl;
+        });
+    }
+
+    // ---- capability panel ---------------------------------------------
+    function showCapability() {
+        var panel = document.getElementById('device-capability');
+        var body = document.getElementById('capability-body');
+        if (!panel || !body) return;
+        var rows = [];
+        if (platform.isIOS) {
+            rows.push('<b style="color:#fbbf24;">iOS (Safari / Chrome):</b> لا يدعم <bdi dir="ltr">WebXR</bdi> إطلاقاً — نظام iOS لا يوفّره Safari ولا Chrome (محرك WebKit).');
+            rows.push('<b style="color:#86efac;">ما يعمل الآن:</b> فحص النموذج باللمس (اسحب للتدوير، ضمّ إصبعين للتقريب).');
+            rows.push('<b style="color:#86efac;">للواقع المعزز على iPhone:</b> بعد تحميل النموذج اضغط زر «📱 بدء الواقع المعزز» مرة واحدة (يولّد ملف <bdi dir="ltr">USDZ</bdi>)، ثم اضغط الأيقونة 🍎 — يفتح <bdi dir="ltr">AR Quick Look</bdi> الأصلي من Apple (ARKit) بمقياس حقيقي.');
+            rows.push('<b style="color:#94a3b8;">بديل موثوق:</b> زر «🍎 تنزيل USDZ» يحفظ الملف في جهازك، ثم افتحه من تطبيق «الملفات» لبدء Reality.');
+            rows.push('<b style="color:#86efac;">للواقع المعزز الكامل (WebXR + <bdi dir="ltr">hit-test</bdi>):</b> استخدم هاتف Android مع Chrome، أو Meta Quest 3، أو Vision Pro.');
+        } else if (platform.isAndroid) {
+            rows.push('<b style="color:#fbbf24;">Android:</b> يعتمد الدعم على وجود <bdi dir="ltr">Google Play Services for AR</bdi> (ARCore) في الجهاز.');
+            rows.push('<b style="color:#86efac;">ما يعمل الآن:</b> فحص النموذج باللمس، والتحقق من دعم الجلسة بالأسفل.');
+        } else {
+            rows.push('<b style="color:#fbbf24;">سطح المكتب:</b> لا يدعم الجلسات الغامرة بنفس الجهاز.');
+            rows.push('<b style="color:#86efac;">ما يعمل الآن:</b> الفحص بالماوس (اسحب للتدوير، عجلة الفأرة للتقريب).');
+            rows.push('<b style="color:#86efac;">للواقع الافتراضي/المعزز:</b> Meta Quest 3، Apple Vision Pro، أو هاتف Android — افتح رابط العلامة من هناك.');
+        }
+        body.innerHTML = rows.join('<br><br>');
+        panel.style.display = 'block';
+    }
+
     // The button is NEVER disabled: a dead button with no explanation is
     // useless. Availability is reported, and clicking always explains itself.
     var arSupport = 'unknown';
@@ -548,8 +650,8 @@
         if (!supportsAR()) {
             arSupport = 'no';
             renderSupport();
-            setStatus('Reality المعزز غير متاح — استعمل الفحص باللمس أو افتح المنصة على جهاز يدعم AR');
-            toast('هذا المتصفح لا يدعم WebXR. Reality المعزز يعمل على Chrome/Edge في هاتف Android يدعم AR. يمكنك فحص النموذج باللمس هنا.', 5200);
+            setStatus('Reality المعزز غير متاح على هذا الجهاز — افتح «قدرات هذا الجهاز» للبدائل');
+            showCapability();
             return;
         }
         setStatus('جارٍ تشغيل جلسة AR…');
@@ -580,8 +682,19 @@
                 toast('تعذّر تفعيل اختبار السطح (hit-test)', 3000);
             });
         }).catch(function (err) {
-            setStatus('تعذّر بدء AR');
-            toast('فشل تشغيل AR: ' + (err && err.message ? err.message : 'خطأ غير متوقع'), 3500);
+            arSupport = 'no';
+            renderSupport();
+            setStatus('تعذّر بدء AR على هذا الجهاز — افتح «قدرات هذا الجهاز» للبدائل');
+            // A failed session is exactly when the user needs to know what
+            // this device CAN do — show the capability panel, not a raw error.
+            showCapability();
+            var reason = (err && err.message) ? err.message : 'خطأ غير متوقع';
+            if (/activation/i.test(reason)) {
+                reason = 'يلزم تفاعل مباشر (ضغطة) لبدء الجلسة';
+            } else if (/not supported|unsupported/i.test(reason)) {
+                reason = 'الجهاز لا يدعمReality المعزز';
+            }
+            toast('تعذّر بدء AR: ' + reason, 4000);
         });
     });
 
@@ -629,6 +742,65 @@
             hideMissingPanel();
             loadGlb(url, function (reason) { showMissingPanel(reason || 'تعذّر تحميل النموذج من الرابط.'); });
         });
+    }
+
+    var btnCapabilityClose = document.getElementById('btn-capability-close');
+    if (btnCapabilityClose) {
+        btnCapabilityClose.addEventListener('click', function () {
+            var panel = document.getElementById('device-capability');
+            if (panel) panel.style.display = 'none';
+        });
+    }
+
+    var btnUsdz = document.getElementById('btn-usdz');
+    if (btnUsdz) {
+        btnUsdz.addEventListener('click', function () {
+            if (!usdzUrl) {
+                exportUsdz().catch(function (err) {
+                    toast('تعذّر إنشاء USDZ: ' + (err && err.message ? err.message : 'خطأ'), 3500);
+                });
+                return;
+            }
+            var a = document.createElement('a');
+            a.href = usdzUrl;
+            a.download = 'bim-model-' + Date.now() + '.usdz';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        });
+    }
+
+    // On iOS the AR button becomes the AR Quick Look entry point
+    if (platform.isIOS) {
+        var qlLink = document.getElementById('ar-ql-link');
+        var qlPoster = document.getElementById('ar-ql-poster');
+        if (qlLink && qlPoster) {
+            qlLink.style.display = 'inline-block';
+            qlLink.href = '#';
+            qlLink.title = 'عرض في الواقع عبر AR Quick Look';
+            drawPoster();
+            qlLink.addEventListener('click', function (e) {
+                if (!usdzUrl) {
+                    e.preventDefault();
+                    exportUsdz().then(function () {
+                        toast('تم تحضير النموذج — اضغط صورة الأيقونة مرة أخرى لفتح الواقع', 3500);
+                    }).catch(function (err) {
+                        toast('تعذّر إنشاء USDZ: ' + (err && err.message ? err.message : 'خطأ'), 3500);
+                    });
+                }
+            });
+            btnAr.addEventListener('click', function () {
+                if (!usdzUrl) {
+                    exportUsdz().then(function () {
+                        toast('تم تحضير النموذج — اضغط صورة الأيقونة مرة أخرى لفتح الواقع', 3500);
+                    }).catch(function (err) {
+                        toast('تعذّر إنشاء USDZ: ' + (err && err.message ? err.message : 'خطأ'), 3500);
+                    });
+                } else {
+                    qlLink.click();
+                }
+            });
+        }
     }
 
     btnFile.addEventListener('click', function () { fileInput.click(); });
