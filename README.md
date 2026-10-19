@@ -232,6 +232,14 @@ https://drahmedlouay.github.io/webxr-bim/
 (`immersive-vr`)، تصدير GLB صالح (glTF 2.0)، مُولِّد علامات ارتساء QR مستقل بالكامل،
 فلترة الطوابق، وتصدير BCF / PDF / CSV.
 
+### الميزات الجديدة
+| الميزة | الملف | الوصف |
+|---|---|---|
+| **صفحة AR مستقلة** | `ar.html` | صفحة للهاتف: جلسة `immersive-ar` + `hit-test` + تثبيت النموذج بمقياس 1:1 على السطح الحقيقي |
+| **تصدير BCF 2.1 حقيقي** | `js/bcf.js` | أرشيف `.bcf` مطابق لمرجع buildingSMART (bcf.version + project.bcfp + markup.bcf + Viewpoint .bcfv) |
+| **موصّل BIMcollab / BCF-API** | `js/bcf.js` | اختبار اتصال، جلب المشاريع، سحب المواضيع، دفع التعارضات (BCF-API 2.1) |
+| **تطبيق ميداني PWA** | `manifest.json` + `sw.js` | قابل للتثبيت على الهاتف ويعمل دون اتصال (تم التحقق بتحميل كامل مع انقطاع الشبكة) |
+
 ---
 
 ## 🛣️ خارطة الطريق

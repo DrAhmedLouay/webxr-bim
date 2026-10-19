@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f19">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>وضع الواقع المعزز — WebXR BIM Lab</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<style>
+    :root { --bg:#0b0f19; --panel:rgba(15,23,42,.94); --line:rgba(56,189,248,.35); --cyan:#00f0ff; --blue:#38bdf8; --text:#f1f5f9; --muted:#94a3b8; }
+    * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    html,body { margin:0; padding:0; height:100%; background:var(--bg); color:var(--text);
+        font-family:"Segoe UI", Tahoma, system-ui, -apple-system, sans-serif; overflow:hidden; }
+    #scene { position:fixed; inset:0; }
+    .overlay { position:fixed; inset:0; display:flex; flex-direction:column; justify-content:space-between;
+        padding:calc(env(safe-area-inset-top) + 14px) 14px calc(env(safe-area-inset-bottom) + 14px);
+        pointer-events:none; }
+    .overlay > * { pointer-events:auto; }
+    .card { background:var(--panel); backdrop-filter:blur(14px); border:1px solid var(--line);
+        border-radius:14px; padding:14px 16px; box-shadow:0 14px 40px rgba(0,0,0,.6); }
+    h1 { margin:0 0 4px; font-size:1.02rem; font-weight:800; color:var(--cyan); }
+    .sub { font-size:.74rem; color:var(--muted); line-height:1.55; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+    button, .btn { font:inherit; font-weight:700; font-size:.82rem; color:#03121a; background:var(--cyan);
+        border:none; border-radius:10px; padding:11px 16px; cursor:pointer; }
+    button.ghost { background:transparent; color:var(--blue); border:1px solid var(--line); }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    input[type=file] { display:none; }
+    #status { position:fixed; left:50%; top:calc(env(safe-area-inset-top) + 14px); transform:translateX(-50%);
+        background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:7px 16px;
+        font-size:.74rem; color:var(--muted); max-width:92vw; text-align:center; z-index:20; }
+    #reticle { position:fixed; left:50%; top:50%; width:74px; height:74px; margin:-37px 0 0 -37px;
+        border:2px solid var(--cyan); border-radius:50%; box-shadow:0 0 22px rgba(0,240,255,.6);
+        display:none; pointer-events:none; z-index:5; }
+    #reticle::after { content:""; position:absolute; inset:32%; border-radius:50%; background:var(--cyan); opacity:.85; }
+    #toast { position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom) + 96px); transform:translateX(-50%);
+        background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:10px 16px;
+        font-size:.78rem; color:var(--text); max-width:90vw; text-align:center; display:none; z-index:30; }
+    .scale-row { display:flex; align-items:center; gap:10px; margin-top:10px; font-size:.76rem; color:var(--muted); }
+    .scale-row input { flex:1; accent-color:#00f0ff; }
+    .scale-row b { color:var(--cyan); min-width:56px; display:inline-block; text-align:center; }
+</style>
+</head>
+<body>
+<div id="scene"></div>
+<div id="reticle"></div>
+<div id="status">جارٍ التحميل…</div>
+
+<div class="overlay">
+    <div class="card">
+        <h1>🥽 وضع الواقع المعزز — WebXR BIM</h1>
+        <div class="sub" id="intro">
+            ضع المبنى على الأرض بحجم حقيقي 1:1. وجّه الكاميرا نحو السطح ثم اضغط زر
+            <b>التثبيت</b> داخل جلسة AR لتثبيت النموذج في مكانه.
+        </div>
+        <div class="scale-row" id="scaleRow" style="display:none;">
+            <span>المقياس</span>
+            <input type="range" id="scaleInput" min="0.05" max="3" step="0.05" value="1">
+            <b id="scaleLabel">1.00×</b>
+        </div>
+        <div class="row">
+            <button id="btn-ar">📱 بدء الواقع المعزز (AR)</button>
+            <button id="btn-file" class="ghost">📂 فتح نموذج (GLB/IFC)</button>
+            <button id="btn-place" class="ghost" style="display:none;">📍 تثبيت هنا</button>
+            <button id="btn-home" class="ghost">↩ المنصة الرئيسية</button>
+        </div>
+        <input type="file" id="file-input" accept=".glb,.gltf,.ifc">
+    </div>
+    <div></div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://unpkg.com/web-ifc@0.0.57/web-ifc-api-iife.js"></script>
+<script src="https://unpkg.com/web-ifc-three@0.0.126/IFCLoader.umd.cjs"></script>
+<script>
+(function () {
+    'use strict';
+
+    var params = new URLSearchParams(location.search);
+    var modelUrl = params.get('model') || '';
+    var anchorToken = params.get('anchor') || '';
+    var storey = params.get('storey') || '';
+
+    var statusEl = document.getElementById('status');
+    var toastEl = document.getElementById('toast');
+    var reticle = document.getElementById('reticle');
+    var btnAr = document.getElementById('btn-ar');
+    var btnFile = document.getElementById('btn-file');
+    var btnPlace = document.getElementById('btn-place');
+    var btnHome = document.getElementById('btn-home');
+    var fileInput = document.getElementById('file-input');
+    var scaleRow = document.getElementById('scaleRow');
+    var scaleInput = document.getElementById('scaleInput');
+    var scaleLabel = document.getElementById('scaleLabel');
+
+    function setStatus(text) { statusEl.textContent = text; }
+    function toast(text, ms) {
+        toastEl.textContent = text;
+        toastEl.style.display = 'block';
+        clearTimeout(toast._t);
+        toast._t = setTimeout(function () { toastEl.style.display = 'none'; }, ms || 2600);
+    }
+
+    // ------------------------------------------------------------- renderer
+    var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.xr.enabled = true;
+    document.getElementById('scene').appendChild(renderer.domElement);
+
+    var scene = new THREE.Scene();
+    var camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.05, 500);
+    camera.position.set(0, 1.6, 3);
+
+    var hemi = new THREE.HemisphereLight(0xffffff, 0x334155, 1.1);
+    scene.add(hemi);
+    var sun = new THREE.DirectionalLight(0xffffff, 1.3);
+    sun.position.set(4, 8, 5);
+    scene.add(sun);
+
+    var modelRoot = new THREE.Group();
+    scene.add(modelRoot);
+
+    var hitTestSource = null;
+    var refSpace = null;
+    var placed = false;
+    var modelLoaded = false;
+
+    // ------------------------------------------------------------- model IO
+    function normalizeModel(object3d) {
+        // Fit into a 20 m box and centre it on the ground plane
+        var box = new THREE.Box3().setFromObject(object3d);
+        var size = box.getSize(new THREE.Vector3());
+        var maxDim = Math.max(size.x, size.y, size.z);
+        if (maxDim > 0) {
+            var factor = 20 / maxDim;
+            if (maxDim > 60) factor = 0.001;   // millimetre models -> metres
+            object3d.scale.setScalar(factor);
+            box.setFromObject(object3d);
+        }
+        var center = box.getCenter(new THREE.Vector3());
+        object3d.position.x -= center.x;
+        object3d.position.z -= center.z;
+        object3d.position.y -= box.min.y;
+        return object3d;
+    }
+
+    function loadGlb(url) {
+        setStatus('جارٍ تحميل النموذج…');
+        new THREE.GLTFLoader().load(url, function (gltf) {
+            modelRoot.add(normalizeModel(gltf.scene));
+            modelLoaded = true;
+            setStatus('النموذج جاهز — ابدأ جلسة AR');
+            toast('تم تحميل النموذج', 2000);
+        }, undefined, function (err) {
+            setStatus('تعذّر تحميل النموذج');
+            toast('تعذّر تحميل النموذج: ' + (err && err.message ? err.message : 'خطأ'), 3500);
+        });
+    }
+
+    function loadIfc(file) {
+        setStatus('جارٍ تحليل نموذج IFC…');
+        var loader = new IFCLoader();
+        loader.setWasmPath('https://unpkg.com/web-ifc@0.0.57/', true);
+        loader.loadAll([file], function (ifcModel) {
+            modelRoot.add(normalizeModel(ifcModel));
+            modelLoaded = true;
+            setStatus('النموذج جاهز — ابدأ جلسة AR');
+            toast('تم تحميل نموذج IFC', 2000);
+        }, undefined, function (err) {
+            setStatus('تعذّر تحليل نموذج IFC');
+            toast('تعذّر تحليل IFC: ' + (err && err.message ? err.message : 'خطأ'), 3500);
+        });
+    }
+
+    if (modelUrl && /\.glb(\?|$)/i.test(modelUrl)) {
+        loadGlb(modelUrl);
+    } else if (modelUrl) {
+        toast('الرابط لا يشير إلى ملف GLB — افتح نموذجاً يدوياً', 3200);
+        setStatus('اختر نموذجاً للبدء');
+    } else {
+        setStatus('اختر نموذجاً أو ابدأ الجلسة');
+    }
+
+    if (anchorToken) {
+        setStatus('مرتّب ارتساء: ' + anchorToken);
+    }
+    if (storey) {
+        setStatus('الطور: ' + storey + (anchorToken ? ' · ارتساء: ' + anchorToken : ''));
+    }
+
+    // ------------------------------------------------------------ AR session
+    function supportsAR() {
+        return !!(navigator.xr && navigator.xr.isSessionSupported);
+    }
+
+    if (supportsAR()) {
+        navigator.xr.isSessionSupported('immersive-ar').then(function (ok) {
+            if (!ok) { btnAr.disabled = true; setStatus('جهازك لا يدعم AR — يمكنك المعاينة فقط'); }
+        }).catch(function () { btnAr.disabled = true; });
+    } else {
+        btnAr.disabled = true;
+        setStatus('المتصفح لا يدعم WebXR');
+    }
+
+    btnAr.addEventListener('click', function () {
+        if (!supportsAR()) { toast('WebXR غير مدعوم في هذا المتصفح', 3000); return; }
+        setStatus('جارٍ تشغيل جلسة AR…');
+        navigator.xr.requestSession('immersive-ar', {
+            requiredFeatures: [],
+            optionalFeatures: ['dom-overlay', 'hit-test', 'anchors', 'local-floor'],
+            domOverlay: { root: document.body }
+        }).then(function (session) {
+            renderer.xr.setReferenceSpaceType('local-floor');
+            renderer.xr.setSession(session);
+            btnPlace.style.display = '';
+            scaleRow.style.display = '';
+            setStatus('وجّه الكاميرا إلى السطح ثم اضغط «تثبيت هنا»');
+
+            session.addEventListener('end', function () {
+                hitTestSource = null;
+                btnPlace.style.display = 'none';
+                reticle.style.display = 'none';
+                setStatus('انتهت جلسة AR');
+            });
+
+            var viewerSpace = null;
+            session.requestReferenceSpace('viewer').then(function (space) {
+                return session.requestHitTestSource({ space: space });
+            }).then(function (source) {
+                hitTestSource = source;
+            }).catch(function () {
+                toast('تعذّر تفعيل اختبار السطح (hit-test)', 3000);
+            });
+        }).catch(function (err) {
+            setStatus('تعذّر بدء AR');
+            toast('فشل تشغيل AR: ' + (err && err.message ? err.message : 'خطأ غير متوقع'), 3500);
+        });
+    });
+
+    btnPlace.addEventListener('click', function () {
+        if (!hitTestSource || !renderer.xr.getReferenceSpace()) { toast('لا يوجد سطح مكتشف بعد', 2500); return; }
+        var frame = renderer.xr.getFrame && renderer.xr.getFrame();
+        if (!frame) { toast('لا توجد جلسة AR نشطة', 2500); return; }
+        var results = frame.getHitTestResults(hitTestSource);
+        if (!results.length) { toast('وجّه الكاميرا إلى سطح قريب', 2500); return; }
+        var pose = results[0].getPose(renderer.xr.getReferenceSpace());
+        if (!pose) { toast('تعذّر تحديد موضع التثبيت', 2500); return; }
+        modelRoot.matrix.fromArray(pose.transform.matrix);
+        modelRoot.matrixAutoUpdate = false;
+        modelRoot.visible = true;
+        placed = true;
+        reticle.style.display = 'none';
+        setStatus('تم التثبيت — النموذج بحجم 1:1 على السطح');
+        toast('تم تثبيت النموذج', 2200);
+    });
+
+    scaleInput.addEventListener('input', function () {
+        var v = parseFloat(scaleInput.value);
+        scaleLabel.textContent = v.toFixed(2) + '×';
+        if (modelRoot.children.length) modelRoot.scale.setScalar(v);
+    });
+
+    btnFile.addEventListener('click', function () { fileInput.click(); });
+    fileInput.addEventListener('change', function (ev) {
+        var file = ev.target.files && ev.target.files[0];
+        if (!file) return;
+        if (/\.ifc$/i.test(file.name)) loadIfc(file);
+        else {
+            var reader = new FileReader();
+            reader.onload = function () {
+                var blob = new Blob([reader.result], { type: 'model/gltf-binary' });
+                loadGlb(URL.createObjectURL(blob));
+            };
+            reader.readAsArrayBuffer(file);
+        }
+    });
+
+    btnHome.addEventListener('click', function () {
+        location.href = './index.html';
+    });
+
+    // --------------------------------------------------------------- render
+    // three.js calls the animation loop as (time, frame)
+    renderer.setAnimationLoop(function (time, frame) {
+        if (frame && hitTestSource && !placed) {
+            var results = frame.getHitTestResults(hitTestSource);
+            if (results.length) {
+                var pose = results[0].getPose(renderer.xr.getReferenceSpace());
+                if (pose) {
+                    reticle.style.display = 'block';
+                    var p = pose.transform.position;
+                    reticle.style.left = 'calc(50% + ' + (p.x * 220) + 'px)';
+                    reticle.style.top = 'calc(50% - ' + (p.y * 220) + 'px)';
+                }
+            } else {
+                reticle.style.display = 'none';
+            }
+        }
+        renderer.render(scene, camera);
+    });
+
+    window.addEventListener('resize', function () {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+})();
+</script>
+</body>
+</html>

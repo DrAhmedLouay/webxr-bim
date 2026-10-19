@@ -925,6 +925,16 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <!-- NFT Anchor Marker (QR) encoder — local, self-contained, no CDN dependency -->
     <script src="./js/nft-marker.js"></script>
+    <!-- OpenBIM BCF 2.1 writer + buildingSMART BCF-API client — local -->
+    <script src="./js/bcf.js"></script>
+    <!-- PWA -->
+    <link rel="manifest" href="./manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="منصة BIM قائمة على الويب لفحص التعارضات الفراغية في الواقع الافتراضي والمعزز، مع تصدير BCF 2.1 وتكامل BIMcollab.">
 </head>
 <body>
     <!-- ===================================================================== -->
@@ -1026,12 +1036,14 @@
             <button class="btn btn-filter" id="btn-toggle-filters-panel" title="فصل الطوابق وتصفية عناصر المبنى والتأسيسات وضبط الإضاءة">🎛️ تصفية العناصر والإضاءة</button>
             <button class="btn btn-upload" id="btn-trigger-upload">📂 استيراد نموذج آخر (GLB / IFC)</button>
             <button class="btn btn-outline" id="btn-export-glb" title="تصدير النموذج الحالي كـ GLB محسّن للاستخدام في AR/VR">📤 تصدير GLB (محسّن)</button>
+            <a class="btn btn-outline" id="btn-ar-page" href="./ar.html" target="_blank" rel="noopener" style="border-color: rgba(0, 240, 255, 0.45); color: #00f0ff; text-decoration: none;" title="فتح صفحة الواقع المعزز المستقلة للهاتف (تثبيت المبنى على الأرض بمقياس 1:1)">📱 صفحة AR</a>
             <button class="btn btn-outline" id="btn-nft-marker" style="border-color: rgba(168, 85, 247, 0.5); color: #c084fc; background: rgba(168, 85, 247, 0.12); font-weight: bold;" title="توليد علامة ارتساء (QR) تربط النموذج الحالي بعرض الواقع المعزز على الهاتف">📸 إنشاء علامة NFT</button>
 
             <button class="btn btn-center" id="btn-center-model" title="إعادة الكاميرا وتوسيط الموديل في منتصف الشاشة">🎯 وضع المجسم في المنتصف</button>
             <button class="btn btn-clash-view" id="btn-view-clashes" title="مشاهدة واستعراض التعارضات في المشهد الثلاثي الأبعاد">⚠️ مشاهدة التعارضات</button>
             <button class="btn btn-outline" id="btn-export-bcf" title="تسجيل وتصدير تقرير الانحرافات بتنسيق BCF المفتوح">📋 تسجيل الانحراف (BCF)</button>
             <button class="btn btn-outline" id="btn-import-bcf-header" title="استيراد وتغذية قضايا وملفات BCF الميدانية">📥 دعم BCF</button>
+            <button class="btn btn-outline" id="btn-bcf-sync" style="border-color: rgba(34, 197, 94, 0.5); color: #86efac; background: rgba(34, 197, 94, 0.12); font-weight: bold;" title="مزامنة التعارضات مع خادم BCF-API 2.1 (BIMcollab أو أي CDE متوافق)">☁️ مزامنة BCF</button>
             <button class="btn btn-outline" id="btn-calibrate-header" style="border-color: rgba(56, 189, 248, 0.5); color: #38bdf8;" title="إجراء المعايرة المكانية وضبط الانزياح بمقياس 1:1">⚙️ معايرة</button>
             <button class="btn btn-outline" id="btn-export-issues">تقرير (CSV)</button>
             <button class="btn btn-outline" id="btn-export-pdf" title="تصدير تقرير مفصل بتنسيق PDF">📄 تقرير PDF</button>
@@ -1224,6 +1236,54 @@
         <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center;">
             <span style="font-size: 0.72rem; color: #64748b;">بيانات كمية جاهزة للأوراق العلمية</span>
             <button class="btn btn-outline" id="btn-export-benchmark" style="font-size: 0.74rem; padding: 4px 10px; border-color: rgba(34, 197, 94, 0.4); color: #86efac;">📥 تصدير تقرير الأداء (JSON)</button>
+        </div>
+    </div>
+
+    <!-- BCF-API 2.1 Sync Modal (BIMcollab / buildingSMART BCF-API) -->
+    <div id="bcf-sync-modal" style="display: none; position: absolute; top: 75px; left: 50%; transform: translateX(-50%); width: 700px; max-width: 94vw; max-height: calc(100vh - 100px); background: rgba(15, 23, 42, 0.98); backdrop-filter: blur(20px); padding: 22px 24px; border-radius: 16px; border: 1.5px solid rgba(34, 197, 94, 0.5); z-index: 130; box-shadow: 0 20px 60px rgba(0,0,0,0.85); overflow-y: auto; color: #f8fafc;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 12px; margin-bottom: 16px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.5rem;">☁️</span>
+                <div>
+                    <h3 data-i18n="bcfTitle" style="color: #86efac; font-size: 1.1rem; font-weight: bold; margin: 0;">مزامنة التعارضات مع BIMcollab / BCF-API 2.1</h3>
+                    <div data-i18n="bcfSubtitle" style="font-size: 0.75rem; color: #94a3b8;">معيار buildingSMART BCF-API 2.1 — يعمل مع BIMcollab وأي خادم CDE متوافق</div>
+                </div>
+            </div>
+            <button id="btn-close-bcf-sync" style="background: transparent; border: none; color: #94a3b8; font-size: 1.4rem; cursor: pointer; padding: 2px 8px;">✕</button>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div style="grid-column: 1 / -1;">
+                <label data-i18n="bcfServerLabel" style="display: block; font-size: 0.8rem; color: #cbd5e1; margin-bottom: 5px; font-weight: bold;">🌐 عنوان خادم BCF-API</label>
+                <input type="text" id="bcf-server-url" class="form-control" style="width: 100%; background: #0f172a; color: #f1f5f9; border: 1px solid rgba(56,189,248,0.35); border-radius: 8px; padding: 9px 10px; font-size: 0.78rem; direction: ltr; text-align: left;" placeholder="https://your-space.bimcollab.com" autocomplete="off">
+                <div style="font-size: 0.7rem; color: #64748b; margin-top: 4px; direction: ltr; text-align: left;">BIMcollab: https://&lt;space&gt;.bimcollab.com · BCF-API 2.1 path is appended automatically</div>
+            </div>
+            <div>
+                <label data-i18n="bcfTokenLabel" style="display: block; font-size: 0.8rem; color: #cbd5e1; margin-bottom: 5px; font-weight: bold;">🔑 رمز الوصول (API Token)</label>
+                <input type="password" id="bcf-api-token" class="form-control" style="width: 100%; background: #0f172a; color: #f1f5f9; border: 1px solid rgba(56,189,248,0.35); border-radius: 8px; padding: 9px 10px; font-size: 0.8rem; direction: ltr; text-align: left;" placeholder="Bearer token" autocomplete="off">
+            </div>
+            <div>
+                <label data-i18n="bcfProjectLabel" style="display: block; font-size: 0.8rem; color: #cbd5e1; margin-bottom: 5px; font-weight: bold;">📁 مشروع BCF</label>
+                <select id="bcf-project-select" style="width: 100%; background: #0f172a; color: #f1f5f9; border: 1px solid rgba(56,189,248,0.35); border-radius: 8px; padding: 9px 10px; font-size: 0.8rem;">
+                    <option value="">— اضغط «اختبار الاتصال» أولاً —</option>
+                </select>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap;">
+            <button id="btn-bcf-test" class="btn btn-outline" style="border-color: rgba(56,189,248,0.55); color: #38bdf8;">🔌 اختبار الاتصال</button>
+            <button id="btn-bcf-pull" class="btn btn-outline" style="border-color: rgba(168,85,247,0.55); color: #c084fc;">⬇️ سحب المواضيع</button>
+            <button id="btn-bcf-push" class="btn btn-outline" style="border-color: rgba(34,197,94,0.55); color: #86efac; font-weight: bold;">⬆️ دفع التعارضات</button>
+            <button id="btn-bcf-download" class="btn btn-outline">📦 تنزيل BCF 2.1 (.bcf)</button>
+        </div>
+
+        <div id="bcf-sync-log" style="margin-top: 12px; background: #0b1220; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 10px 12px; font-size: 0.76rem; color: #94a3b8; max-height: 190px; overflow-y: auto; direction: ltr; text-align: left; font-family: 'JetBrains Mono', monospace; white-space: pre-wrap;">—</div>
+
+        <div style="background: rgba(34, 197, 94, 0.07); border: 1px solid rgba(34, 197, 94, 0.22); border-radius: 10px; padding: 11px 13px; margin-top: 12px; line-height: 1.6;">
+            <div style="font-size: 0.78rem; color: #cbd5e1;">
+                <b style="color: #86efac;">ملاحظة أمنية:</b> يُحفظ رمز الوصول محلياً في متصفحك فقط (localStorage) ولا يُرسل إلى أي جهة خارجية غير خادم BCF الذي تُحدده.
+                المنصة لا تنشئ حساباً على BIMcollab — يلزم حساب ورمز وصول من مساحة BIMcollab لديك.
+            </div>
         </div>
     </div>
 
@@ -4632,7 +4692,7 @@
             // =====================================================================
             // 16. OpenBIM BCF 2.1/3.0 Exporter (Revit / Navisworks / Solibri)
             // =====================================================================
-            function exportClashesBCF() {
+            function collectClashRecords() {
                 var allClashes = [];
                 // 1. WebXR Lab Predefined Clashes
                 if (!currentCustomModel || (webxrLabGroup && webxrLabGroup.visible)) {
@@ -4674,6 +4734,11 @@
                     });
                 });
 
+                return allClashes;
+            }
+
+            function exportClashesBCF() {
+                var allClashes = collectClashRecords();
                 if (allClashes.length === 0) {
                     alert('لم يتم تسجيل أي تعارض بعد لتصديره بصيغة BCF.');
                     return;
@@ -4712,6 +4777,28 @@
                     })
                 };
 
+                if (window.BCF) {
+                    // Genuine OpenBIM BCF 2.1 archive (.bcf) — interoperable with
+                    // Revit, Navisworks, Solibri, BIMcollab and every BCF-API server.
+                    var topics = allClashes.map(function(c) {
+                        return window.BCF.clashToTopic(c, camera, controls, 'Dr. Ahmed Louay Ahmed');
+                    });
+                    var archive = window.BCF.buildArchive(topics, {
+                        projectName: 'WebXR BIM Lab — ' + (currentCustomModel && currentCustomModel.name ? currentCustomModel.name : 'Site Review'),
+                        author: 'Dr. Ahmed Louay Ahmed'
+                    });
+                    var dlUrl = URL.createObjectURL(archive);
+                    var link = document.createElement('a');
+                    link.href = dlUrl;
+                    link.download = 'WebXR_BIM_Clashes_BCF_' + new Date().toISOString().substring(0, 10) + '.bcf';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    setTimeout(function() { URL.revokeObjectURL(dlUrl); }, 1000);
+                    showToast('success', 'تم تصدير ' + topics.length + ' موضوع BCF 2.1 بصيغة .bcf', 4000);
+                    return;
+                }
+
                 var blob = new Blob([JSON.stringify(bcfData, null, 2)], { type: 'application/json;charset=utf-8;' });
                 var url = URL.createObjectURL(blob);
                 var a = document.createElement('a');
@@ -4721,8 +4808,202 @@
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
-                alert('✅ تم تصدير تقرير التعارضات بنجاح بتنسيق BCF المفتوح!\n\nيمكنك الآن استيراد الملف في برامج Revit و Navisworks و Solibri.');
+                showToast('success', 'تم تصدير تقرير التعارضات (JSON)', 4000);
             }
+
+            // =====================================================================
+            // 16b. BCF-API 2.1 Sync (BIMcollab / buildingSMART BCF-API servers)
+            // =====================================================================
+            (function setupBcfSync() {
+                var btnOpen = document.getElementById('btn-bcf-sync');
+                var btnClose = document.getElementById('btn-close-bcf-sync');
+                var modal = document.getElementById('bcf-sync-modal');
+                var serverInput = document.getElementById('bcf-server-url');
+                var tokenInput = document.getElementById('bcf-api-token');
+                var projectSelect = document.getElementById('bcf-project-select');
+                var logEl = document.getElementById('bcf-sync-log');
+                var btnTest = document.getElementById('btn-bcf-test');
+                var btnPull = document.getElementById('btn-bcf-pull');
+                var btnPush = document.getElementById('btn-bcf-push');
+                var btnDownload = document.getElementById('btn-bcf-download');
+
+                if (!btnOpen || !modal || !window.BCF) return;
+
+                var STORAGE_KEY = 'webxr_bcf_connection';
+                var client = null;
+
+                function log(message, isError) {
+                    var line = '[' + new Date().toLocaleTimeString('en-GB') + '] ' + message;
+                    logEl.textContent = (logEl.textContent === '—' ? '' : logEl.textContent + '\n') + line;
+                    logEl.scrollTop = logEl.scrollHeight;
+                    if (isError) logEl.style.color = '#f87171';
+                }
+
+                function saveSettings() {
+                    try {
+                        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                            server: serverInput.value.trim(),
+                            token: tokenInput.value
+                        }));
+                    } catch (e) { /* storage unavailable */ }
+                }
+
+                function loadSettings() {
+                    try {
+                        var raw = localStorage.getItem(STORAGE_KEY);
+                        if (!raw) return;
+                        var saved = JSON.parse(raw);
+                        if (saved && saved.server) serverInput.value = saved.server;
+                        if (saved && saved.token) tokenInput.value = saved.token;
+                    } catch (e) { /* ignore */ }
+                }
+
+                function buildClient() {
+                    var base = serverInput.value.trim();
+                    if (!base) {
+                        log('ERROR: address the BCF-API server is required.', true);
+                        return null;
+                    }
+                    // The client normalises bare hosts, /bcf roots and /bcf/{version} roots
+                    client = new window.BCF.BcfApiClient(base, tokenInput.value.trim());
+                    return client;
+                }
+
+                if (btnOpen) {
+                    btnOpen.addEventListener('click', function() {
+                        modal.style.display = 'block';
+                        loadSettings();
+                        log('Ready. Enter the server address and access token, then test the connection.');
+                    });
+                }
+                if (btnClose) {
+                    btnClose.addEventListener('click', function() { modal.style.display = 'none'; });
+                }
+
+                if (btnTest) {
+                    btnTest.addEventListener('click', function() {
+                        saveSettings();
+                        var c = buildClient();
+                        if (!c) return;
+                        log('Testing ' + c.serverRoot + ' (BCF ' + c.version + ') ...');
+                        c.getVersions()
+                            .then(function (res) {
+                                var versions = (res && res.versions) ? res.versions : res;
+                                log('Connected. Supported BCF versions: ' + JSON.stringify(versions));
+                                if (versions && versions.length) {
+                                    var preferred = (res && res.recommendedVersion) ? res.recommendedVersion : versions[versions.length - 1];
+                                    if (versions.indexOf(c.version) === -1 && versions.indexOf(preferred) !== -1) {
+                                        c.version = preferred;
+                                        log('Using BCF version ' + c.version);
+                                    }
+                                }
+                                return c.getProjects();
+                            })
+                            .then(function (projects) {
+                                var list = (projects && projects.projects) ? projects.projects : (projects || []);
+                                projectSelect.innerHTML = '';
+                                if (!list.length) {
+                                    projectSelect.innerHTML = '<option value="">— no projects found —</option>';
+                                    log('Connected, but no projects were returned for this token.', true);
+                                    return;
+                                }
+                                list.forEach(function (p) {
+                                    var opt = document.createElement('option');
+                                    opt.value = p.guid || p.projectId || p.id || '';
+                                    opt.textContent = p.name || opt.value;
+                                    projectSelect.appendChild(opt);
+                                });
+                                log('Projects loaded: ' + list.length);
+                            })
+                            .catch(function (err) {
+                                log('Connection failed: ' + (err && err.message ? err.message : 'unknown error'), true);
+                            });
+                    });
+                }
+
+                if (btnPull) {
+                    btnPull.addEventListener('click', function() {
+                        var c = client || buildClient();
+                        if (!c) return;
+                        var projectId = projectSelect.value;
+                        if (!projectId) { log('ERROR: select a BCF project first.', true); return; }
+                        log('Fetching topics of project ' + projectId + ' ...');
+                        c.getTopics(projectId)
+                            .then(function (res) {
+                                var topics = (res && res.topics) ? res.topics : (res || []);
+                                log('Received ' + topics.length + ' topic(s).');
+                                topics.slice(0, 12).forEach(function (t) {
+                                    log('  • ' + (t.title || t.guid) + ' [' + (t.topicType || 'Issue') + ' / ' + (t.topicStatus || 'Open') + ']');
+                                });
+                            })
+                            .catch(function (err) {
+                                log('Failed to fetch topics: ' + (err && err.message ? err.message : 'unknown error'), true);
+                            });
+                    });
+                }
+
+                if (btnPush) {
+                    btnPush.addEventListener('click', function() {
+                        var c = client || buildClient();
+                        if (!c) return;
+                        var projectId = projectSelect.value;
+                        if (!projectId) { log('ERROR: select a BCF project first.', true); return; }
+                        var clashes = collectClashRecords();
+                        if (!clashes.length) { log('ERROR: no clashes recorded to push.', true); return; }
+                        var topics = clashes.map(function (cl) {
+                            return window.BCF.clashToTopic(cl, camera, controls, 'Dr. Ahmed Louay Ahmed');
+                        });
+                        log('Pushing ' + topics.length + ' topic(s) to project ' + projectId + ' ...');
+                        var chain = Promise.resolve();
+                        var ok = 0;
+                        topics.forEach(function (topic) {
+                            chain = chain.then(function () {
+                                return c.createTopic(projectId, {
+                                    title: topic.title,
+                                    description: topic.description,
+                                    topicType: topic.topicType,
+                                    topicStatus: topic.topicStatus,
+                                    priority: topic.priority,
+                                    creationAuthor: topic.creationAuthor,
+                                    creationDate: topic.creationDate,
+                                    labels: topic.labels || []
+                                }).then(function () {
+                                    ok++;
+                                    log('  ✓ pushed: ' + topic.title);
+                                }).catch(function (err) {
+                                    log('  ✗ failed: ' + topic.title + ' — ' + (err && err.message ? err.message : 'error'), true);
+                                });
+                            });
+                        });
+                        chain.then(function () {
+                            log('Push complete: ' + ok + '/' + topics.length + ' topic(s) transferred.');
+                        });
+                    });
+                }
+
+                if (btnDownload) {
+                    btnDownload.addEventListener('click', function() {
+                        var clashes = collectClashRecords();
+                        if (!clashes.length) { showToast('error', 'لا توجد تعارضات مسجلة للتصدير.', 3000); return; }
+                        var topics = clashes.map(function (cl) {
+                            return window.BCF.clashToTopic(cl, camera, controls, 'Dr. Ahmed Louay Ahmed');
+                        });
+                        var archive = window.BCF.buildArchive(topics, {
+                            projectName: 'WebXR BIM Lab',
+                            author: 'Dr. Ahmed Louay Ahmed'
+                        });
+                        var url = URL.createObjectURL(archive);
+                        var a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'WebXR_BIM_Clashes_BCF_' + new Date().toISOString().substring(0, 10) + '.bcf';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+                        showToast('success', 'تم تنزيل أرشيف BCF 2.1 (' + topics.length + ' موضوع).', 3500);
+                    });
+                }
+            })();
 
             var btnExportBcf = document.getElementById('btn-export-bcf');
             if (btnExportBcf) btnExportBcf.addEventListener('click', exportClashesBCF);
@@ -5991,5 +6272,18 @@
         }
     </script>
 
+
+    <!-- PWA: register the service worker for offline field use -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('./sw.js', { scope: './' }).then(function (reg) {
+            console.log('[PWA] service worker registered, scope:', reg.scope);
+          }).catch(function (err) {
+            console.warn('[PWA] service worker registration failed:', err && err.message);
+          });
+        });
+      }
+    </script>
 </body>
 </html>

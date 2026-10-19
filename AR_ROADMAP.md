@@ -30,6 +30,10 @@
 | 6 | **رفع التعارضات BCF + PDF/CSV** | ✅ | تنزيل ناجح |
 | 7 | **المعايرة (ARUCO/QR) + القياس + القطاع** | ✅ | اختبار أوتوماتيكي للأزرار |
 | 8 | **الوصول RBAC** (Admin / Student) | ✅ | `admin` / `123` (أو `123456`) |
+| 9 | **صفحة AR مستقلة** (`ar.html`) للهاتف | ✅ | جلسة `immersive-ar` + `hit-test` + وضع 1:1 |
+| 10 | **تصدير BCF 2.1 حقيقي** (`.bcf` أرشيف ZIP) | ✅ | `bcf.version` + `project.bcfp` + `markup.bcf` |
+| 11 | **موصّل BCF-API 2.1** (BIMcollab / أي CDE) | ✅ | اختبار اتصال + سحب + دفع مقابل خادم BCF-API |
+| 12 | **تطبيق ميداني PWA** (Manifest + Service Worker) | ✅ | تحميل كامل دون اتصال + قابل للتثبيت |
 
 ### 2.1 قرارات معمارية حاسمة
 
@@ -83,9 +87,11 @@
 - [x] بوابة RBAC (Admin / Student)
 
 ### المرحلة 2 — تثبيت النموذج في الموقع (2–3 أسابيع)
-- [ ] **WebXR Hit Test**: `requestHitTestSource()` لتحديد نقطة وضع النموذج على السطح الحقيقي
+- [x] **صفحة AR مستقلة** (`ar.html`): تحميل النموذج، جلسة AR، وضع 1:1 (مكتمل — مُختبر آلياً)
+- [x] **WebXR Hit Test**: `requestHitTestSource()` لتحديد نقطة وضع النموذج على السطح الحقيقي
+- [x] **الوضع على السطح**: زر «تثبيت هنا» يثبّت النموذج بدقة السطح الحقيقي
 - [ ] **Plane Detection**: كشف الأسطح الأفقية (`XRPlane`) لعرض شبكة مؤشرات الوضع
-- [ ] **WebXR Anchors**: `hitTestResult.createAnchor()` لتثبيت النموذج في مكانه مع تتبّعزواوي
+- [ ] **WebXR Anchors**: `hitTestResult.createAnchor()` لتثبيت النموذج في مكانه مع تتبّع مستمر
 - [ ] **قراءة العلامة داخل الجلسة**: `BarcodeDetector` على تدفق فيديو جلسة XR
 - [ ] **معايرة ARUCO**: مطابقة علامات معروفة لضبط المقياس 1:1 (±2%)
 - [ ] دعم **Apple Vision Pro / ARKit** عبر `immersive-ar` + `dom-overlay`
@@ -98,7 +104,9 @@
 - [ ] **سجل تدقيق**: من / متى / أين
 
 ### المرحلة 4 — الإنتاج (4–6 أسابيع)
-- [ ] **PWA + Service Worker** للعمل دون اتصال (راجع `web-ifc.wasm` محلياً)
+- [x] **PWA**: `manifest.json` + `sw.js` (app-shell cache-first + runtime cache للمكتبات)
+- [x] **عمل دون اتصال**: تم التحقق بتحميل الصفحة كاملة مع انقطاع الشبكة
+- [ ] **تخزين `web-ifc.wasm` محلياً** لتفريغ نموذج IFC دون اتصال
 - [ ] **تحميل تدريجي** ونمذجة 사람은 LOD لآلاف العناصر
 - [ ] **اختبار على أجهزة** (Pixel 7, Galaxy S23, iPad Pro M2, Quest 3)
 - [ ] **لوحة أداء** (FPS, draw calls, زمن التحليل) مدمجة في `telemetry`
@@ -139,6 +147,10 @@
 | علامة QR | `BarcodeDetector.detect()` | ✅ يطابق المحتوى تماماً |
 | مطابقة المرجع | `python-qrcode` (مصفوفة بمصفوفة) | ✅ 186/186 |
 | بوابة الدخول | اختبار آلي | ✅ `admin` / `123` |
+| أرشيف BCF 2.1 | `zipfile` + تحليل XML | ✅ بنية مطابقة لمرجع buildingSMART |
+| موصّل BCF-API | خادم BCF-API وهمي | ✅ اتصال + مشروعان + سحب + دفع 2/2 |
+| صفحة AR | WebXR stub | ✅ `immersive-ar` + `hit-test` + `viewer space` |
+| PWA دون اتصال | `Network.emulateNetworkConditions` | ✅ تحميل كامل مع انقطاع الشبكة |
 
 ---
 
