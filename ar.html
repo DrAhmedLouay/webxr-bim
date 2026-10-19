@@ -401,6 +401,7 @@
                             modelRoot.add(normalizeModel(gltf.scene));
                             modelLoaded = true;
                             hideMissingPanel();
+                            onModelReady();
                             setStatus('النموذج جاهز — ابدأ جلسة AR');
                             toast('تم تحميل النموذج', 2000);
                             resolve(true);
@@ -455,6 +456,7 @@
                 modelRoot.add(normalizeModel(ifcModel));
                 modelLoaded = true;
                 hideMissingPanel();
+                onModelReady();
                 setStatus('النموذج جاهز — ابدأ جلسة AR');
                 toast('تم تحميل نموذج IFC', 2000);
             })
@@ -562,6 +564,19 @@
         ctx.fillStyle = '#f43f5e';
         ctx.fillRect(22, 82, 64, 4);
         poster.src = c.toDataURL('image/png');
+    }
+
+    // Called once the model is in the scene: the USDZ / AR Quick Look actions
+    // become available (a 40 MB model takes a while to convert, so they are
+    // only offered when there is something to convert).
+    function onModelReady() {
+        var btnUsdz = document.getElementById('btn-usdz');
+        if (btnUsdz) btnUsdz.style.display = '';
+        var link = document.getElementById('ar-ql-link');
+        if (link && platform.isIOS) {
+            link.style.display = 'inline-block';
+            drawPoster();
+        }
     }
 
     function exportUsdz() {
