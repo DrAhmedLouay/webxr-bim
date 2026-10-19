@@ -1590,6 +1590,15 @@
             <select id="select-storey-filter" style="width: 100%; background: #0f172a; color: #f1f5f9; border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 8px; padding: 8px 10px; font-size: 0.8rem; margin-bottom: 10px; cursor: pointer; outline: none;">
                 <option value="all">🏢 عرض المبنى كاملاً (جميع الطوابق)</option>
             </select>
+            <div id="storey-level-count-wrap" style="display:none; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 0.76rem; color: #94a3b8;">
+                <span>عدد الطوابق (فصل هندسي بالارتفاع):</span>
+                <input type="number" id="storey-level-count" min="1" max="40" step="1" value="8" style="width: 62px; background: #0f172a; color: #f1f5f9; border: 1px solid rgba(56,189,248,.4); border-radius: 6px; padding: 5px 7px; font-size: 0.78rem;">
+                <button id="btn-rebuild-storeys" class="btn btn-outline" style="border-color: rgba(56,189,248,.5); color: #38bdf8; padding: 5px 11px; font-size: 0.74rem;">↻ إعادة التقسيم</button>
+            </div>
+            <div id="storey-hint" style="display:none; font-size: 0.72rem; color: #64748b; margin-bottom: 10px; line-height: 1.5;">
+                هذا النموذج (GLB/GLTF) لا يحتوي بيانات طوابق مكانية، لذلك يتم فصل الطوابق <b>هندسياً حسب الارتفاع</b>.
+                نماذج IFC تُفهرس تلقائياً من الهيكل المكانية.
+            </div>
 
             <!-- Exploded Storeys View Slider -->
             <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08);">
@@ -2993,6 +3002,31 @@
             }
             document.getElementById('btn-trigger-upload').addEventListener('click', triggerUpload);
 
+            var levelCountInput = document.getElementById('storey-level-count');
+            if (levelCountInput) {
+                levelCountInput.addEventListener('input', function () {
+                    levelCountInput.dataset.touched = '1';
+                });
+            }
+
+            var btnRebuildStoreys = document.getElementById('btn-rebuild-storeys');
+            if (btnRebuildStoreys) {
+                btnRebuildStoreys.addEventListener('click', function () {
+                    if (!currentCustomModel || currentIFCLoader) {
+                        showToast('info', 'هذا الإجراء للنماذج غير IFC فقط', 3000);
+                        return;
+                    }
+                    var levelInput = document.getElementById('storey-level-count');
+                    buildGeometricStoreys(currentCustomModel, levelInput ? parseInt(levelInput.value, 10) : 8);
+                    buildSimTargetList();
+                    buildClickTargetList();
+                    selectStoreyFilter.value = 'all';
+                    refreshStoreyDropdown();
+                    applyFilters();
+                    showToast('success', 'تم تقسيم النموذج إلى ' + geoStoreyLevelCount + ' طابق', 3000);
+                });
+            }
+
             // ---------------------------------------------------------------
             // Bridge to the standalone AR page (ar.html)
             // The AR page runs on the same origin, so it can pick up the very
@@ -3220,6 +3254,138 @@
 
             // Populate Storeys dropdown
             var selectStoreyFilter = document.getElementById('select-storey-filter');
+            // ---------------------------------------------------------------
+            // Geometric storey separation for models WITHOUT spatial data
+            // (GLB/GLTF). The model is split into levels by height, the way
+            // a viewer would do it when the file carries no storey metadata.
+            // ---------------------------------------------------------------
+            var geoStoreyMeshes = {};       // levelId -> [meshes]
+            var geoStoreyLevelCount = 8;
+            var geoStoreyBaseY = 0;
+            var geoStoreyLevelHeight = 1;
+
+            // Splits one mesh into per-level meshes by cutting its index buffer.
+            // The vertex buffers are shared, so the memory cost is only the
+            // index lists — this is what makes a real storey separation
+            // possible on a GLB that arrives as a single merged mesh.
+            function splitMeshByLevel(mesh, levelCount, baseY, levelHeight) {
+                var geo = mesh.geometry;
+                if (!geo || !geo.attributes || !geo.attributes.position) return null;
+                if (geo.groups && geo.groups.length > 1 && Array.isArray(mesh.material)) return null; // multi-material: skip
+                var pos = geo.attributes.position;
+                var index = geo.index;
+                var triCount = index ? Math.floor(index.count / 3) : Math.floor(pos.count / 3);
+                if (!triCount) return null;
+
+                mesh.updateWorldMatrix(true, false);
+                var me = mesh.matrixWorld.elements;
+
+                var buckets = [];
+                for (var b = 0; b < levelCount; b++) buckets.push([]);
+                var v = new THREE.Vector3();
+                for (var t = 0; t < triCount; t++) {
+                    var i0 = index ? index.getX(t * 3) : t * 3;
+                    var i1 = index ? index.getX(t * 3 + 1) : t * 3 + 1;
+                    var i2 = index ? index.getX(t * 3 + 2) : t * 3 + 2;
+                    var cx = (pos.getX(i0) + pos.getX(i1) + pos.getX(i2)) / 3;
+                    var cy = (pos.getY(i0) + pos.getY(i1) + pos.getY(i2)) / 3;
+                    var cz = (pos.getZ(i0) + pos.getZ(i1) + pos.getZ(i2)) / 3;
+                    // to world space (only the Y row is needed)
+                    var wy = me[1] * cx + me[5] * cy + me[9] * cz + me[13];
+                    var lvl = Math.floor((wy - baseY) / levelHeight);
+                    if (lvl < 0) lvl = 0;
+                    if (lvl >= levelCount) lvl = levelCount - 1;
+                    buckets[lvl].push(i0, i1, i2);
+                }
+
+                var created = [];
+                var parent = mesh.parent;
+                for (var L = 0; L < levelCount; L++) {
+                    if (!buckets[L].length) continue;
+                    var g = new THREE.BufferGeometry();
+                    Object.keys(geo.attributes).forEach(function (key) {
+                        g.setAttribute(key, geo.attributes[key]);   // shared buffers
+                    });
+                    var list = buckets[L];
+                    var idx = list.length > 65535 ? new Uint32Array(list) : new Uint16Array(list);
+                    g.setIndex(new THREE.BufferAttribute(idx, 1));
+                    if (geo.groups && geo.groups.length && !Array.isArray(mesh.material)) {
+                        // keep a single group covering the whole index range
+                        g.addGroup(0, idx.length, 0);
+                    }
+                    var part = new THREE.Mesh(g, mesh.material);
+                    part.name = mesh.name;
+                    part.castShadow = mesh.castShadow;
+                    part.receiveShadow = mesh.receiveShadow;
+                    part.position.copy(mesh.position);
+                    part.quaternion.copy(mesh.quaternion);
+                    part.scale.copy(mesh.scale);
+                    part.userData = Object.assign({}, mesh.userData);
+                    part.userData.geoLevel = L;
+                    part.userData.geoBaseY = mesh.position.y;
+                    part.userData.splitFrom = mesh.name || 'mesh';
+                    if (parent) parent.add(part);
+                    created.push(part);
+                }
+                if (parent && created.length) parent.remove(mesh);
+                return created;
+            }
+
+            function buildGeometricStoreys(model, levelCount) {
+                geoStoreyMeshes = {};
+                if (!model) return;
+
+                var box = new THREE.Box3().setFromObject(model);
+                if (box.isEmpty()) return;
+                var height = Math.max(0.001, box.max.y - box.min.y);
+                // auto: one level per ~3.4 m of height (a typical storey height)
+                var autoCount = Math.max(1, Math.min(40, Math.round(height / 3.4)));
+                var count = Math.max(1, Math.min(40, levelCount || geoStoreyLevelCount || autoCount));
+                if (!levelCount) count = autoCount;
+                geoStoreyLevelCount = count;
+                geoStoreyBaseY = box.min.y;
+                geoStoreyLevelHeight = height / count;
+
+                // Split every mesh by height so each level is an independent mesh
+                var meshes = [];
+                var toSplit = [];
+                model.updateMatrixWorld(true);
+                model.traverse(function (child) {
+                    if (!child.isMesh) return;
+                    var childBox = new THREE.Box3().setFromObject(child);
+                    if (childBox.isEmpty()) return;
+                    var centerY = (childBox.min.y + childBox.max.y) / 2;
+                    var level = Math.floor((centerY - geoStoreyBaseY) / geoStoreyLevelHeight);
+                    if (level < 0) level = 0;
+                    if (level >= count) level = count - 1;
+                    child.userData.geoLevel = level;
+                    child.userData.geoBaseY = child.position.y;
+                    meshes.push(child);
+                    toSplit.push(child);
+                });
+
+                // a mesh that spans several levels is cut into one mesh per level
+                toSplit.forEach(function (child) {
+                    var parts = splitMeshByLevel(child, count, geoStoreyBaseY, geoStoreyLevelHeight);
+                    if (parts && parts.length) {
+                        meshes = meshes.filter(function (m) { return m !== child; });
+                        parts.forEach(function (part) { meshes.push(part); });
+                    }
+                });
+
+                for (var i = 0; i < count; i++) geoStoreyMeshes['geo_' + i] = [];
+                meshes.forEach(function (m) {
+                    var key = 'geo_' + m.userData.geoLevel;
+                    if (!geoStoreyMeshes[key]) geoStoreyMeshes[key] = [];
+                    geoStoreyMeshes[key].push(m);
+                });
+
+                // remember the original Y so the exploded view can restore it
+                meshes.forEach(function (m) {
+                    if (m.userData.geoBaseY === undefined) m.userData.geoBaseY = m.position.y;
+                });
+            }
+
             function refreshStoreyDropdown() {
                 selectStoreyFilter.innerHTML = '<option value="all">🏢 عرض المبنى كاملاً (جميع الطوابق)</option>';
                 if (ifcStoreysList.length > 0) {
@@ -3228,6 +3394,16 @@
                         opt.value = s.id;
                         opt.innerText = '📍 ' + (s.name || ('طابق ' + (idx + 1))) + ' (' + s.count + ' عنصر)';
                         selectStoreyFilter.appendChild(opt);
+                    });
+                } else if (Object.keys(geoStoreyMeshes).length > 0) {
+                    // geometric levels (GLB/GLTF without spatial data)
+                    Object.keys(geoStoreyMeshes).forEach(function (key) {
+                        var idx = parseInt(key.replace('geo_', ''), 10);
+                        var meshes = geoStoreyMeshes[key] || [];
+                        var opt = document.createElement('option');
+                        opt.value = key;
+                        opt.innerText = '📍 الطابق ' + (idx + 1) + ' (' + meshes.length + ' عنصر)';
+                            selectStoreyFilter.appendChild(opt);
                     });
                 } else if (webxrLabGroup.visible) {
                     var opt1 = document.createElement('option');
@@ -3337,6 +3513,12 @@
 
                             // Build pre-cached subsets for categories and storeys (ensures 0ms toggle speed)
                             await buildIFCSubsets(ifcModel, ifcLoader);
+                            // an IFC model carries real spatial data -> no geometric split
+                            geoStoreyMeshes = {};
+                            var geoWrapI = document.getElementById('storey-level-count-wrap');
+                            var geoHintI = document.getElementById('storey-hint');
+                            if (geoWrapI) geoWrapI.style.display = 'none';
+                            if (geoHintI) geoHintI.style.display = 'none';
                             applyFilters();
 
                             registerBIM(ifcModel, {
@@ -3410,7 +3592,20 @@
                                 buildSimTargetList();
                                 buildClickTargetList();
                                 fitCameraToObject(camera, model, controls);
+
+                                // GLB carries no spatial structure -> split it
+                                // geometrically by height so the storey filter works
+                                var levelInput = document.getElementById('storey-level-count');
+                                buildGeometricStoreys(model, levelInput ? parseInt(levelInput.value, 10) : 0);
+                                if (levelInput && !levelInput.dataset.touched) levelInput.value = geoStoreyLevelCount;
+                                // the meshes were split -> refresh the pick lists
+                                buildSimTargetList();
+                                buildClickTargetList();
                                 refreshStoreyDropdown();
+                                var geoWrap = document.getElementById('storey-level-count-wrap');
+                                var geoHint = document.getElementById('storey-hint');
+                                if (geoWrap) geoWrap.style.display = 'flex';
+                                if (geoHint) geoHint.style.display = 'block';
 
                                 // Persist the source file so the standalone AR page can
                                 // pick up exactly the same model (shared IndexedDB).
@@ -3795,6 +3990,40 @@
                         }
                     } else {
                         currentCustomModel.visible = true;
+                    }
+                }
+                // Case A-GLB: custom model without spatial data (GLB/GLTF).
+                // Storeys are separated geometrically by height.
+                else if (currentCustomModel && Object.keys(geoStoreyMeshes).length > 0) {
+                    var geoKeys = Object.keys(geoStoreyMeshes);
+                    currentCustomModel.visible = true;
+
+                    currentCustomModel.traverse(function (child) {
+                        if (child.isMesh && child.userData.geoBaseY !== undefined) {
+                            child.position.y = child.userData.geoBaseY;
+                        }
+                    });
+
+                    if (selectedStorey !== 'all') {
+                        geoKeys.forEach(function (key) {
+                            var isTarget = (key === selectedStorey);
+                            (geoStoreyMeshes[key] || []).forEach(function (m) { m.visible = isTarget; });
+                        });
+                    } else {
+                        geoKeys.forEach(function (key) {
+                            (geoStoreyMeshes[key] || []).forEach(function (m) { m.visible = true; });
+                        });
+                    }
+
+                    if (explodeVal > 0) {
+                        geoKeys.forEach(function (key) {
+                            var idx = parseInt(key.replace('geo_', ''), 10);
+                            (geoStoreyMeshes[key] || []).forEach(function (m) {
+                                if (m.userData.geoBaseY !== undefined) {
+                                    m.position.y = m.userData.geoBaseY + (idx * explodeVal);
+                                }
+                            });
+                        });
                     }
                 }
                 // Case B: Default WebXR Lab Environment
@@ -5994,7 +6223,45 @@
                 renderer.setSize(window.innerWidth, window.innerHeight);
             });
 
+            // Lightweight diagnostics hook (used by the performance tools)
+            window.__bim = {
+                get renderer() { return renderer; },
+                get scene() { return scene; },
+                get camera() { return camera; },
+                get model() { return currentCustomModel; },
+                get controls() { return controls; },
+                get pixelRatio() { return currentPixelRatio; }
+            };
+
             var clock = new THREE.Clock();
+
+            // -----------------------------------------------------------------
+            // Adaptive resolution: heavy models (hundreds of thousands of
+            // triangles) can drop the frame rate on integrated GPUs. The pixel
+            // ratio is lowered automatically when frames get slow and restored
+            // when there is headroom again.
+            // -----------------------------------------------------------------
+            var maxPixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
+            var currentPixelRatio = maxPixelRatio;
+            var frameTimeAvg = 16;
+            var lastRatioChange = 0;
+            function adaptResolution(deltaMs, now) {
+                frameTimeAvg = frameTimeAvg * 0.9 + deltaMs * 0.1;
+                if (now - lastRatioChange < 1200) return;
+                var target = currentPixelRatio;
+                if (frameTimeAvg > 34 && currentPixelRatio > 0.6) {
+                    target = Math.max(0.6, currentPixelRatio - 0.25);
+                } else if (frameTimeAvg < 15 && currentPixelRatio < maxPixelRatio) {
+                    target = Math.min(maxPixelRatio, currentPixelRatio + 0.25);
+                }
+                if (target !== currentPixelRatio) {
+                    currentPixelRatio = target;
+                    renderer.setPixelRatio(currentPixelRatio);
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                    lastRatioChange = now;
+                }
+            }
+
             renderer.setAnimationLoop(function() {
                 var delta = clock.getDelta();
                 if (clashBeacon && clashBeacon.visible) {
@@ -6006,6 +6273,7 @@
                 // Telemetry HUD real-time tracking
                 frameCount++;
                 var now = performance.now();
+                adaptResolution(delta * 1000, now);
                 if (now - lastFpsUpdate >= 300) {
                     fpsCounter = Math.round((frameCount * 1000) / (now - lastFpsUpdate));
                     frameCount = 0;

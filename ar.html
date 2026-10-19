@@ -70,10 +70,8 @@
         </div>
         <div class="row">
             <button id="btn-ar">📱 بدء الواقع المعزز (AR)</button>
-            <a id="ar-ql-link" rel="ar" href="#" style="display:none; text-decoration:none;">
-                <img id="ar-ql-poster" alt="عرض في الواقع" style="width:48px; height:48px; border-radius:9px; border:1px solid rgba(148,163,184,.45);">
-            </a>
-            <button id="btn-usdz" class="ghost" style="display:none;">🍎 تنزيل USDZ</button>
+            <a id="ar-ql-link" rel="ar" href="#" style="display:none; text-decoration:none; background:transparent; border:1px solid rgba(148,163,184,.45); border-radius:10px; padding:10px 14px; font-size:.82rem; font-weight:700; color:#cbd5e1;">🍎 عرض في الواقع (iOS)</a>
+            <button id="btn-usdz" class="ghost" style="display:none;">⬇️ تنزيل USDZ</button>
             <button id="btn-file" class="ghost">📂 فتح نموذج (GLB/IFC)</button>
             <button id="btn-place" class="ghost" style="display:none;">📍 تثبيت هنا</button>
             <button id="btn-home" class="ghost">↩ المنصة الرئيسية</button>
@@ -174,7 +172,11 @@
 
     // ------------------------------------------------------------- renderer
     var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    // The AR page renders a full building: start conservative and let the
+    // adaptive controller below lower the resolution on slow devices.
+    var maxPixelRatio = Math.min(window.devicePixelRatio || 1, 1.75);
+    var currentPixelRatio = Math.min(maxPixelRatio, 1.25);
+    renderer.setPixelRatio(currentPixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.xr.enabled = true;
     document.getElementById('scene').appendChild(renderer.domElement);
@@ -542,45 +544,12 @@
 
     // ---- AR Quick Look (the native AR path on iOS) --------------------
     var usdzUrl = '';
-    // A neutral badge for the AR Quick Look entry. It deliberately avoids a
-    // glowing cyan building glyph, which was mistaken for a default model.
-    function drawPoster() {
-        var poster = document.getElementById('ar-ql-poster');
-        if (!poster) return;
-        var c = document.createElement('canvas');
-        c.width = 108; c.height = 108;
-        var ctx = c.getContext('2d');
-        ctx.fillStyle = '#1f2937';
-        ctx.fillRect(0, 0, 108, 108);
-        ctx.strokeStyle = 'rgba(148,163,184,.55)';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(1, 1, 106, 106);
-        // a simple neutral cube outline
-        ctx.strokeStyle = '#e2e8f0';
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.moveTo(54, 26); ctx.lineTo(80, 40); ctx.lineTo(80, 68);
-        ctx.lineTo(54, 82); ctx.lineTo(28, 68); ctx.lineTo(28, 40);
-        ctx.closePath();
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(54, 26); ctx.lineTo(54, 54);
-        ctx.moveTo(54, 54); ctx.lineTo(80, 40);
-        ctx.moveTo(54, 54); ctx.lineTo(28, 40);
-        ctx.stroke();
-        poster.src = c.toDataURL('image/png');
-    }
-
-    // Called once the model is in the scene: the USDZ / AR Quick Look actions
-    // become available (a 40 MB model takes a while to convert, so they are
-    // only offered when there is something to convert).
     function onModelReady() {
         var btnUsdz = document.getElementById('btn-usdz');
         if (btnUsdz) btnUsdz.style.display = '';
         var link = document.getElementById('ar-ql-link');
         if (link && platform.isIOS) {
             link.style.display = 'inline-block';
-            drawPoster();
         }
     }
 
@@ -601,7 +570,6 @@
             if (link) {
                 link.href = usdzUrl;
                 link.style.display = 'inline-block';
-                drawPoster();
             }
             var btnUsdz = document.getElementById('btn-usdz');
             if (btnUsdz) btnUsdz.style.display = '';
@@ -813,31 +781,19 @@
     // On iOS the AR button becomes the AR Quick Look entry point
     if (platform.isIOS) {
         var qlLink = document.getElementById('ar-ql-link');
-        var qlPoster = document.getElementById('ar-ql-poster');
-        if (qlLink && qlPoster) {
+        if (qlLink) {
             qlLink.style.display = 'inline-block';
             qlLink.href = '#';
             qlLink.title = 'عرض في الواقع عبر AR Quick Look';
-            drawPoster();
             qlLink.addEventListener('click', function (e) {
                 if (!usdzUrl) {
+                    // No model converted yet: prepare it, then let the user tap again
                     e.preventDefault();
                     exportUsdz().then(function () {
-                        toast('تم تحضير النموذج — اضغط صورة الأيقونة مرة أخرى لفتح الواقع', 3500);
+                        toast('تم تحضير النموذج — اضغط «🍎 عرض في الواقع» مرة أخرى لفتح Reality', 4000);
                     }).catch(function (err) {
                         toast('تعذّر إنشاء USDZ: ' + (err && err.message ? err.message : 'خطأ'), 3500);
                     });
-                }
-            });
-            btnAr.addEventListener('click', function () {
-                if (!usdzUrl) {
-                    exportUsdz().then(function () {
-                        toast('تم تحضير النموذج — اضغط صورة الأيقونة مرة أخرى لفتح الواقع', 3500);
-                    }).catch(function (err) {
-                        toast('تعذّر إنشاء USDZ: ' + (err && err.message ? err.message : 'خطأ'), 3500);
-                    });
-                } else {
-                    qlLink.click();
                 }
             });
         }
@@ -920,8 +876,29 @@
     renderer.domElement.addEventListener('pointerleave', releasePointer);
 
     // --------------------------------------------------------------- render
+    // Adaptive resolution for heavy models
+    var frameTimeAvg = 16;
+    var lastRatioChange = 0;
+    function adaptResolution(deltaMs, now) {
+        frameTimeAvg = frameTimeAvg * 0.9 + deltaMs * 0.1;
+        if (now - lastRatioChange < 1200) return;
+        var target = currentPixelRatio;
+        if (frameTimeAvg > 34 && currentPixelRatio > 0.6) target = Math.max(0.6, currentPixelRatio - 0.25);
+        else if (frameTimeAvg < 15 && currentPixelRatio < maxPixelRatio) target = Math.min(maxPixelRatio, currentPixelRatio + 0.25);
+        if (target !== currentPixelRatio) {
+            currentPixelRatio = target;
+            renderer.setPixelRatio(currentPixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            lastRatioChange = now;
+        }
+    }
+
     // three.js calls the animation loop as (time, frame)
+    var lastFrameTime = performance.now();
     renderer.setAnimationLoop(function (time, frame) {
+        var nowMs = performance.now();
+        adaptResolution(nowMs - lastFrameTime, nowMs);
+        lastFrameTime = nowMs;
         if (frame && hitTestSource && !placed) {
             var results = frame.getHitTestResults(hitTestSource);
             if (results.length) {
