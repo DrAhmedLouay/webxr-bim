@@ -1312,6 +1312,10 @@
                 <label data-i18n="nftPayloadLabel" style="display: block; font-size: 0.8rem; color: #cbd5e1; margin-bottom: 5px; font-weight: bold;">🔗 محتوى العلامة (رابط الارتساء)</label>
                 <textarea id="nft-marker-payload" rows="3" style="width: 100%; background: #0f172a; color: #f1f5f9; border: 1px solid rgba(56,189,248,0.35); border-radius: 8px; padding: 8px 10px; font-size: 0.76rem; font-family: 'JetBrains Mono', monospace; direction: ltr; text-align: left; resize: vertical;"></textarea>
 
+                <label style="display: block; font-size: 0.78rem; color: #cbd5e1; margin-top: 12px; margin-bottom: 5px; font-weight: bold;" data-i18n="nftModelUrlLabel">🔗 رابط النموذج المباشر (اختياري — ليعمل المسح على أي جهاز)</label>
+                <input type="url" id="nft-marker-model-url" style="width: 100%; background: #0f172a; color: #f1f5f9; border: 1px solid rgba(56,189,248,0.35); border-radius: 8px; padding: 8px 10px; font-size: 0.76rem; direction: ltr; text-align: left;" placeholder="https://your-host.com/model.glb" autocomplete="off">
+                <div style="font-size: 0.7rem; color: #64748b; margin-top: 4px; direction: ltr; text-align: left;">ارفع ملف GLB المصدَّر إلى أي استضافة وضع رابط https هنا (أو مسار نسبي داخل المستودع مثل models/tower-a.glb). بدونه تعمل العلامة على نفس المتصفح فقط (عبر modelKey).</div>
+
                 <div style="display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap;">
                     <div style="flex: 1; min-width: 120px;">
                         <label data-i18n="nftEccLabel" style="display: block; font-size: 0.78rem; color: #cbd5e1; margin-bottom: 5px; font-weight: bold;">تصحيح الأخطاء (ECC)</label>
@@ -2904,7 +2908,13 @@
             function buildArPageLink() {
                 var base = location.href.split('?')[0].split('#')[0];
                 var params = [];
-                if (currentModelStoreKey) params.push('modelKey=' + encodeURIComponent(currentModelStoreKey));
+                var hostedUrl = '';
+                try { hostedUrl = (localStorage.getItem('webxr_bim_model_url') || '').trim(); } catch (e) { hostedUrl = ''; }
+                if (hostedUrl) {
+                    params.push('model=' + encodeURIComponent(hostedUrl));
+                } else if (currentModelStoreKey) {
+                    params.push('modelKey=' + encodeURIComponent(currentModelStoreKey));
+                }
                 var modelName = (currentCustomModel && currentCustomModel.name) ? String(currentCustomModel.name) : '';
                 if (modelName) {
                     var h = 2166136261;
@@ -5330,14 +5340,27 @@
                     return '';
                 }
 
+                var MODEL_URL_STORAGE = 'webxr_bim_model_url';
+
+                function hostedModelUrl() {
+                    var field = document.getElementById('nft-marker-model-url');
+                    var value = field ? field.value.trim() : '';
+                    if (!value) {
+                        try { value = (localStorage.getItem(MODEL_URL_STORAGE) || '').trim(); } catch (e) { value = ''; }
+                    }
+                    return value;
+                }
+
                 function defaultPayload() {
                     var model = currentModelLabel();
-                    // The marker opens the standalone AR page and carries the shared
-                    // model key, so scanning it (on the same device) restores the
-                    // exact model in the AR session.
+                    // The marker opens the standalone AR page. It carries the shared
+                    // model key (works on this browser) and, when a hosted URL is
+                    // configured, that URL as well (works on ANY device).
                     var base = location.href.split('?')[0].split('#')[0];
                     var params = [];
-                    if (typeof currentModelStoreKey !== 'undefined' && currentModelStoreKey) {
+                    var url = hostedModelUrl();
+                    if (url) params.push('model=' + encodeURIComponent(url));
+                    if (!url && typeof currentModelStoreKey !== 'undefined' && currentModelStoreKey) {
                         params.push('modelKey=' + encodeURIComponent(currentModelStoreKey));
                     }
                     params.push('anchor=' + encodeURIComponent('bim-' + hashToken(model + '|' + location.origin)));
@@ -5357,8 +5380,11 @@
                         var matrix = window.NFTMarker.encode(text, { ecc: eccSelect.value || 'M' });
                         currentMatrix = matrix;
                         window.NFTMarker.renderToCanvas(canvas, matrix, { scale: scale, quiet: 4 });
+                        var reach = hostedModelUrl()
+                            ? '<span style="color:#86efac">· تعمل على أي جهاز</span>'
+                            : '<span style="color:#fbbf24">· تعمل على هذا المتصفح فقط</span>';
                         metaEl.innerHTML = 'الإصدار v' + matrix.version + ' · المقاس ' + matrix.size + '×' + matrix.size +
-                            ' · ECC ' + matrix.ecc + ' · ' + canvas.width + '×' + canvas.height + ' px';
+                            ' · ECC ' + matrix.ecc + ' · ' + canvas.width + '×' + canvas.height + ' px ' + reach;
                     } catch (err) {
                         currentMatrix = null;
                         metaEl.innerHTML = '<span style="color:#f87171;">⚠️ ' +
@@ -5381,6 +5407,17 @@
                     });
                 }
                 payloadInput.addEventListener('input', render);
+                var modelUrlField = document.getElementById('nft-marker-model-url');
+                if (modelUrlField) {
+                    try { modelUrlField.value = (localStorage.getItem(MODEL_URL_STORAGE) || '').trim(); } catch (e) { /* ignore */ }
+                    function syncHostedUrl() {
+                        try { localStorage.setItem(MODEL_URL_STORAGE, modelUrlField.value.trim()); } catch (e) { /* ignore */ }
+                        payloadInput.value = defaultPayload();
+                        render();
+                    }
+                    modelUrlField.addEventListener('input', syncHostedUrl);
+                    modelUrlField.addEventListener('change', syncHostedUrl);
+                }
                 if (eccSelect) eccSelect.addEventListener('change', render);
                 if (scaleSelect) scaleSelect.addEventListener('change', render);
                 if (btnReset) {

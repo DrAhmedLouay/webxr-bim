@@ -51,6 +51,34 @@
 <div id="reticle"></div>
 <div id="status">جارٍ التحميل…</div>
 
+<!-- Recovery panel: shown when the linked model cannot be resolved on this device -->
+<div id="model-missing" class="card" style="display:none; position:fixed; z-index:40; left:50%; top:50%; transform:translate(-50%,-50%); width:min(540px,92vw); border-color:rgba(248,113,113,.55);">
+    <h1 style="color:#f87171;">⚠️ لم يُعثر على النموذج على هذا الجهاز</h1>
+    <div class="sub" style="margin-top:6px;">
+        علامة <b>NFT</b> تحمل رابطاً يشير إلى اسم النموذج داخل مخزن المتصفح
+        (<code>modelKey</code>)، وهو مخزن خاص بهذا المتصفح على هذا الجهاز فقط.
+        لذلك عند مسح العلامة بجهاز أو متصفح آخر لا توجد البايتات هنا.
+    </div>
+    <div style="background:rgba(56,189,248,.08); border:1px solid rgba(56,189,248,.25); border-radius:10px; padding:11px 13px; margin-top:12px; font-size:.78rem; color:#cbd5e1; line-height:1.65;">
+        <b style="color:#38bdf8;">ثلاثة حلول:</b>
+        <ol style="margin:6px 0 0 18px; padding:0;">
+            <li>استورد ملف <b>GLB</b> أو <b>IFC</b> مباشرة على هذا الجهاز (الزر أدناه).</li>
+            <li>افتح المنصة على <b>نفس الجهاز</b>، حمّل النموذج فيها، ثم افتح «📱 صفحة AR» — سيصل النموذج تلقائياً.</li>
+            <li>إن كان النموذج مستضافاً على رابط <b>https</b>، ألصق الرابط بالأسفل ليبُنَى المشهد منه مباشرة.</li>
+        </ol>
+        <div id="anchor-info" style="margin-top:8px; color:#94a3b8;"></div>
+    </div>
+    <div class="row">
+        <button id="btn-missing-file">📂 استيراد نموذج من الجهاز</button>
+        <button id="btn-missing-platform" class="ghost">🏢 فتح المنصة (تحميل النموذج هناك)</button>
+        <button id="btn-missing-dismiss" class="ghost">✕ إغلاق</button>
+    </div>
+    <div class="row" style="align-items:center;">
+        <input id="missing-url" type="url" placeholder="https://example.com/model.glb" style="flex:1; min-width:180px; background:#0f172a; color:#f1f5f9; border:1px solid rgba(56,189,248,.35); border-radius:10px; padding:10px 12px; font-size:.78rem; direction:ltr; text-align:left;">
+        <button id="btn-missing-url" class="ghost">تحميل من الرابط</button>
+    </div>
+</div>
+
 <div class="overlay">
     <div class="card">
         <h1>🥽 وضع الواقع المعزز — WebXR BIM</h1>
@@ -96,6 +124,12 @@
     var reticle = document.getElementById('reticle');
     var btnAr = document.getElementById('btn-ar');
     var btnFile = document.getElementById('btn-file');
+    var missingPanel = document.getElementById('model-missing');
+    var btnMissingFile = document.getElementById('btn-missing-file');
+    var btnMissingDismiss = document.getElementById('btn-missing-dismiss');
+    var btnMissingUrl = document.getElementById('btn-missing-url');
+    var missingUrl = document.getElementById('missing-url');
+    var anchorInfo = document.getElementById('anchor-info');
     var btnPlace = document.getElementById('btn-place');
     var btnHome = document.getElementById('btn-home');
     var fileInput = document.getElementById('file-input');
@@ -155,16 +189,18 @@
         return object3d;
     }
 
-    function loadGlb(url) {
+    function loadGlb(url, onError) {
         setStatus('جارٍ تحميل النموذج…');
         new THREE.GLTFLoader().load(url, function (gltf) {
             modelRoot.add(normalizeModel(gltf.scene));
             modelLoaded = true;
+            hideMissingPanel();
             setStatus('النموذج جاهز — ابدأ جلسة AR');
             toast('تم تحميل النموذج', 2000);
         }, undefined, function (err) {
             setStatus('تعذّر تحميل النموذج');
             toast('تعذّر تحميل النموذج: ' + (err && err.message ? err.message : 'خطأ'), 3500);
+            if (typeof onError === 'function') onError(err);
         });
     }
 
@@ -175,6 +211,7 @@
         loader.loadAll([file], function (ifcModel) {
             modelRoot.add(normalizeModel(ifcModel));
             modelLoaded = true;
+            hideMissingPanel();
             setStatus('النموذج جاهز — ابدأ جلسة AR');
             toast('تم تحميل نموذج IFC', 2000);
         }, undefined, function (err) {
@@ -183,12 +220,26 @@
         });
     }
 
+    function showMissingPanel(reason) {
+        if (!missingPanel) return;
+        missingPanel.style.display = 'block';
+        if (anchorInfo) {
+            anchorInfo.innerHTML = (anchorToken ? 'معرّف الارتساء: <b>' + anchorToken + '</b>' : '') +
+                (storey ? ' · الطور: <b>' + storey + '</b>' : '') +
+                (reason ? '<br><span style="color:#fbbf24">' + reason + '</span>' : '');
+        }
+        setStatus('النموذج غير متوفر على هذا الجهاز');
+    }
+
+    function hideMissingPanel() {
+        if (missingPanel) missingPanel.style.display = 'none';
+    }
+
     function loadFromStore(key) {
         setStatus('جارٍ استرجاع النموذج من مخزن المنصة…');
         return window.ModelStore.load(key).then(function (record) {
             if (!record) {
-                setStatus('لم يُعثر على النموذج في المخزن — اختر ملفاً يدوياً');
-                toast('النموذج غير موجود في مخزن هذا المتصفح. افتحه في المنصة أولاً أو استورده هنا.', 4000);
+                showMissingPanel('مفتاح modelKey غير موجود في مخزن هذا المتصفح (المخزن خاص بالجهاز).');
                 return false;
             }
             var blob = new Blob([record.bytes], { type: record.type || 'application/octet-stream' });
@@ -200,21 +251,20 @@
             }
             return true;
         }).catch(function (err) {
-            setStatus('تعذّر استرجاع النموذج من المخزن');
-            toast('خطأ في المخزن: ' + (err && err.message ? err.message : 'غير متوقع'), 3500);
+            showMissingPanel('خطأ في المخزن: ' + (err && err.message ? err.message : 'غير متوقع'));
             return false;
         });
     }
 
-    if (modelKey && window.ModelStore) {
+    if (modelUrl) {
+        // A hosted model URL always wins: it works on ANY device.
+        loadGlb(modelUrl, function () {
+            showMissingPanel('تعذّر تحميل النموذج من الرابط — تحقّق من صلاحيته أو استورده من الجهاز.');
+        });
+    } else if (modelKey && window.ModelStore) {
         loadFromStore(modelKey);
-    } else if (modelUrl && /\.glb(\?|$)/i.test(modelUrl)) {
-        loadGlb(modelUrl);
-    } else if (modelUrl) {
-        toast('الرابط لا يشير إلى ملف GLB — افتح نموذجاً يدوياً', 3200);
-        setStatus('اختر نموذجاً للبدء');
     } else {
-        setStatus('اختر نموذجاً أو ابدأ الجلسة');
+        showMissingPanel('لم يُمرَّر أي نموذج مع الرابط.');
     }
 
     if (anchorToken) {
@@ -296,10 +346,30 @@
         if (modelRoot.children.length) modelRoot.scale.setScalar(v);
     });
 
+    if (btnMissingFile) btnMissingFile.addEventListener('click', function () { fileInput.click(); });
+    var btnMissingPlatform = document.getElementById('btn-missing-platform');
+    if (btnMissingPlatform) {
+        btnMissingPlatform.addEventListener('click', function () {
+            var target = './index.html';
+            if (anchorToken) target += '?anchor=' + encodeURIComponent(anchorToken);
+            window.open(target, '_blank', 'noopener');
+        });
+    }
+    if (btnMissingDismiss) btnMissingDismiss.addEventListener('click', hideMissingPanel);
+    if (btnMissingUrl) {
+        btnMissingUrl.addEventListener('click', function () {
+            var url = (missingUrl.value || '').trim();
+            if (!url) { toast('ألصق رابط النموذج أولاً', 2200); return; }
+            hideMissingPanel();
+            loadGlb(url, function () { showMissingPanel('تعذّر تحميل النموذج من الرابط.'); });
+        });
+    }
+
     btnFile.addEventListener('click', function () { fileInput.click(); });
     fileInput.addEventListener('change', function (ev) {
         var file = ev.target.files && ev.target.files[0];
         if (!file) return;
+        hideMissingPanel();
         if (/\.ifc$/i.test(file.name)) loadIfc(file);
         else {
             var reader = new FileReader();
