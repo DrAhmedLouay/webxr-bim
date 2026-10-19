@@ -923,6 +923,8 @@
     <script src="https://unpkg.com/web-ifc-three@0.0.126/IFCLoader.umd.cjs"></script>
     <!-- jsPDF for PDF Report Export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- NFT Anchor Marker (QR) encoder — local, self-contained, no CDN dependency -->
+    <script src="./js/nft-marker.js"></script>
 </head>
 <body>
     <!-- ===================================================================== -->
@@ -1024,6 +1026,7 @@
             <button class="btn btn-filter" id="btn-toggle-filters-panel" title="فصل الطوابق وتصفية عناصر المبنى والتأسيسات وضبط الإضاءة">🎛️ تصفية العناصر والإضاءة</button>
             <button class="btn btn-upload" id="btn-trigger-upload">📂 استيراد نموذج آخر (GLB / IFC)</button>
             <button class="btn btn-outline" id="btn-export-glb" title="تصدير النموذج الحالي كـ GLB محسّن للاستخدام في AR/VR">📤 تصدير GLB (محسّن)</button>
+            <button class="btn btn-outline" id="btn-nft-marker" style="border-color: rgba(168, 85, 247, 0.5); color: #c084fc; background: rgba(168, 85, 247, 0.12); font-weight: bold;" title="توليد علامة ارتساء (QR) تربط النموذج الحالي بعرض الواقع المعزز على الهاتف">📸 إنشاء علامة NFT</button>
 
             <button class="btn btn-center" id="btn-center-model" title="إعادة الكاميرا وتوسيط الموديل في منتصف الشاشة">🎯 وضع المجسم في المنتصف</button>
             <button class="btn btn-clash-view" id="btn-view-clashes" title="مشاهدة واستعراض التعارضات في المشهد الثلاثي الأبعاد">⚠️ مشاهدة التعارضات</button>
@@ -1221,6 +1224,69 @@
         <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center;">
             <span style="font-size: 0.72rem; color: #64748b;">بيانات كمية جاهزة للأوراق العلمية</span>
             <button class="btn btn-outline" id="btn-export-benchmark" style="font-size: 0.74rem; padding: 4px 10px; border-color: rgba(34, 197, 94, 0.4); color: #86efac;">📥 تصدير تقرير الأداء (JSON)</button>
+        </div>
+    </div>
+
+    <!-- NFT Anchor Marker Generator Modal (AR anchoring workflow) -->
+    <div id="nft-marker-modal" style="display: none; position: absolute; top: 75px; left: 50%; transform: translateX(-50%); width: 720px; max-width: 94vw; max-height: calc(100vh - 100px); background: rgba(15, 23, 42, 0.98); backdrop-filter: blur(20px); padding: 22px 24px; border-radius: 16px; border: 1.5px solid rgba(168, 85, 247, 0.5); z-index: 130; box-shadow: 0 20px 60px rgba(0,0,0,0.85); overflow-y: auto; color: #f8fafc;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 12px; margin-bottom: 16px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.5rem;">📸</span>
+                <div>
+                    <h3 data-i18n="nftTitle" style="color: #c084fc; font-size: 1.1rem; font-weight: bold; margin: 0;">مُولِّد علامات الارتساء (NFT Marker) لتثبيت النموذج في الواقع المعزز</h3>
+                    <div data-i18n="nftSubtitle" style="font-size: 0.75rem; color: #94a3b8;">ترميز QR مستقل بالكامل (بدون مكتبات خارجية) — يعمل دون اتصال بالإنترنت</div>
+                </div>
+            </div>
+            <button id="btn-close-nft-marker" style="background: transparent; border: none; color: #94a3b8; font-size: 1.4rem; cursor: pointer; padding: 2px 8px;">✕</button>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 260px 1fr; gap: 18px; align-items: start;">
+            <div style="text-align: center;">
+                <canvas id="nft-marker-canvas" style="width: 240px; height: 240px; background: #ffffff; border-radius: 10px; border: 1.5px solid rgba(168,85,247,0.45); image-rendering: pixelated;"></canvas>
+                <div id="nft-marker-meta" style="font-size: 0.74rem; color: #94a3b8; margin-top: 8px; line-height: 1.6;">—</div>
+            </div>
+
+            <div>
+                <label data-i18n="nftPayloadLabel" style="display: block; font-size: 0.8rem; color: #cbd5e1; margin-bottom: 5px; font-weight: bold;">🔗 محتوى العلامة (رابط الارتساء)</label>
+                <textarea id="nft-marker-payload" rows="3" style="width: 100%; background: #0f172a; color: #f1f5f9; border: 1px solid rgba(56,189,248,0.35); border-radius: 8px; padding: 8px 10px; font-size: 0.76rem; font-family: 'JetBrains Mono', monospace; direction: ltr; text-align: left; resize: vertical;"></textarea>
+
+                <div style="display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 120px;">
+                        <label data-i18n="nftEccLabel" style="display: block; font-size: 0.78rem; color: #cbd5e1; margin-bottom: 5px; font-weight: bold;">تصحيح الأخطاء (ECC)</label>
+                        <select id="nft-marker-ecc" style="width: 100%; background: #0f172a; color: #f1f5f9; border: 1px solid rgba(56,189,248,0.35); border-radius: 8px; padding: 8px 10px; font-size: 0.8rem;">
+                            <option value="L">L — الأعلى سعة</option>
+                            <option value="M" selected>M — متوازن (موصى به)</option>
+                            <option value="Q">Q — أعلى متانة</option>
+                            <option value="H">H — للطباعة القاسية</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1; min-width: 120px;">
+                        <label data-i18n="nftScaleLabel" style="display: block; font-size: 0.78rem; color: #cbd5e1; margin-bottom: 5px; font-weight: bold;">دقة الوحدات (px)</label>
+                        <select id="nft-marker-scale" style="width: 100%; background: #0f172a; color: #f1f5f9; border: 1px solid rgba(56,189,248,0.35); border-radius: 8px; padding: 8px 10px; font-size: 0.8rem;">
+                            <option value="6">6 px</option>
+                            <option value="8" selected>8 px</option>
+                            <option value="10">10 px</option>
+                            <option value="14">14 px</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap;">
+                    <button id="btn-nft-download" class="btn btn-outline" data-i18n="nftDownload" style="border-color: rgba(168,85,247,0.6); color: #c084fc; background: rgba(168,85,247,0.15); font-weight: bold;">⬇️ تنزيل PNG</button>
+                    <button id="btn-nft-copy" class="btn btn-outline" data-i18n="nftCopy" style="border-color: rgba(56,189,248,0.5); color: #38bdf8;">📋 نسخ الرابط</button>
+                    <button id="btn-nft-reset" class="btn btn-outline" data-i18n="nftReset">↩️ إعادة توليد رابط النموذج</button>
+                </div>
+
+                <div style="background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.25); border-radius: 10px; padding: 12px 14px; margin-top: 14px; line-height: 1.6;">
+                    <div data-i18n="nftHowTitle" style="font-weight: bold; color: #c084fc; font-size: 0.85rem; margin-bottom: 5px;">📌 سير العمل في الموقع (AR Anchoring)</div>
+                    <div data-i18n="nftHowBody" style="font-size: 0.8rem; color: #cbd5e1;">
+                        اطبع العلامة وثبّتها على الجدار أو الطاولة في الموقع، ثم افتح المنصة على الهاتف واختر
+                        <b>«📱 تجربة AR»</b>، ووجّه الكاميرا نحو العلامة ليتم تثبيت المبنى على Reality على
+                        المقياس الحقيقي <b>1:1</b>. العلامة تحمل رابطاً مباشراً يُعيد فتح المنصة على
+                        النموذج والطور المحدد.
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -3861,7 +3927,7 @@
             });
 
             window.addEventListener('click', async function(e) {
-                if (e.target.closest('#header-bar') || e.target.closest('#desktop-info-panel') || e.target.closest('#bim-filter-panel') || e.target.closest('#loading-toast') || e.target.closest('#VRButton') || e.target.closest('#btn-export-glb') || e.target.closest('#ar-entry-btn') || e.target.closest('#clash-review-modal') || e.target.closest('#measure-hud') || e.target.closest('#section-panel') || e.target.closest('#telemetry-panel') || e.target.closest('#vr-guide-modal') || e.target.closest('#floating-ui-dock') || e.target.closest('#floating-sidebar-toggle-right') || e.target.closest('#floating-sidebar-toggle-left')) {
+                if (e.target.closest('#header-bar') || e.target.closest('#desktop-info-panel') || e.target.closest('#bim-filter-panel') || e.target.closest('#loading-toast') || e.target.closest('#VRButton') || e.target.closest('#btn-export-glb') || e.target.closest('#btn-nft-marker') || e.target.closest('#nft-marker-modal') || e.target.closest('#ar-entry-btn') || e.target.closest('#clash-review-modal') || e.target.closest('#measure-hud') || e.target.closest('#section-panel') || e.target.closest('#telemetry-panel') || e.target.closest('#vr-guide-modal') || e.target.closest('#floating-ui-dock') || e.target.closest('#floating-sidebar-toggle-right') || e.target.closest('#floating-sidebar-toggle-left')) {
                     return;
                 }
 
@@ -4864,6 +4930,172 @@
             }, 1200);
 
             // =====================================================================
+            // 18.1b NFT Anchor Marker Generator (QR) — AR anchoring workflow
+            // Fully self-contained encoder (js/nft-marker.js), no CDN dependency.
+            // =====================================================================
+            (function setupNftMarkerGenerator() {
+                var btnOpen = document.getElementById('btn-nft-marker');
+                var btnClose = document.getElementById('btn-close-nft-marker');
+                var modal = document.getElementById('nft-marker-modal');
+                var canvas = document.getElementById('nft-marker-canvas');
+                var payloadInput = document.getElementById('nft-marker-payload');
+                var eccSelect = document.getElementById('nft-marker-ecc');
+                var scaleSelect = document.getElementById('nft-marker-scale');
+                var metaEl = document.getElementById('nft-marker-meta');
+                var btnDownload = document.getElementById('btn-nft-download');
+                var btnCopy = document.getElementById('btn-nft-copy');
+                var btnReset = document.getElementById('btn-nft-reset');
+
+                if (!btnOpen || !modal || !canvas || !payloadInput || !window.NFTMarker) {
+                    return;
+                }
+
+                var currentMatrix = null;
+
+                function currentModelLabel() {
+                    try {
+                        if (currentCustomModel && currentCustomModel.name) {
+                            return String(currentCustomModel.name);
+                        }
+                        if (currentCustomModel && currentCustomModel.modelID !== undefined) {
+                            return 'ifc-model-' + currentCustomModel.modelID;
+                        }
+                    } catch (e) { /* ignore */ }
+                    return 'current-model';
+                }
+
+                function hashToken(text) {
+                    var h = 2166136261;
+                    for (var i = 0; i < text.length; i++) {
+                        h ^= text.charCodeAt(i);
+                        h = (h * 16777619) >>> 0;
+                    }
+                    return h.toString(16);
+                }
+
+                function currentStorey() {
+                    try {
+                        if (typeof selectStoreyFilter !== 'undefined' && selectStoreyFilter && selectStoreyFilter.value !== 'all') {
+                            return selectStoreyFilter.value;
+                        }
+                    } catch (e) { /* ignore */ }
+                    return '';
+                }
+
+                function defaultPayload() {
+                    var model = currentModelLabel();
+                    return window.NFTMarker.buildDeepLink({
+                        baseUrl: location.href.split('?')[0].split('#')[0],
+                        anchor: 'bim-' + hashToken(model + '|' + location.origin),
+                        model: model,
+                        storey: currentStorey()
+                    });
+                }
+
+                function render() {
+                    var text = (payloadInput.value || '').trim();
+                    if (!text) {
+                        currentMatrix = null;
+                        metaEl.textContent = '—';
+                        return;
+                    }
+                    try {
+                        var scale = parseInt(scaleSelect.value, 10) || 8;
+                        var matrix = window.NFTMarker.encode(text, { ecc: eccSelect.value || 'M' });
+                        currentMatrix = matrix;
+                        window.NFTMarker.renderToCanvas(canvas, matrix, { scale: scale, quiet: 4 });
+                        metaEl.innerHTML = 'الإصدار v' + matrix.version + ' · المقاس ' + matrix.size + '×' + matrix.size +
+                            ' · ECC ' + matrix.ecc + ' · ' + canvas.width + '×' + canvas.height + ' px';
+                    } catch (err) {
+                        currentMatrix = null;
+                        metaEl.innerHTML = '<span style="color:#f87171;">⚠️ ' +
+                            (err && err.message ? err.message : 'تعذّر توليد العلامة') + '</span>';
+                    }
+                }
+
+                function openModal() {
+                    modal.style.display = 'block';
+                    if (!payloadInput.value.trim()) {
+                        payloadInput.value = defaultPayload();
+                    }
+                    render();
+                }
+
+                btnOpen.addEventListener('click', openModal);
+                if (btnClose) {
+                    btnClose.addEventListener('click', function() {
+                        modal.style.display = 'none';
+                    });
+                }
+                payloadInput.addEventListener('input', render);
+                if (eccSelect) eccSelect.addEventListener('change', render);
+                if (scaleSelect) scaleSelect.addEventListener('change', render);
+                if (btnReset) {
+                    btnReset.addEventListener('click', function() {
+                        payloadInput.value = defaultPayload();
+                        render();
+                    });
+                }
+
+                if (btnDownload) {
+                    btnDownload.addEventListener('click', function() {
+                        if (!currentMatrix) {
+                            showToast('error', 'لا توجد علامة جاهزة للتنزيل.', 3000);
+                            return;
+                        }
+                        var scale = parseInt(scaleSelect.value, 10) || 8;
+                        window.NFTMarker.toPNGBlob(currentMatrix, { scale: scale, quiet: 4 })
+                            .then(function(blob) {
+                                var url = URL.createObjectURL(blob);
+                                var a = document.createElement('a');
+                                a.href = url;
+                                a.download = 'nft-anchor-marker-' + Date.now() + '.png';
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                                setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+                                showToast('success', 'تم تنزيل علامة الارتساء بصيغة PNG.', 3000);
+                            })
+                            .catch(function(err) {
+                                showToast('error', 'فشل إنشاء ملف PNG: ' + (err && err.message ? err.message : 'خطأ غير متوقع'), 4000);
+                            });
+                    });
+                }
+
+                if (btnCopy) {
+                    btnCopy.addEventListener('click', function() {
+                        var text = (payloadInput.value || '').trim();
+                        if (!text) return;
+                        function fallback() {
+                            try {
+                                var ta = document.createElement('textarea');
+                                ta.value = text;
+                                ta.style.position = 'fixed';
+                                ta.style.opacity = '0';
+                                document.body.appendChild(ta);
+                                ta.select();
+                                document.execCommand('copy');
+                                document.body.removeChild(ta);
+                                showToast('success', 'تم نسخ رابط الارتساء.', 2500);
+                            } catch (e) {
+                                showToast('error', 'تعذّر نسخ الرابط تلقائياً — انسخه يدوياً من الحقل أعلاه.', 3500);
+                            }
+                        }
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                            navigator.clipboard.writeText(text).then(function() {
+                                showToast('success', 'تم نسخ رابط الارتساء.', 2500);
+                            }).catch(fallback);
+                        } else {
+                            fallback();
+                        }
+                    });
+                }
+
+                // Keep the payload in sync with the loaded model when the modal opens
+                window.addEventListener('nft-marker-refresh', openModal);
+            })();
+
+            // =====================================================================
             // 18.2 Desktop 6-DoF Laser Pointer Simulator (محاكي شعاع الليزر المكتبي)
             // =====================================================================
             var isLaserSimActive = false;
@@ -5458,6 +5690,19 @@
                     btnZen: '🔲 عرض كامل',
                     btnLog: '📜 سجل المحادثات والمخططات (HTML)',
                     btnLang: '🌐 English',
+                    btnNft: '📸 إنشاء علامة NFT',
+                    nft: {
+                        nftTitle: 'مُولِّد علامات الارتساء (NFT Marker) لتثبيت النموذج في الواقع المعزز',
+                        nftSubtitle: 'ترميز QR مستقل بالكامل (بدون مكتبات خارجية) — يعمل دون اتصال بالإنترنت',
+                        nftPayloadLabel: '🔗 محتوى العلامة (رابط الارتساء)',
+                        nftEccLabel: 'تصحيح الأخطاء (ECC)',
+                        nftScaleLabel: 'دقة الوحدات (px)',
+                        nftDownload: '⬇️ تنزيل PNG',
+                        nftCopy: '📋 نسخ الرابط',
+                        nftReset: '↩️ إعادة توليد رابط النموذج',
+                        nftHowTitle: '📌 سير العمل في الموقع (AR Anchoring)',
+                        nftHowBody: 'اطبع العلامة وثبّتها على الجدار أو الطاولة، ثم افتح المنصة على الهاتف واختر «📱 تجربة AR» ووجّه الكاميرا نحو العلامة لتثبيت المبنى على Reality بمقياس 1:1. العلامة تحمل رابطاً يعيد فتح المنصة على النموذج والطور المحدد.'
+                    },
                     clashCounter: '🔴 التعارضات المرصودة: 0',
                     userSession: '👨‍🏫 د. أحمد لؤي أحمد (Admin)'
                 },
@@ -5486,6 +5731,19 @@
                     btnZen: '🔲 Full View',
                     btnLog: '📜 Logs & Charts (HTML)',
                     btnLang: '🌐 العربية',
+                    btnNft: '📸 Generate NFT Marker',
+                    nft: {
+                        nftTitle: 'NFT Anchor Marker Generator — pinning the model in Augmented Reality',
+                        nftSubtitle: 'Fully self-contained QR encoder (no external library) — works offline',
+                        nftPayloadLabel: '🔗 Marker content (anchoring link)',
+                        nftEccLabel: 'Error correction (ECC)',
+                        nftScaleLabel: 'Module size (px)',
+                        nftDownload: '⬇️ Download PNG',
+                        nftCopy: '📋 Copy link',
+                        nftReset: '↩️ Regenerate model link',
+                        nftHowTitle: '📌 On-site workflow (AR Anchoring)',
+                        nftHowBody: 'Print the marker and fix it on a wall or desk, then open the platform on a phone, pick "📱 تجربة AR" and aim the camera at the marker to pin the building in Reality at a true 1:1 scale. The marker carries a direct link that reopens the platform on the right model and storey.'
+                    },
                     clashCounter: '🔴 Clashes detected: 0',
                     userSession: '👨‍🏫 Dr. Ahmed Louay Ahmed (Admin)'
                 }
@@ -5506,6 +5764,7 @@
                     'btn-lab-view': t.btnLab,
                     'tab-speckle-view': t.btnSpeckle,
                     'btn-vr-guide': t.btnVR,
+                    'btn-nft-marker': t.btnNft,
                     'btn-quick-color-toggle': t.btnColor,
                     'btn-quick-lighting': t.btnLighting,
                     'btn-toggle-measure': t.btnMeasure,
@@ -5530,7 +5789,15 @@
                     const el = document.getElementById(id);
                     if (el) el.textContent = btnMap[id];
                 });
-                
+
+                // Data-attribute driven translations (e.g. NFT marker modal)
+                if (t.nft) {
+                    document.querySelectorAll('[data-i18n]').forEach(el => {
+                        const key = el.getAttribute('data-i18n');
+                        if (key && t.nft[key]) el.textContent = t.nft[key];
+                    });
+                }
+
                 // Status
                 const clashCounter = document.getElementById('clash-counter');
                 if (clashCounter) clashCounter.textContent = t.clashCounter;
