@@ -491,6 +491,17 @@
             padding: 10px 24px !important;
             font-size: 0.9rem !important;
         }
+        #ARButton {
+            border-radius: 8px !important;
+            font-weight: bold !important;
+            box-shadow: 0 4px 20px rgba(244, 63, 94, 0.5) !important;
+            z-index: 96 !important;
+            bottom: 70px !important;
+            padding: 10px 24px !important;
+            font-size: 0.9rem !important;
+            background: rgba(244, 63, 94, 0.18) !important;
+            color: #fda4af !important;
+        }
         #loading-toast {
             display: none;
             position: absolute;
@@ -890,7 +901,9 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/BufferGeometryUtils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/webxr/VRButton.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/webxr/ARButton.js"></script>
 
     <!-- Compatibility Bridge for IFC buffer geometry merging -->
     <script>
@@ -1005,6 +1018,8 @@
             <!-- BIM Filters & Storeys Button -->
             <button class="btn btn-filter" id="btn-toggle-filters-panel" title="فصل الطوابق وتصفية عناصر المبنى والتأسيسات وضبط الإضاءة">🎛️ تصفية العناصر والإضاءة</button>
             <button class="btn btn-upload" id="btn-trigger-upload">📂 استيراد نموذج آخر (GLB / IFC)</button>
+            <button class="btn btn-outline" id="btn-export-glb" title="تصدير النمودج الحالي كـ GLB محسّن للاستخدام في AR/VR">📤 تصدير GLB (محسّن)</button>
+
             <button class="btn btn-center" id="btn-center-model" title="إعادة الكاميرا وتوسيط الموديل في منتصف الشاشة">🎯 وضع المجسم في المنتصف</button>
             <button class="btn btn-clash-view" id="btn-view-clashes" title="مشاهدة واستعراض التعارضات في المشهد الثلاثي الأبعاد">⚠️ مشاهدة التعارضات</button>
             <button class="btn btn-outline" id="btn-export-bcf" title="تسجيل وتصدير تقرير الانحرافات بتنسيق BCF المفتوح">📋 تسجيل الانحراف (BCF)</button>
@@ -1485,6 +1500,13 @@
 
             if (THREE.VRButton) {
                 document.body.appendChild(THREE.VRButton.createButton(renderer));
+            }
+
+            // =====================================================================
+            // Step 1 (AR): Create AR entry button if WebXR AR is available
+            // =====================================================================
+            if (THREE.ARButton) {
+                document.body.appendChild(THREE.ARButton.createButton());
             }
 
             var controls = new THREE.OrbitControls(camera, renderer.domElement);
@@ -2619,6 +2641,7 @@
                 fileInput.click();
             }
             document.getElementById('btn-trigger-upload').addEventListener('click', triggerUpload);
+            document.getElementById('btn-export-glb').addEventListener('click', exportCurrentModelAsGLB);
 
             fileInput.addEventListener('change', function(e) {
                 if (e.target.files.length > 0) {
@@ -2872,6 +2895,74 @@
 
                     reader.readAsArrayBuffer(file);
                 }
+            // =====================================================================
+            // Step 2 (AR): Export Current Model as Optimized GLB
+            // =====================================================================
+            function exportCurrentModelAsGLB() {
+                if (!currentCustomModel) {
+                    showToast('لا يوجد نمودج حالي للتەلد للتصدير', 'info');
+                    return;
+                }
+
+                var isIFC = !!(currentCustomModel && currentCustomModel.modelID !== undefined);
+
+                if (isIFC) {
+                    showToast(
+                        'مودج IFC يتطلب تحويل خارجي باستخدام gltf-pipeline CLI.' +
+                        'قم بتشغيل: gltf-pipeline -i model.ifc -o model.glb -d --draco' +
+                        'ث ثم استورد الملف .glb في المنصة لاستخراج.',
+                        'info',
+                        5000
+                    );
+                    return;
+                }
+
+                if (!window.THREE || !THREE.GLTFExporter) {
+                    showToast('متصفحك لا يدصر تصدير GLB. يرجى استخدام متصفح مدعدلتاً (Chrome/Edge).', 'error');
+                    return;
+                }
+
+                showToast('\U0001f4e4 جاري تصدير النمودج كـ GLB محسّن...', 'info');
+
+                var exporter = new THREE.GLTFExporter();
+                exporter.parse(
+                    currentCustomModel,
+                    function(result) {
+                        if (result instanceof ArrayBuffer) {
+                            var blob = new Blob([result], { type: 'model/gltf-binary' });
+                            var url = URL.createObjectURL(blob);
+                            var a = document.createElement('a');
+                            a.href = url;
+                            a.download = 'model-exported-' + Date.now() + '.glb';
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+                            showToast('تم تصدير النمودج كـ GLB بنجاً', 'success');
+                        } else if (Array.isArray(result)) {
+                            var jsonStr = JSON.stringify(result[0]);
+                            var blob = new Blob([jsonStr], { type: 'model/gltf+json' });
+                            var url = URL.createObjectURL(blob);
+                            var a = document.createElement('a');
+                            a.href = url;
+                            a.download = 'model-exported-' + Date.now() + '.gltx';
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+                            showToast('تم تصدير النمودج كـ GLTX (JSON)', 'success');
+                        } else {
+                            console.warn('Unexpected export result:', result);
+                            showToast('فشل التمودج: نتائج غير متوقعة', 'error');
+                        }
+                    },
+                    function(err) {
+                        console.error('GLTFExporter error:', err);
+                        showToast('فشل تصدير GLB: ' + (err && err.message ? err.message : 'خطأ داherent'), 'error');
+                    },
+                    { binary: true }
+                );
+            }
             }
 
             // =====================================================================
@@ -3609,7 +3700,7 @@
             });
 
             window.addEventListener('click', async function(e) {
-                if (e.target.closest('#header-bar') || e.target.closest('#desktop-info-panel') || e.target.closest('#bim-filter-panel') || e.target.closest('#loading-toast') || e.target.closest('#VRButton') || e.target.closest('#clash-review-modal') || e.target.closest('#measure-hud') || e.target.closest('#section-panel') || e.target.closest('#telemetry-panel') || e.target.closest('#vr-guide-modal') || e.target.closest('#floating-ui-dock') || e.target.closest('#floating-sidebar-toggle-right') || e.target.closest('#floating-sidebar-toggle-left')) {
+                if (e.target.closest('#header-bar') || e.target.closest('#desktop-info-panel') || e.target.closest('#bim-filter-panel') || e.target.closest('#loading-toast') || e.target.closest('#VRButton') || e.target.closest('#btn-export-glb') || e.target.closest('#clash-review-modal') || e.target.closest('#measure-hud') || e.target.closest('#section-panel') || e.target.closest('#telemetry-panel') || e.target.closest('#vr-guide-modal') || e.target.closest('#floating-ui-dock') || e.target.closest('#floating-sidebar-toggle-right') || e.target.closest('#floating-sidebar-toggle-left')) {
                     return;
                 }
 
