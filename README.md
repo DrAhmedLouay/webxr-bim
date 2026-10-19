@@ -239,6 +239,7 @@ https://drahmedlouay.github.io/webxr-bim/
 | **صفحة AR مستقلة** | `ar.html` | صفحة للهاتف: جلسة `immersive-ar` + `hit-test` + تثبيت النموذج بمقياس 1:1 على السطح الحقيقي |
 | **تصدير BCF 2.1 حقيقي** | `js/bcf.js` | أرشيف `.bcf` مطابق لمرجع buildingSMART (bcf.version + project.bcfp + markup.bcf + Viewpoint .bcfv) |
 | **موصّل BIMcollab / BCF-API** | `js/bcf.js` | اختبار اتصال، جلب المشاريع، سحب المواضيع، دفع التعارضات (BCF-API 2.1) |
+| **نماذج من GitHub** | `ar.html` + `js/model-store.js` | روابط `raw` و`blob` تُحوَّل تلقائياً، والمسار يُرمَّز مرة واحدة، ومع فشل التحميل يُستشار API العامة لتحديد الملف/الفرع |
 | **استضافة النموذج (Google Drive وغيره)** | `ar.html` + `js/model-store.js` | روابط Drive تُحوَّل تلقائياً إلى رابط تنزيل مباشر، مع سلسلة بدائل وتشخيص دقيق للأخطاء |
 | **نشر النموذج على GitHub** | `js/github-publisher.js` | رفع GLB/IFC إلى `models/` في أي مستودع عبر رمز PAT محدود الصلاحية — الرابط الناتج على `raw.githubusercontent.com` يعمل من أي جهاز (يدعم CORS) |
 | **تطبيق ميداني PWA** | `manifest.json` + `sw.js` | قابل للتثبيت على الهاتف ويعمل دون اتصال (تم التحقق بتحميل كامل مع انقطاع الشبكة) |
@@ -382,3 +383,15 @@ MIT License - راجع ملف [LICENSE](LICENSE)
 - الرمز يُحفظ في **sessionStorage** فقط (يُمسح بإغلاق التبويب) — وليس `localStorage`.
 - زر «نسيان الرمز» يمسحه فوراً.
 - المنصة **لا ترسل الرمز** إلى أي جهة خارجية غير `api.github.com`.
+
+### نماذج GitHub داخل `ar.html`
+| الرابط | النتيجة |
+|---|---|
+| `https://raw.githubusercontent.com/<owner>/<repo>/<branch>/<path>` | ✅ يعمل |
+| `https://github.com/<owner>/<repo>/blob/<branch>/<path>` (من نسخة واجهة GitHub) | ✅ يُحوَّل تلقائياً إلى raw |
+| ملف IFC (`.ifc`) من GitHub | ✅ يعمل (يُقدَّم `text/plain` — يُفحص بتوقيع IFC) |
+| مسار خاطئ أو فرع خاطئ | ⚠️ رسالة تحدّد المسار والفرع بدقة |
+| مستودع **خاص** | ⚠️ `raw.githubusercontent.com` لا يخدم المستودعات الخاصة — اجعله عاماً |
+
+> زر **«📱 بدء الواقع المعزز (AR)»** لا يُعطَّل أبداً: إذا لم يدعم الجهاز AR يشرح السبب،
+> ويبقى **وضع الفحص باللمس** متاحاً (اسحب للتدوير، ضمّ إصبعين للتقريب).
