@@ -189,18 +189,153 @@
         return object3d;
     }
 
+    // Fetch the model bytes ourselves instead of letting the loader open the
+    // URL directly, so that we can
+    //   • try several download endpoints (Google Drive share links included),
+    //   • detect an HTML "virus scan" interstitial instead of binary data,
+    //   • tell apart a CORS rejection (no status) from an HTTP error.
+    function fetchModelBuffer(url) {
+        var candidates = (window.ModelStore && window.ModelStore.normalizeModelUrl)
+            ? window.ModelStore.normalizeModelUrl(url)
+            : [url];
+
+        // --- payload sniffing -------------------------------------------------
+        // A GLB starts with the ASCII magic "glTF". An Apps Script proxy returns
+        // the file base64-encoded as text, so we decode and re-check. A plain
+        // .gltf is JSON. Anything HTML is an interstitial (Drive's virus-scan
+        // page). This keeps us independent of headers the browser may hide.
+        function sniff(buffer, contentType) {
+            if (!buffer || buffer.byteLength === 0) {
+                return Promise.reject({ code: 'EMPTY' });
+            }
+            var bytes = new Uint8Array(buffer);
+            var head = String.fromCharCode.apply(null, Array.prototype.slice.call(bytes, 0, 4));
+
+            if (head === 'glTF') {
+                return Promise.resolve({ buffer: buffer, type: 'model/gltf-binary' });
+            }
+            if (head === '{\n ' || head === '{"') {
+                return Promise.resolve({ buffer: buffer, type: 'model/gltf+json' });
+            }
+
+            // base64 text (Apps Script proxy or similar)
+            var text = '';
+            var limit = Math.min(bytes.length, 4096);
+            for (var i = 0; i < limit; i++) text += String.fromCharCode(bytes[i]);
+            var trimmed = text.replace(/\s+/g, '');
+            if (trimmed.indexOf('ERROR:') === 0) {
+                // keep the original spacing for a readable message
+                var raw = text.replace(/^\s+/, '').substring(6, 240);
+                return Promise.reject({ code: 'PROXY', message: raw });
+            }
+            if (trimmed.length > 32 && /^[A-Za-z0-9+/=]+$/.test(trimmed.substring(0, Math.min(512, trimmed.length)))) {
+                try {
+                    var binary = atob(trimmed);
+                    var out = new Uint8Array(binary.length);
+                    for (var j = 0; j < binary.length; j++) out[j] = binary.charCodeAt(j);
+                    if (String.fromCharCode(out[0], out[1], out[2], out[3]) === 'glTF') {
+                        return Promise.resolve({ buffer: out.buffer, type: 'model/gltf-binary' });
+                    }
+                } catch (e) { /* not base64 */ }
+            }
+            if ((contentType || '').indexOf('text/html') !== -1 || /<html/i.test(trimmed.substring(0, 200))) {
+                return Promise.reject({ code: 'HTML' });
+            }
+            if (contentType && contentType.indexOf('json') !== -1) {
+                return Promise.resolve({ buffer: buffer, type: contentType });
+            }
+            return Promise.reject({ code: 'UNKNOWN', message: 'صيغة غير معروفة (' + (contentType || 'بدون نوع') + ')' });
+        }
+
+        function attempt(index) {
+            if (index >= candidates.length) {
+                return Promise.reject({ code: 'EXHAUSTED' });
+            }
+            var candidate = candidates[index];
+            return fetch(candidate, { mode: 'cors', credentials: 'omit' })
+                .then(function (response) {
+                    if (!response.ok) {
+                        return Promise.reject({ code: 'HTTP', status: response.status, url: candidate });
+                    }
+                    var type = (response.headers.get('content-type') || '').toLowerCase();
+                    return response.arrayBuffer().then(function (buffer) {
+                        return sniff(buffer, type).then(function (result) {
+                            result.url = candidate;
+                            return result;
+                        });
+                    });
+                })
+                .catch(function (err) {
+                    if (err && err.code) throw err;           // classified failure
+                    // Network-level failure: this is what a CORS rejection looks like
+                    throw { code: 'CORS', url: candidate, message: err && err.message };
+                })
+                .catch(function (err) {
+                    // A classified failure may still be recoverable through the
+                    // next candidate (e.g. Drive's HTML interstitial -> API).
+                    if (err && err.code && err.code !== 'PROXY' && index + 1 < candidates.length) {
+                        return attempt(index + 1);
+                    }
+                    throw err;
+                });
+        }
+        return attempt(0);
+    }
+
+    function diagnoseLoadError(err) {
+        if (!err) return 'تعذّر تحميل النموذج';
+        if (err.code === 'CORS') {
+            return 'المضيف يرفض الطلبات من نطاق آخر (CORS). استخدم رابط استضافة يسمح بالقراءة، أو وسيط Apps Script (انظر README).';
+        }
+        if (err.code === 'HTML') {
+            return 'أعاد الخادم صفحة HTML بدل ملف النموذج (شاشة تأكيد Drive للملفات الكبيرة). جرّب رابطاً مباشراً أو وسيط Apps Script.';
+        }
+        if (err.code === 'HTTP') return 'خطأ HTTP ' + err.status + ' من الخادم — تحقّق من صلاحيات مشاركة الملف.';
+        if (err.code === 'PROXY') return 'وسيط Drive ردّ بخطأ: ' + (err.message || 'غير معروف');
+        if (err.code === 'PARSE') return 'تعذّر تحليل الملف كـ GLB: ' + (err.message || 'ملف تالف أو غير مدعوم');
+        if (err.code === 'UNKNOWN') return 'صيغة غير معروفة — ' + (err.message || '');
+        if (err.code === 'EMPTY') return 'الملف فارغ أو غير قابل للقراءة.';
+        if (err.code === 'EXHAUSTED') return 'تعذّر الوصول إلى أي رابط بديل للنموذج.';
+        return (err.message || 'خطأ غير متوقع');
+    }
+
     function loadGlb(url, onError) {
         setStatus('جارٍ تحميل النموذج…');
-        new THREE.GLTFLoader().load(url, function (gltf) {
-            modelRoot.add(normalizeModel(gltf.scene));
-            modelLoaded = true;
-            hideMissingPanel();
-            setStatus('النموذج جاهز — ابدأ جلسة AR');
-            toast('تم تحميل النموذج', 2000);
-        }, undefined, function (err) {
-            setStatus('تعذّر تحميل النموذج');
-            toast('تعذّر تحميل النموذج: ' + (err && err.message ? err.message : 'خطأ'), 3500);
-            if (typeof onError === 'function') onError(err);
+        return fetchModelBuffer(url)
+            .then(function (result) {
+                return new Promise(function (resolve, reject) {
+                    new THREE.GLTFLoader().parse(
+                        result.buffer, '',
+                        function (gltf) {
+                            modelRoot.add(normalizeModel(gltf.scene));
+                            modelLoaded = true;
+                            hideMissingPanel();
+                            setStatus('النموذج جاهز — ابدأ جلسة AR');
+                            toast('تم تحميل النموذج', 2000);
+                            resolve(true);
+                        },
+                        function (err) { reject({ code: 'PARSE', message: err && err.message }); }
+                    );
+                });
+            })
+            .catch(function (err) {
+                var reason = diagnoseLoadError(err);
+                setStatus('تعذّر تحميل النموذج');
+                toast('تعذّر تحميل النموذج', 3500);
+                if (typeof onError === 'function') onError(reason);
+                return false;
+            });
+    }
+
+    function loadIfcFromUrl(url) {
+        setStatus('جارٍ تحميل نموذج IFC…');
+        return fetchModelBuffer(url).then(function (result) {
+            var file = new File([result.buffer], 'model.ifc', { type: 'application/octet-stream' });
+            loadIfc(file);
+            return true;
+        }).catch(function (err) {
+            showMissingPanel(diagnoseLoadError(err));
+            return false;
         });
     }
 
@@ -258,9 +393,13 @@
 
     if (modelUrl) {
         // A hosted model URL always wins: it works on ANY device.
-        loadGlb(modelUrl, function () {
-            showMissingPanel('تعذّر تحميل النموذج من الرابط — تحقّق من صلاحيته أو استورده من الجهاز.');
-        });
+        if (/\.ifc(\?|$)/i.test(modelUrl) || /type=.*ifc/i.test(modelUrl)) {
+            loadIfcFromUrl(modelUrl);
+        } else {
+            loadGlb(modelUrl, function (reason) {
+                showMissingPanel(reason || 'تعذّر تحميل النموذج من الرابط — تحقّق من صلاحيته أو استورده من الجهاز.');
+            });
+        }
     } else if (modelKey && window.ModelStore) {
         loadFromStore(modelKey);
     } else {
@@ -361,7 +500,7 @@
             var url = (missingUrl.value || '').trim();
             if (!url) { toast('ألصق رابط النموذج أولاً', 2200); return; }
             hideMissingPanel();
-            loadGlb(url, function () { showMissingPanel('تعذّر تحميل النموذج من الرابط.'); });
+            loadGlb(url, function (reason) { showMissingPanel(reason || 'تعذّر تحميل النموذج من الرابط.'); });
         });
     }
 

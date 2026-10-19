@@ -239,6 +239,7 @@ https://drahmedlouay.github.io/webxr-bim/
 | **صفحة AR مستقلة** | `ar.html` | صفحة للهاتف: جلسة `immersive-ar` + `hit-test` + تثبيت النموذج بمقياس 1:1 على السطح الحقيقي |
 | **تصدير BCF 2.1 حقيقي** | `js/bcf.js` | أرشيف `.bcf` مطابق لمرجع buildingSMART (bcf.version + project.bcfp + markup.bcf + Viewpoint .bcfv) |
 | **موصّل BIMcollab / BCF-API** | `js/bcf.js` | اختبار اتصال، جلب المشاريع، سحب المواضيع، دفع التعارضات (BCF-API 2.1) |
+| **استضافة النموذج (Google Drive وغيره)** | `ar.html` + `js/model-store.js` | روابط Drive تُحوَّل تلقائياً إلى رابط تنزيل مباشر، مع سلسلة بدائل وتشخيص دقيق للأخطاء |
 | **تطبيق ميداني PWA** | `manifest.json` + `sw.js` | قابل للتثبيت على الهاتف ويعمل دون اتصال (تم التحقق بتحميل كامل مع انقطاع الشبكة) |
 
 ---
@@ -310,3 +311,33 @@ MIT License - راجع ملف [LICENSE](LICENSE)
   
   ⭐ إذا أعجبتك المنصة، لا تنسَ إعطائها نجمة على GitHub!
 </div>
+
+---
+
+## ☁️ استضافة نموذج الـ AR (Google Drive وغيرها)
+
+حقل **«🔗 رابط النموذج المباشر»** في نافذة مُولِّد علامة NFT هو ما يجعل العلامة تعمل على **أي جهاز**.
+ما يجب وضعه فيه:
+
+| الخيار | القيمة | ملاحظات |
+|---|---|---|
+| **Google Drive** | رابط المشاركة كما هو | يُحوَّل تلقائياً إلى `drive.usercontent.google.com/download?id=…&export=download` — **يجب** أن يكون الملف بصلاحية «أي شخص لديه الرابط» |
+| **Drive عبر وسيط** | `https://script.google.com/macros/s/<ID>/exec?fileId=<DRIVE_ID>` | وسيط Apps Script (المصدر في `tools/gdrive-proxy/Code.gs`) — يلزم «Anyone» عند النشر |
+| **GitHub Pages (نفس المستودع)** | `models/tower-a.glb` (مسار نسبي) | الأسهل: نفس النطاق ⇒ لا مشاكل CORS — ضع الملف في مجلد `models/` |
+| **أي استضافة** | `https://host/path/model.glb` | يجب أن تسمح بالقراءة من نطاق آخر (CORS) |
+| **شبكة الموقع** | `http://192.168.x.x:8000/model.glb` | للاستخدام الميداني دون إنترنت، عبر خادم محلي |
+
+### نشر وسيط Google Drive (Apps Script)
+1. <https://script.google.com> ← مشروع جديد
+2. الصق محتوى `tools/gdrive-proxy/Code.gs`
+3. `Deploy ▸ New deployment ▸ Web app` — «Execute as: Me» — «Who has access: **Anyone**»
+4. انسخ رابط النشر `https://script.google.com/macros/s/<ID>/exec`
+5. استخدمه هكذا: `…/exec?fileId=<DRIVE_FILE_ID>`
+
+### أخطاء الاستضافة الشائعة (يعرضها `ar.html` تلقائياً)
+| الرسالة | السبب | الحل |
+|---|---|---|
+| `المضيف يرفض الطلبات من نطاق آخر (CORS)` | الخادم لا ي发送 `Access-Control-Allow-Origin` | استضافة أخرى، أو وسيط Apps Script |
+| `أعاد الخادم صفحة HTML بدل ملف النموذج` | Drive يعرض شاشة تأكيد病毒/حجم للملفات الكبيرة | رابط مباشر أو الوسيط |
+| `خطأ HTTP 403/404` | الملف غير مشارك أو الرابط خاطئ | تفعيل «أي شخص لديه الرابط» |
+| `وسيط Drive ردّ بخطأ` | الوسيط لم يجد الملف | تحقق من `fileId` وصلاحية المشاركة |

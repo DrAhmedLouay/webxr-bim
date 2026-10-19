@@ -176,6 +176,7 @@
 | موصّل BCF-API | خادم BCF-API وهمي | ✅ اتصال + مشروعان + سحب + دفع 2/2 |
 | صفحة AR | WebXR stub | ✅ `immersive-ar` + `hit-test` + `viewer space` |
 | PWA دون اتصال | `Network.emulateNetworkConditions` | ✅ تحميل كامل مع انقطاع الشبكة |
+| استضافة النموذج (5 مسارات) | محاكاة CORS / HTML / base64 / 403 | ✅ كلها تُشخَّص بدقة |
 
 ---
 

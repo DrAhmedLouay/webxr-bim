@@ -1314,7 +1314,7 @@
 
                 <label style="display: block; font-size: 0.78rem; color: #cbd5e1; margin-top: 12px; margin-bottom: 5px; font-weight: bold;" data-i18n="nftModelUrlLabel">🔗 رابط النموذج المباشر (اختياري — ليعمل المسح على أي جهاز)</label>
                 <input type="url" id="nft-marker-model-url" style="width: 100%; background: #0f172a; color: #f1f5f9; border: 1px solid rgba(56,189,248,0.35); border-radius: 8px; padding: 8px 10px; font-size: 0.76rem; direction: ltr; text-align: left;" placeholder="https://your-host.com/model.glb" autocomplete="off">
-                <div style="font-size: 0.7rem; color: #64748b; margin-top: 4px; direction: ltr; text-align: left;">ارفع ملف GLB المصدَّر إلى أي استضافة وضع رابط https هنا (أو مسار نسبي داخل المستودع مثل models/tower-a.glb). بدونه تعمل العلامة على نفس المتصفح فقط (عبر modelKey).</div>
+                <div style="font-size: 0.7rem; color: #64748b; margin-top: 4px; direction: ltr; text-align: left;">ارفع ملف GLB المصدَّر إلى أي استضافة وضع رابط https هنا (أو مسار نسبي داخل المستودع مثل models/tower-a.glb). — <b>Google Drive</b>: الصق رابط المشاركة مباشرة (يُحوَّل تلقائياً إلى رابط تنزيل)، مع تفعيل «أي شخص لديه الرابط». بدونه تعمل العلامة على نفس المتصفح فقط (عبر modelKey).</div>
 
                 <div style="display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap;">
                     <div style="flex: 1; min-width: 120px;">
@@ -5359,7 +5359,15 @@
                     var base = location.href.split('?')[0].split('#')[0];
                     var params = [];
                     var url = hostedModelUrl();
-                    if (url) params.push('model=' + encodeURIComponent(url));
+                    if (url) {
+                        // A Google Drive share link must be expanded to a direct
+                        // download endpoint, otherwise the AR page would receive
+                        // the HTML viewer instead of the model bytes.
+                        var normalized = (window.ModelStore && window.ModelStore.normalizeModelUrl)
+                            ? window.ModelStore.normalizeModelUrl(url)
+                            : [url];
+                        params.push('model=' + encodeURIComponent(normalized[0]));
+                    }
                     if (!url && typeof currentModelStoreKey !== 'undefined' && currentModelStoreKey) {
                         params.push('modelKey=' + encodeURIComponent(currentModelStoreKey));
                     }
@@ -5380,8 +5388,11 @@
                         var matrix = window.NFTMarker.encode(text, { ecc: eccSelect.value || 'M' });
                         currentMatrix = matrix;
                         window.NFTMarker.renderToCanvas(canvas, matrix, { scale: scale, quiet: 4 });
+                        var drive = hostedModelUrl() && window.ModelStore && window.ModelStore.isGoogleDriveUrl(hostedModelUrl());
                         var reach = hostedModelUrl()
-                            ? '<span style="color:#86efac">· تعمل على أي جهاز</span>'
+                            ? (drive
+                                ? '<span style="color:#86efac">· تعمل على أي جهاز (Google Drive — يجب أن يكون الملف بصلاحية «أي شخص لديه الرابط»)</span>'
+                                : '<span style="color:#86efac">· تعمل على أي جهاز</span>')
                             : '<span style="color:#fbbf24">· تعمل على هذا المتصفح فقط</span>';
                         metaEl.innerHTML = 'الإصدار v' + matrix.version + ' · المقاس ' + matrix.size + '×' + matrix.size +
                             ' · ECC ' + matrix.ecc + ' · ' + canvas.width + '×' + canvas.height + ' px ' + reach;

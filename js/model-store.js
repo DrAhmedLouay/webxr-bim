@@ -140,13 +140,64 @@
         return page + (params.length ? '?' + params.join('&') : '');
     }
 
+    // ---------------------------------------------------------------------
+    // Hosted model URLs — Google Drive aware
+    // ---------------------------------------------------------------------
+    // A Google Drive *share* link returns an HTML viewer page, never the
+    // model bytes. Only the direct-download endpoints serve the file, and
+    // only some of them allow cross-origin reads. We therefore expand any
+    // Drive link into an ordered list of candidate download URLs and let the
+    // caller try them until one yields the actual binary.
+    function driveFileId(url) {
+        var patterns = [
+            /drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/,
+            /drive\.google\.com\/uc\?[^#]*id=([a-zA-Z0-9_-]+)/,
+            /drive\.google\.com\/open\?[^#]*id=([a-zA-Z0-9_-]+)/,
+            /drive\.google\.com\/drive\/folders\//,
+            /docs\.google\.com\/uc\?[^#]*id=([a-zA-Z0-9_-]+)/,
+            /drive\.usercontent\.google\.com\/download\?[^#]*id=([a-zA-Z0-9_-]+)/
+        ];
+        for (var i = 0; i < patterns.length; i++) {
+            var m = String(url).match(patterns[i]);
+            if (m && m[1]) return m[1];
+        }
+        return null;
+    }
+
+    /**
+     * Expands a model URL into an ordered list of downloadable candidates.
+     * @param {string} url
+     * @returns {string[]}
+     */
+    function normalizeModelUrl(url) {
+        var value = String(url || '').trim();
+        if (!value) return [];
+        var id = driveFileId(value);
+        if (!id) {
+            // Not a Drive link: try the value as-is (absolute or repo-relative)
+            return [value];
+        }
+        return [
+            'https://drive.usercontent.google.com/download?id=' + encodeURIComponent(id) + '&export=download',
+            'https://drive.google.com/uc?export=download&id=' + encodeURIComponent(id),
+            'https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(id) + '?alt=media'
+        ];
+    }
+
+    function isGoogleDriveUrl(url) {
+        return !!driveFileId(url);
+    }
+
     global.ModelStore = {
         CURRENT_KEY: CURRENT_KEY,
         save: save,
         load: load,
         remove: remove,
         list: list,
-        buildArLink: buildArLink
+        buildArLink: buildArLink,
+        normalizeModelUrl: normalizeModelUrl,
+        isGoogleDriveUrl: isGoogleDriveUrl,
+        driveFileId: driveFileId
     };
 
     if (typeof module !== 'undefined' && module.exports) {
