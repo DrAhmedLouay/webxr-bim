@@ -148,6 +148,51 @@
     // only some of them allow cross-origin reads. We therefore expand any
     // Drive link into an ordered list of candidate download URLs and let the
     // caller try them until one yields the actual binary.
+    /**
+     * Parses a GitHub URL into its parts.
+     * Accepts raw.githubusercontent.com, github.com/.../blob/... and
+     * github.com/.../raw/... so a link copied from the GitHub UI still works.
+     * @returns {Object|null} { owner, repo, ref, path }
+     */
+    function parseGitHubUrl(url) {
+        var value = String(url || '').trim();
+        var patterns = [
+            /raw\.githubusercontent\.com\/([^/]+)\/([^/]+)\/([^/]+)\/(.+)$/,
+            /github\.com\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)$/,
+            /github\.com\/([^/]+)\/([^/]+)\/raw\/([^/]+)\/(.+)$/,
+            /github\.com\/([^/]+)\/([^/]+)\/raw\/(.+)$/,
+            /api\.github\.com\/repos\/([^/]+)\/([^/]+)\/contents\/(.+?)(?:\?.*)?$/
+        ];
+        for (var i = 0; i < patterns.length; i++) {
+            var m = value.match(patterns[i]);
+            if (m) {
+                return {
+                    owner: m[1],
+                    repo: m[2],
+                    ref: m[3] && m[3].indexOf('/') === -1 ? m[3] : 'main',
+                    path: m[4] || m[3]
+                };
+            }
+        }
+        return null;
+    }
+
+    /** Decodes a URI component without throwing on malformed input. */
+    function safeDecode(value) {
+        try { return decodeURIComponent(String(value)); } catch (e) { return String(value); }
+    }
+
+    /** Normalises a repository path: decoded once, then re-encoded per segment. */
+    function normalizeRepoPath(path) {
+        return String(path || '').split('/').filter(function (seg) { return seg.length; })
+            .map(function (seg) { return encodeURIComponent(safeDecode(seg)); })
+            .join('/');
+    }
+
+    function isGitHubUrl(url) {
+        return !!parseGitHubUrl(url);
+    }
+
     function driveFileId(url) {
         var patterns = [
             /drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/,
@@ -174,7 +219,14 @@
         if (!value) return [];
         var id = driveFileId(value);
         if (!id) {
-            // Not a Drive link: try the value as-is (absolute or repo-relative)
+            // A GitHub link copied from the UI (blob/raw) is converted to the
+            // raw endpoint, which is the one that allows cross-origin reads.
+            var gh = parseGitHubUrl(value);
+            if (gh) {
+                return ['https://raw.githubusercontent.com/' + gh.owner + '/' + gh.repo + '/' +
+                    gh.ref + '/' + normalizeRepoPath(gh.path)];
+            }
+            // Not a Drive or GitHub link: try the value as-is (absolute or repo-relative)
             return [value];
         }
         return [
@@ -197,6 +249,10 @@
         buildArLink: buildArLink,
         normalizeModelUrl: normalizeModelUrl,
         isGoogleDriveUrl: isGoogleDriveUrl,
+        parseGitHubUrl: parseGitHubUrl,
+        isGitHubUrl: isGitHubUrl,
+        normalizeRepoPath: normalizeRepoPath,
+        safeDecode: safeDecode,
         driveFileId: driveFileId
     };
 

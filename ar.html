@@ -85,7 +85,9 @@
         <div class="sub" id="intro">
             ضع المبنى على الأرض بحجم حقيقي 1:1. وجّه الكاميرا نحو السطح ثم اضغط زر
             <b>التثبيت</b> داخل جلسة AR لتثبيت النموذج في مكانه.
+            <br><span style="color:#64748b;">بدون AR مدعوم: اسحب بإصبعك لتدوير المبنى، وضمّ إصبعين للتقريب.</span>
         </div>
+        <div id="ar-support" style="font-size: .74rem; color: #94a3b8; margin-top: 8px; direction: ltr; text-align: left;">… جارٍ التحقق من دعم Reality المعزز</div>
         <div class="scale-row" id="scaleRow" style="display:none;">
             <span>المقياس</span>
             <input type="range" id="scaleInput" min="0.05" max="3" step="0.05" value="1">
@@ -106,6 +108,17 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<!-- REQUIRED by IFCLoader.umd.cjs: it reads global.THREE.BufferGeometryUtils.
+     Without it the UMD factory throws and IFCLoader stays an empty object. -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/BufferGeometryUtils.js"></script>
+<!-- Compatibility bridge for IFC buffer geometry merging.
+     The CDN copy of BufferGeometryUtils exposes mergeBufferGeometries while
+     web-ifc-three calls mergeGeometries — same shim as the main platform. -->
+<script>
+  if (window.THREE && window.THREE.BufferGeometryUtils && !window.THREE.BufferGeometryUtils.mergeGeometries) {
+    window.THREE.BufferGeometryUtils.mergeGeometries = window.THREE.BufferGeometryUtils.mergeBufferGeometries;
+  }
+</script>
 <script src="https://unpkg.com/web-ifc@0.0.57/web-ifc-api-iife.js"></script>
 <script src="https://unpkg.com/web-ifc-three@0.0.126/IFCLoader.umd.cjs"></script>
 <script src="./js/model-store.js"></script>
@@ -130,6 +143,7 @@
     var btnMissingUrl = document.getElementById('btn-missing-url');
     var missingUrl = document.getElementById('missing-url');
     var anchorInfo = document.getElementById('anchor-info');
+    var supportEl = document.getElementById('ar-support');
     var btnPlace = document.getElementById('btn-place');
     var btnHome = document.getElementById('btn-home');
     var fileInput = document.getElementById('file-input');
@@ -204,7 +218,7 @@
         // the file base64-encoded as text, so we decode and re-check. A plain
         // .gltf is JSON. Anything HTML is an interstitial (Drive's virus-scan
         // page). This keeps us independent of headers the browser may hide.
-        function sniff(buffer, contentType) {
+        function sniff(buffer, contentType, hint) {
             if (!buffer || buffer.byteLength === 0) {
                 return Promise.reject({ code: 'EMPTY' });
             }
@@ -216,6 +230,16 @@
             }
             if (head === '{\n ' || head === '{"') {
                 return Promise.resolve({ buffer: buffer, type: 'model/gltf+json' });
+            }
+            // An IFC file is plain text served as text/plain by GitHub — the
+            // extension tells us what it is even when there is no signature.
+            if (hint === 'ifc') {
+                var headText = '';
+                for (var h = 0; h < Math.min(bytes.length, 64); h++) headText += String.fromCharCode(bytes[h]);
+                if (/^\s*ISO-10303/i.test(headText) || /FILE_SCHEMA|HEADER;/i.test(headText)) {
+                    return Promise.resolve({ buffer: buffer, type: 'application/x-step' });
+                }
+                return Promise.reject({ code: 'UNKNOWN', message: 'الملف لا يبدأ بترويسة IFC صالحة' });
             }
 
             // base64 text (Apps Script proxy or similar)
@@ -247,19 +271,64 @@
             return Promise.reject({ code: 'UNKNOWN', message: 'صيغة غير معروفة (' + (contentType || 'بدون نوع') + ')' });
         }
 
+        // GitHub serves the canonical URL through its public API, which also
+        // reveals whether a repository is private and which branch holds the file.
+        function githubResolve(candidate) {
+            if (!window.ModelStore || !window.ModelStore.parseGitHubUrl) return Promise.resolve(null);
+            var gh = window.ModelStore.parseGitHubUrl(candidate);
+            if (!gh) return Promise.resolve(null);
+            var api = 'https://api.github.com/repos/' + encodeURIComponent(gh.owner) + '/' +
+                encodeURIComponent(gh.repo) + '/contents/' +
+                String(gh.path).split('/').map(encodeURIComponent).join('/') +
+                '?ref=' + encodeURIComponent(gh.ref);
+            return fetch(api, { mode: 'cors', credentials: 'omit' })
+                .then(function (response) {
+                    if (!response.ok) {
+                        if (response.status === 404) {
+                            // Distinguish "private repository" from "file missing"
+                            return fetch('https://api.github.com/repos/' + encodeURIComponent(gh.owner) + '/' +
+                                encodeURIComponent(gh.repo), { mode: 'cors', credentials: 'omit' })
+                                .then(function (repoResponse) {
+                                    if (repoResponse.status === 404) {
+                                        throw { code: 'PRIVATE_REPO', owner: gh.owner, repo: gh.repo };
+                                    }
+                                    throw { code: 'NOT_FOUND', path: gh.path, ref: gh.ref };
+                                });
+                        }
+                        throw { code: 'HTTP', status: response.status, url: candidate };
+                    }
+                    return response.json().then(function (file) {
+                        if (file && file.download_url) return file.download_url;
+                        throw { code: 'NOT_FOUND', path: gh.path, ref: gh.ref };
+                    });
+                })
+                .catch(function (err) { throw err; });
+        }
+
         function attempt(index) {
             if (index >= candidates.length) {
                 return Promise.reject({ code: 'EXHAUSTED' });
             }
             var candidate = candidates[index];
+            var hint = /\.ifc(\?|$)/i.test(candidate) ? 'ifc' : (/\.gltf(\?|$)/i.test(candidate) ? 'gltf' : 'glb');
             return fetch(candidate, { mode: 'cors', credentials: 'omit' })
                 .then(function (response) {
                     if (!response.ok) {
+                        if (response.status === 404) {
+                            // A GitHub URL may point at the wrong branch/path —
+                            // ask the API where the file actually lives.
+                            return githubResolve(candidate).then(function (resolved) {
+                                if (resolved && resolved !== candidate) {
+                                    candidates.push(resolved);
+                                }
+                                throw { code: 'HTTP', status: 404, url: candidate, github: true };
+                            });
+                        }
                         return Promise.reject({ code: 'HTTP', status: response.status, url: candidate });
                     }
                     var type = (response.headers.get('content-type') || '').toLowerCase();
                     return response.arrayBuffer().then(function (buffer) {
-                        return sniff(buffer, type).then(function (result) {
+                        return sniff(buffer, type, hint).then(function (result) {
                             result.url = candidate;
                             return result;
                         });
@@ -291,6 +360,12 @@
             return 'أعاد الخادم صفحة HTML بدل ملف النموذج (شاشة تأكيد Drive للملفات الكبيرة). جرّب رابطاً مباشراً أو وسيط Apps Script.';
         }
         if (err.code === 'HTTP') return 'خطأ HTTP ' + err.status + ' من الخادم — تحقّق من صلاحيات مشاركة الملف.';
+        if (err.code === 'PRIVATE_REPO') {
+            return 'المستودع «' + err.owner + '/' + err.repo + '» خاص (Private) — روابط raw.githubusercontent.com لا تعمل للمستودعات الخاصة. اجعل المستودع عاماً، أو ارفع الملف إلى مستودع عام.';
+        }
+        if (err.code === 'NOT_FOUND') {
+            return 'الملف «' + err.path + '» غير موجود في فرع «' + err.ref + '». تحقّق من اسم الملف والفرع (main / master).';
+        }
         if (err.code === 'PROXY') return 'وسيط Drive ردّ بخطأ: ' + (err.message || 'غير معروف');
         if (err.code === 'PARSE') return 'تعذّر تحليل الملف كـ GLB: ' + (err.message || 'ملف تالف أو غير مدعوم');
         if (err.code === 'UNKNOWN') return 'صيغة غير معروفة — ' + (err.message || '');
@@ -341,18 +416,36 @@
 
     function loadIfc(file) {
         setStatus('جارٍ تحليل نموذج IFC…');
-        var loader = new IFCLoader();
-        loader.setWasmPath('https://unpkg.com/web-ifc@0.0.57/', true);
-        loader.loadAll([file], function (ifcModel) {
-            modelRoot.add(normalizeModel(ifcModel));
-            modelLoaded = true;
-            hideMissingPanel();
-            setStatus('النموذج جاهز — ابدأ جلسة AR');
-            toast('تم تحميل نموذج IFC', 2000);
-        }, undefined, function (err) {
-            setStatus('تعذّر تحليل نموذج IFC');
-            toast('تعذّر تحليل IFC: ' + (err && err.message ? err.message : 'خطأ'), 3500);
-        });
+        // web-ifc-three ships a UMD *namespace*: the class lives at
+        // window.IFCLoader.IFCLoader, not at window.IFCLoader itself.
+        var LoaderClass = (window.IFCLoader && window.IFCLoader.IFCLoader) || window.IFCLoader;
+        if (!LoaderClass) {
+            showMissingPanel('محرك قراءة ملفات IFC غير متوفر — تحقّق من اتصال الإنترنت (web-ifc / web-ifc-three).');
+            return;
+        }
+        var loader = new LoaderClass();
+        var wasmCdnUrl = 'https://unpkg.com/web-ifc@0.0.57/web-ifc.wasm';
+        if (loader.ifcManager && loader.ifcManager.state && loader.ifcManager.state.api) {
+            if (!loader.ifcManager.state.api.wasmModule) {
+                loader.ifcManager.state.api.Init(function (path) { return wasmCdnUrl; });
+            }
+        } else if (loader.ifcManager && typeof loader.ifcManager.setWasmPath === 'function') {
+            loader.ifcManager.setWasmPath(wasmCdnUrl);
+        }
+        // web-ifc-three 0.0.126 exposes parse(buffer) (loadAll was added later)
+        file.arrayBuffer()
+            .then(function (buffer) { return loader.parse(buffer); })
+            .then(function (ifcModel) {
+                modelRoot.add(normalizeModel(ifcModel));
+                modelLoaded = true;
+                hideMissingPanel();
+                setStatus('النموذج جاهز — ابدأ جلسة AR');
+                toast('تم تحميل نموذج IFC', 2000);
+            })
+            .catch(function (err) {
+                setStatus('تعذّر تحليل نموذج IFC');
+                showMissingPanel('تعذّر تحليل IFC: ' + (err && err.message ? err.message : 'خطأ'));
+            });
     }
 
     function showMissingPanel(reason) {
@@ -418,17 +511,47 @@
         return !!(navigator.xr && navigator.xr.isSessionSupported);
     }
 
+    // The button is NEVER disabled: a dead button with no explanation is
+    // useless. Availability is reported, and clicking always explains itself.
+    var arSupport = 'unknown';
+    function renderSupport() {
+        if (!supportEl) return;
+        var text = {
+            yes: '✅ هذا الجهاز يدعم Reality المعزز (AR)',
+            no: '⚠️ هذا الجهاز/المتصفح لا يدعم Reality المعزز — استخدم وضع الفحص باللمس',
+            unknown: '… جارٍ التحقق من دعم Reality المعزز'
+        }[arSupport];
+        supportEl.innerHTML = text;
+        supportEl.style.color = arSupport === 'yes' ? '#86efac' : (arSupport === 'no' ? '#fbbf24' : '#94a3b8');
+    }
+    renderSupport();
+
     if (supportsAR()) {
         navigator.xr.isSessionSupported('immersive-ar').then(function (ok) {
-            if (!ok) { btnAr.disabled = true; setStatus('جهازك لا يدعم AR — يمكنك المعاينة فقط'); }
-        }).catch(function () { btnAr.disabled = true; });
+            arSupport = ok ? 'yes' : 'no';
+            renderSupport();
+            if (!ok) {
+                setStatus('النموذج جاهز — Reality المعزز غير مدعوم هنا، يمكنك فحص النموذج باللمس');
+            }
+        }).catch(function () {
+            // Some browsers reject the query instead of answering false. The
+            // session request itself may still work, so the button stays live.
+            arSupport = 'unknown';
+            renderSupport();
+        });
     } else {
-        btnAr.disabled = true;
-        setStatus('المتصفح لا يدعم WebXR');
+        arSupport = 'no';
+        renderSupport();
     }
 
     btnAr.addEventListener('click', function () {
-        if (!supportsAR()) { toast('WebXR غير مدعوم في هذا المتصفح', 3000); return; }
+        if (!supportsAR()) {
+            arSupport = 'no';
+            renderSupport();
+            setStatus('Reality المعزز غير متاح — استعمل الفحص باللمس أو افتح المنصة على جهاز يدعم AR');
+            toast('هذا المتصفح لا يدعم WebXR. Reality المعزز يعمل على Chrome/Edge في هاتف Android يدعم AR. يمكنك فحص النموذج باللمس هنا.', 5200);
+            return;
+        }
         setStatus('جارٍ تشغيل جلسة AR…');
         navigator.xr.requestSession('immersive-ar', {
             requiredFeatures: [],
@@ -483,6 +606,10 @@
         var v = parseFloat(scaleInput.value);
         scaleLabel.textContent = v.toFixed(2) + '×';
         if (modelRoot.children.length) modelRoot.scale.setScalar(v);
+        if (!renderer.xr.isPresenting) {
+            spherical.radius = 6 / v;
+            applySpherical();
+        }
     });
 
     if (btnMissingFile) btnMissingFile.addEventListener('click', function () { fileInput.click(); });
@@ -523,6 +650,62 @@
     btnHome.addEventListener('click', function () {
         location.href = './index.html';
     });
+
+    // ------------------------------------------------- touch inspection mode
+    // On devices without immersive-ar the page stays useful: drag to orbit,
+    // pinch to zoom, two fingers to pan. Disabled while an XR session runs.
+    var inspectTarget = new THREE.Vector3(0, 1.2, 0);
+    var spherical = new THREE.Spherical(6, Math.PI / 2.6, 0);
+    var pointers = {};
+    var lastPinch = 0;
+
+    function applySpherical() {
+        spherical.phi = Math.max(0.15, Math.min(Math.PI - 0.15, spherical.phi));
+        spherical.radius = Math.max(0.6, Math.min(120, spherical.radius));
+        var offset = new THREE.Vector3().setFromSpherical(spherical);
+        camera.position.copy(inspectTarget).add(offset);
+        camera.lookAt(inspectTarget);
+    }
+    applySpherical();
+
+    function pointerCount() { return Object.keys(pointers).length; }
+
+    renderer.domElement.addEventListener('pointerdown', function (e) {
+        if (renderer.xr.isPresenting) return;
+        pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+        renderer.domElement.setPointerCapture(e.pointerId);
+    });
+
+    renderer.domElement.addEventListener('pointermove', function (e) {
+        if (renderer.xr.isPresenting) return;
+        var p = pointers[e.pointerId];
+        if (!p) return;
+        var dx = e.clientX - p.x;
+        var dy = e.clientY - p.y;
+        p.x = e.clientX; p.y = e.clientY;
+
+        if (pointerCount() === 1) {
+            spherical.theta -= dx * 0.006;
+            spherical.phi -= dy * 0.006;
+        } else if (pointerCount() === 2) {
+            var ids = Object.keys(pointers);
+            var a = pointers[ids[0]], b = pointers[ids[1]];
+            var dist = Math.hypot(a.x - b.x, a.y - b.y);
+            if (lastPinch) {
+                spherical.radius *= (lastPinch / Math.max(1, dist));
+            }
+            lastPinch = dist;
+        }
+        applySpherical();
+    });
+
+    function releasePointer(e) {
+        delete pointers[e.pointerId];
+        if (pointerCount() < 2) lastPinch = 0;
+    }
+    renderer.domElement.addEventListener('pointerup', releasePointer);
+    renderer.domElement.addEventListener('pointercancel', releasePointer);
+    renderer.domElement.addEventListener('pointerleave', releasePointer);
 
     // --------------------------------------------------------------- render
     // three.js calls the animation loop as (time, frame)
