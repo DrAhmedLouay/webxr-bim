@@ -491,7 +491,8 @@
             padding: 10px 24px !important;
             font-size: 0.9rem !important;
         }
-        #ARButton {
+        /* Step 1 (AR): Custom entry button using native WebXR Device API */
+        .ar-entry-btn {
             border-radius: 8px !important;
             font-weight: bold !important;
             box-shadow: 0 4px 20px rgba(244, 63, 94, 0.5) !important;
@@ -501,6 +502,8 @@
             font-size: 0.9rem !important;
             background: rgba(244, 63, 94, 0.18) !important;
             color: #fda4af !important;
+            text-decoration: none !important;
+            display: inline-block !important;
         }
         #loading-toast {
             display: none;
@@ -903,7 +906,6 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/BufferGeometryUtils.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/webxr/VRButton.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/webxr/ARButton.js"></script>
 
     <!-- Compatibility Bridge for IFC buffer geometry merging -->
     <script>
@@ -1503,11 +1505,57 @@
             }
 
             // =====================================================================
-            // Step 1 (AR): Create AR entry button if WebXR AR is available
+                        // =====================================================================
+            // Step 1 (AR): Custom AR entry button via native WebXR Device API
+            // (ARButton.js not shipped in three@0.128 UMD builds; use native API)
             // =====================================================================
-            if (THREE.ARButton) {
-                document.body.appendChild(THREE.ARButton.createButton());
+            var arEntryBtn = null;
+            var activeXRSession = null;
+
+            function setupAREntry() {
+                if (!navigator.xr || !navigator.xr.isSessionSupported) {
+                    return;
+                }
+                navigator.xr.isSessionSupported('immersland').then(function(supported) {
+                    if (!supported || arEntryBtn) return;
+                    arEntryBtn = document.createElement('a');
+                    arEntryBtn.id = 'ar-entry-btn';
+                    arEntryBtn.className = 'ar-entry-btn';
+                    arEntryBtn.title = 'فتح تجربة الواير (AR)';
+                    arEntryBtn.href = '#';
+                    arEntryBtn.innerHTML = '\U0001f4f1 تجران AR';
+                    arEntryBtn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        launchARExperience();
+                    });
+                    document.body.appendChild(arEntryBtn);
+                }).catch(function() {});
             }
+
+            function launchARExperience() {
+                if (!renderer || !camera) return;
+                if (activeXRSession) {
+                    activeXRSession.end().catch(function(){});
+                    activeXRSession = null;
+                    showToast('تم ايارة جترة AR', 'info', 2000);
+                    return;
+                }
+                showToast('جارىر الجلسة AR...', 'info', 2000);
+                navigator.xr.requestSession('immersland', { optionalFeatures: ['dom捕获'] })
+                    .then(function(session) {
+                        activeXRSession = session;
+                        renderer.xr.enabled = true;
+                    })
+                    .catch(function(err) {
+                        console.error('AR session failed:', err);
+                        showToast('فشل تجران AR: ' + (err && err.message ? err.message : 'خطأ داherent'), 'error', 4000);
+                        activeXRSession = null;
+                    });
+            }
+
+            setupAREntry();
+
+            setupAREntry();
 
             var controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
@@ -3700,7 +3748,7 @@
             });
 
             window.addEventListener('click', async function(e) {
-                if (e.target.closest('#header-bar') || e.target.closest('#desktop-info-panel') || e.target.closest('#bim-filter-panel') || e.target.closest('#loading-toast') || e.target.closest('#VRButton') || e.target.closest('#btn-export-glb') || e.target.closest('#clash-review-modal') || e.target.closest('#measure-hud') || e.target.closest('#section-panel') || e.target.closest('#telemetry-panel') || e.target.closest('#vr-guide-modal') || e.target.closest('#floating-ui-dock') || e.target.closest('#floating-sidebar-toggle-right') || e.target.closest('#floating-sidebar-toggle-left')) {
+                if (e.target.closest('#header-bar') || e.target.closest('#desktop-info-panel') || e.target.closest('#bim-filter-panel') || e.target.closest('#loading-toast') || e.target.closest('#VRButton') || e.target.closest('#btn-export-glb') || e.target.closest('#ar-entry-btn') || e.target.closest('#clash-review-modal') || e.target.closest('#measure-hud') || e.target.closest('#section-panel') || e.target.closest('#telemetry-panel') || e.target.closest('#vr-guide-modal') || e.target.closest('#floating-ui-dock') || e.target.closest('#floating-sidebar-toggle-right') || e.target.closest('#floating-sidebar-toggle-left')) {
                     return;
                 }
 
