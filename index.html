@@ -3123,6 +3123,25 @@
                 var isIFC = (currentCustomModel.modelID !== undefined);
                 showToast('info', '📤 جاري تصدير النموذج كـ GLB محسّن...', 2500);
 
+                // Build the export target. When the model was split for the
+                // storey filter, the original merged mesh is used (it carries
+                // the complete geometry and avoids writing the vertex data once
+                // per level). Otherwise the model itself is exported.
+                var exportTarget = currentCustomModel;
+                var originalMesh = null;
+                currentCustomModel.traverse(function (o) {
+                    if (o.isMesh && o.userData.geoOriginalMesh) originalMesh = o;
+                });
+                if (originalMesh) {
+                    var clone = new THREE.Mesh(originalMesh.geometry, originalMesh.material);
+                    clone.name = originalMesh.name || 'BIM-Model';
+                    clone.applyMatrix4(originalMesh.matrixWorld);
+                    var holder = new THREE.Group();
+                    holder.name = 'WebXR-BIM-Export';
+                    holder.add(clone);
+                    exportTarget = holder;
+                }
+
                 function triggerDownload(blob, filename) {
                     var url = URL.createObjectURL(blob);
                     var a = document.createElement('a');
@@ -3146,7 +3165,11 @@
                         var stamp = Date.now();
                         if (result instanceof ArrayBuffer) {
                             triggerDownload(new Blob([result], { type: 'model/gltf-binary' }), 'model-exported-' + stamp + '.glb');
-                            showToast('success', 'تم تصدير النموذج كـ GLB بنجاح' + (isIFC ? ' (من نموذج IFC)' : ' (من نموذج GLB/GLTF)') + '.', 4000);
+                            if (result.byteLength < 1024) {
+                                showToast('error', 'الملف المصدَّر فارغ تقريباً (' + Math.round(result.byteLength / 1024) + ' KB) — تأكّد أن النموذج محمَّل فعلاً.', 5000);
+                                return;
+                            }
+                            showToast('success', 'تم تصدير النموذج كـ GLB بنجاح (' + (result.byteLength / (1024 * 1024)).toFixed(1) + ' MB)' + (isIFC ? ' — من نموذج IFC' : ' — من نموذج GLB/GLTF') + '.', 4000);
                             return;
                         }
                         if (result instanceof Blob) {
@@ -3191,13 +3214,15 @@
 
                 try {
                     var exporter = new THREE.GLTFExporter();
-                    var options = { binary: true };
+                    // onlyVisible:false -> hidden meshes are exported too, so a
+                    // filtered view can never produce an empty file.
+                    var options = { binary: true, onlyVisible: false };
                     if (typeof exporter.parse === 'function' && exporter.parse.length >= 4) {
-                        exporter.parse(currentCustomModel, onExported, reportFailure, options);
+                        exporter.parse(exportTarget, onExported, reportFailure, options);
                     } else if (typeof exporter.parse === 'function') {
-                        exporter.parse(currentCustomModel, onExported, options);
+                        exporter.parse(exportTarget, onExported, options);
                     } else {
-                        exporter.write(currentCustomModel, onExported, options);
+                        exporter.write(exportTarget, onExported, options);
                     }
                 } catch (err) {
                     console.error('GLTFExporter exception:', err);
@@ -3327,7 +3352,13 @@
                     if (parent) parent.add(part);
                     created.push(part);
                 }
-                if (parent && created.length) parent.remove(mesh);
+                if (created.length) {
+                    // The original stays in the tree but hidden and tagged: it is
+                    // the complete, un-duplicated geometry used for exporting.
+                    mesh.visible = false;
+                    mesh.userData.geoOriginalMesh = true;
+                    mesh.userData.geoBaseY = mesh.position.y;
+                }
                 return created;
             }
 
