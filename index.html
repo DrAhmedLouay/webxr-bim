@@ -4321,6 +4321,18 @@
                 }
             }
 
+            // Highlighting an IFC element rebuilds a geometry subset, which is
+            // expensive on large models. It is therefore deferred so the browser
+            // paints the identification panel FIRST — the user sees the answer
+            // immediately instead of waiting for the highlight.
+            function deferHighlight(fn) {
+                requestAnimationFrame(function () {
+                    setTimeout(function () {
+                        try { fn(); } catch (e) { console.warn('highlight failed', e); }
+                    }, 0);
+                });
+            }
+
             function applyObjectHighlight(obj) {
                 clearCurrentSelectionHighlight();
                 if (!obj) return;
@@ -4543,9 +4555,9 @@
                         showPlatformNotification('🎯 تم تحديد العنصر: ' + pName + ' | يمكنك الآن تسجيله كتعارض تشغيلي');
 
                         if (typeof expressID === 'number') {
-                            applyIFCHighlight(expressID);
+                            deferHighlight(function () { applyIFCHighlight(expressID); });
                         } else {
-                            applyObjectHighlight(hit.object);
+                            deferHighlight(function () { applyObjectHighlight(hit.object); });
                         }
                         return;
                     }
@@ -4648,18 +4660,24 @@
                     panel.style.display = 'block';
 
                     if (expressID !== undefined && expressID !== null) {
-                        applyIFCHighlight(expressID);
+                        deferHighlight(function () { applyIFCHighlight(expressID); });
                     } else if (data.expressID !== undefined && data.expressID !== null) {
-                        applyIFCHighlight(data.expressID);
+                        deferHighlight(function () { applyIFCHighlight(data.expressID); });
                     } else {
-                        applyObjectHighlight(targetObj);
+                        deferHighlight(function () { applyObjectHighlight(targetObj); });
                     }
                 }
 
                 // Temporary highlight pulse sphere at clash position
                 var pulseSphere = new THREE.Mesh(
-                    new THREE.SphereGeometry(0.18, 16, 16),
-                    new THREE.MeshBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.85 })
+                    new THREE.SphereGeometry(0.09, 14, 14),
+                    new THREE.MeshBasicMaterial({
+                        color: 0xef4444,
+                        transparent: true,
+                        opacity: 0.55,
+                        depthWrite: false,
+                        blending: THREE.AdditiveBlending
+                    })
                 );
                 pulseSphere.position.set(tx, ty, tz);
                 scene.add(pulseSphere);
@@ -4843,10 +4861,30 @@
                     return;
                 }
 
+                // A small translucent marker instead of a solid red ball: the
+                // previous 18 cm opaque sphere covered the surface it sat on and
+                // read as a pink patch on the model.
                 var clashSphere = new THREE.Mesh(
-                    new THREE.SphereGeometry(0.18, 16, 16),
-                    new THREE.MeshBasicMaterial({ color: 0xef4444 })
+                    new THREE.SphereGeometry(0.075, 14, 14),
+                    new THREE.MeshBasicMaterial({
+                        color: 0xef4444,
+                        transparent: true,
+                        opacity: 0.75,
+                        depthWrite: false
+                    })
                 );
+                var clashRing = new THREE.Mesh(
+                    new THREE.RingGeometry(0.085, 0.115, 24),
+                    new THREE.MeshBasicMaterial({
+                        color: 0xef4444,
+                        transparent: true,
+                        opacity: 0.9,
+                        side: THREE.DoubleSide,
+                        depthWrite: false
+                    })
+                );
+                clashRing.rotation.x = -Math.PI / 2;   // lie flat on the surface
+                clashSphere.add(clashRing);
                 clashSphere.userData = { isClashSphere: true };
                 var worldPos = new THREE.Vector3();
                 if (data.clickPoint) {
@@ -6188,7 +6226,14 @@
                 clickTargetList = [];
                 if (currentCustomModel) {
                     currentCustomModel.traverse(function(c) {
-                        if (c.isMesh) clickTargetList.push(c);
+                        if (!c.isMesh) return;
+                        // The hidden original mesh (kept only for exporting the
+                        // complete geometry) must not be picked: the raycaster
+                        // would test the full triangle set again on every click
+                        // and report the invisible duplicate.
+                        if (c.userData.geoOriginalMesh) return;
+                        if (!c.visible) return;
+                        clickTargetList.push(c);
                     });
                 }
                 if (activeSubsetMesh && activeSubsetMesh.visible) clickTargetList.push(activeSubsetMesh);
@@ -6276,19 +6321,38 @@
             var currentPixelRatio = maxPixelRatio;
             var frameTimeAvg = 16;
             var lastRatioChange = 0;
+            var slowWindows = 0;
+            var fastWindows = 0;
+            var perfWarmupUntil = 0;
             function adaptResolution(deltaMs, now) {
+                // ignore the first seconds: loading a model produces huge frame
+                // times that would immediately and visibly shrink the canvas
+                if (!perfWarmupUntil) perfWarmupUntil = now + 3000;
+                if (now < perfWarmupUntil) return;
+
                 frameTimeAvg = frameTimeAvg * 0.9 + deltaMs * 0.1;
-                if (now - lastRatioChange < 1200) return;
+
+                // hysteresis: two consecutive windows before changing anything
+                if (frameTimeAvg > 40) { slowWindows++; fastWindows = 0; }
+                else if (frameTimeAvg < 12) { fastWindows++; slowWindows = 0; }
+                else { slowWindows = 0; fastWindows = 0; }
+
+                if (now - lastRatioChange < 2500) return;
                 var target = currentPixelRatio;
-                if (frameTimeAvg > 34 && currentPixelRatio > 0.6) {
+                if (slowWindows >= 2 && currentPixelRatio > 0.6) {
                     target = Math.max(0.6, currentPixelRatio - 0.25);
-                } else if (frameTimeAvg < 15 && currentPixelRatio < maxPixelRatio) {
+                    slowWindows = 0;
+                } else if (fastWindows >= 4 && currentPixelRatio < maxPixelRatio) {
                     target = Math.min(maxPixelRatio, currentPixelRatio + 0.25);
+                    fastWindows = 0;
                 }
                 if (target !== currentPixelRatio) {
                     currentPixelRatio = target;
+                    // setPixelRatio already resizes the drawing buffer (three
+                    // calls setSize(..., false) internally) — calling setSize
+                    // again with updateStyle would resize the CSS box and make
+                    // the canvas visibly jump.
                     renderer.setPixelRatio(currentPixelRatio);
-                    renderer.setSize(window.innerWidth, window.innerHeight);
                     lastRatioChange = now;
                 }
             }
