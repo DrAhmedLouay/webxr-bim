@@ -1984,7 +1984,7 @@
                 windows: new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.15, metalness: 0.1, opacity: 0.48, transparent: true, side: THREE.DoubleSide, depthWrite: false }),
                 walls: new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.72, metalness: 0.05, side: THREE.DoubleSide }),
                 slabs: new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.8, metalness: 0.05, side: THREE.DoubleSide }),
-                structure: new THREE.MeshStandardMaterial({ color: 0x8b5cf6, roughness: 0.5, metalness: 0.25, side: THREE.DoubleSide }),
+                structure: new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5, metalness: 0.25, side: THREE.DoubleSide }),
                 equipment: new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.4, metalness: 0.15, side: THREE.DoubleSide }),
                 pipes: new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.35, metalness: 0.5, side: THREE.DoubleSide }),
                 hvac: new THREE.MeshStandardMaterial({ color: 0x06b6d4, roughness: 0.35, metalness: 0.55, side: THREE.DoubleSide }),
@@ -3423,7 +3423,9 @@
                     ifcStoreysList.forEach(function(s, idx) {
                         var opt = document.createElement('option');
                         opt.value = s.id;
-                        opt.innerText = '📍 ' + (s.name || ('طابق ' + (idx + 1))) + ' (' + s.count + ' عنصر)';
+                        var rawLabel = s.name ? String(s.name).trim() : '';
+                        var label = (rawLabel && !/^(undefined|null|n\/a|none|-)$/i.test(rawLabel)) ? rawLabel : ('طابق ' + (idx + 1));
+                        opt.innerText = '📍 ' + label + ' (' + s.count + ' عنصر)';
                         selectStoreyFilter.appendChild(opt);
                     });
                 } else if (Object.keys(geoStoreyMeshes).length > 0) {
@@ -3544,6 +3546,10 @@
 
                             // Build pre-cached subsets for categories and storeys (ensures 0ms toggle speed)
                             await buildIFCSubsets(ifcModel, ifcLoader);
+                            // Keep the model's own materials: recolouring an
+                            // imported model by category was repainting whole
+                            // surfaces (e.g. purple structure) without being asked.
+                            if (typeof applyColorCodingMode === 'function') applyColorCodingMode('original');
                             // an IFC model carries real spatial data -> no geometric split
                             geoStoreyMeshes = {};
                             var geoWrapI = document.getElementById('storey-level-count-wrap');
@@ -3712,7 +3718,14 @@
                                 var sName = 'طابق ' + (ifcStoreysList.length + 1);
                                 try {
                                     var props = await loader.ifcManager.getItemProperties(modelID, node.expressID);
-                                    if (props && props.Name) sName = props.Name.value || props.Name;
+                                    var rawName = props && props.Name;
+                                    var nameValue = (rawName && typeof rawName === 'object') ? rawName.value : rawName;
+                                    if (nameValue !== undefined && nameValue !== null) {
+                                        var nameText = String(nameValue).trim();
+                                        // web-ifc returns the literal string "Undefined"
+                                        // for properties that carry no value
+                                        if (nameText && !/^(undefined|null|n\/a|none|-)$/i.test(nameText)) sName = nameText;
+                                    }
                                 } catch(e) {}
                                 ifcStoreysList.push({ id: sId, name: sName, count: 0 });
                             }
@@ -4479,10 +4492,25 @@
                             ifcTargets = [targetStoreyMesh];
                         }
                     } else {
-                        // Not isolating: use cached click targets, filtered to visible only
-                        ifcTargets = clickTargetList.filter(function(obj) {
-                            return obj.visible;
-                        });
+                        // Not isolating: pick the SUBSET meshes (they carry the
+                        // expressID mapping). The raw model meshes duplicate the
+                        // same geometry, so a hit on them resolves to no
+                        // expressID and the element could not be identified
+                        // (and therefore could not be registered as a clash).
+                        var subsetTargets = [];
+                        for (var cId in ifcCategoryMeshes) {
+                            if (ifcCategoryMeshes[cId] && ifcCategoryMeshes[cId].visible) subsetTargets.push(ifcCategoryMeshes[cId]);
+                        }
+                        for (var stId in ifcStoreyMeshes) {
+                            if (ifcStoreyMeshes[stId] && ifcStoreyMeshes[stId].visible) subsetTargets.push(ifcStoreyMeshes[stId]);
+                        }
+                        if (subsetTargets.length > 0) {
+                            ifcTargets = subsetTargets;
+                        } else {
+                            ifcTargets = clickTargetList.filter(function(obj) {
+                                return obj.visible;
+                            });
+                        }
                     }
 
                     var ifcHits = raycaster.intersectObjects(ifcTargets, true);
@@ -4861,30 +4889,11 @@
                     return;
                 }
 
-                // A small translucent marker instead of a solid red ball: the
-                // previous 18 cm opaque sphere covered the surface it sat on and
-                // read as a pink patch on the model.
+                // The solid red sphere marks the element registered as a clash.
                 var clashSphere = new THREE.Mesh(
-                    new THREE.SphereGeometry(0.075, 14, 14),
-                    new THREE.MeshBasicMaterial({
-                        color: 0xef4444,
-                        transparent: true,
-                        opacity: 0.75,
-                        depthWrite: false
-                    })
+                    new THREE.SphereGeometry(0.18, 16, 16),
+                    new THREE.MeshBasicMaterial({ color: 0xef4444 })
                 );
-                var clashRing = new THREE.Mesh(
-                    new THREE.RingGeometry(0.085, 0.115, 24),
-                    new THREE.MeshBasicMaterial({
-                        color: 0xef4444,
-                        transparent: true,
-                        opacity: 0.9,
-                        side: THREE.DoubleSide,
-                        depthWrite: false
-                    })
-                );
-                clashRing.rotation.x = -Math.PI / 2;   // lie flat on the surface
-                clashSphere.add(clashRing);
                 clashSphere.userData = { isClashSphere: true };
                 var worldPos = new THREE.Vector3();
                 if (data.clickPoint) {
