@@ -440,14 +440,27 @@
             return;
         }
         var loader = new LoaderClass();
+        var baseDir = window.location.href.split('?')[0].split('#')[0].replace(/\/[^\/]*$/, '/');
+        var wasmLocalUrl = baseDir + 'web-ifc.wasm?v=0.0.57';
         var wasmCdnUrl = 'https://unpkg.com/web-ifc@0.0.57/web-ifc.wasm';
+        var wasmUrl = wasmLocalUrl;
+        function resolveWasm() {
+            return wasmUrl;
+        }
         if (loader.ifcManager && loader.ifcManager.state && loader.ifcManager.state.api) {
             if (!loader.ifcManager.state.api.wasmModule) {
-                loader.ifcManager.state.api.Init(function (path) { return wasmCdnUrl; });
+                loader.ifcManager.state.api.Init(function (path) { return resolveWasm(); });
             }
         } else if (loader.ifcManager && typeof loader.ifcManager.setWasmPath === 'function') {
-            loader.ifcManager.setWasmPath(wasmCdnUrl);
+            loader.ifcManager.setWasmPath(wasmLocalUrl);
         }
+        // Fallback: probe local wasm; if missing (e.g. 404 on a new deploy), use CDN
+        fetch(wasmLocalUrl, { method: 'HEAD' }).catch(function () {
+            wasmUrl = wasmCdnUrl;
+            if (loader.ifcManager && typeof loader.ifcManager.setWasmPath === 'function') {
+                loader.ifcManager.setWasmPath(wasmCdnUrl);
+            }
+        });
         // web-ifc-three 0.0.126 exposes parse(buffer) (loadAll was added later)
         file.arrayBuffer()
             .then(function (buffer) { return loader.parse(buffer); })
@@ -921,6 +934,12 @@
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
     });
+
+    // PWA: register the shared service worker so AR assets are cached for offline
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js', { scope: './' })
+            .catch(function () { /* non-fatal: AR still works online */ });
+    }
 })();
 </script>
 </body>

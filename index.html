@@ -3490,17 +3490,30 @@
                             currentIFCLoader = ifcLoader;
 
                             var baseDir = window.location.href.split('?')[0].split('#')[0].replace(/\/[^\/]*$/, '/');
-                            var wasmUrl = baseDir + 'web-ifc.wasm';
+                            var wasmUrl = baseDir + 'web-ifc.wasm?v=0.0.57';
                             var wasmCdnUrl = 'https://unpkg.com/web-ifc@0.0.57/web-ifc.wasm';
+                            var wasmLoaderUrl = wasmUrl;
+
+                            function resolveWasmUrl() {
+                                return wasmLoaderUrl;
+                            }
 
                             if (ifcLoader.ifcManager.state && ifcLoader.ifcManager.state.api) {
                                 if (!ifcLoader.ifcManager.state.api.wasmModule) {
                                     await ifcLoader.ifcManager.state.api.Init(function(path) {
-                                        return wasmCdnUrl;
+                                        return resolveWasmUrl();
                                     });
                                 }
+                            } else if (ifcLoader.ifcManager.setWasmPath) {
+                                ifcLoader.ifcManager.setWasmPath(wasmLoaderUrl);
                             } else {
-                                ifcLoader.ifcManager.setWasmPath(wasmCdnUrl);
+                                var wasmFetch = await fetch(wasmLoaderUrl).catch(function() { return null; });
+                                if (wasmFetch && wasmFetch.ok) {
+                                    wasmLoaderUrl = wasmCdnUrl;
+                                    if (ifcLoader.ifcManager.setWasmPath) {
+                                        ifcLoader.ifcManager.setWasmPath(wasmLoaderUrl);
+                                    }
+                                }
                             }
 
                             if (typeof ifcLoader.ifcManager.setOnProgress === 'function') {

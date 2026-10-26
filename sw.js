@@ -8,7 +8,7 @@
 // ---------------------------------------------------------------------------
 'use strict';
 
-var CACHE_VERSION = 'webxr-bim-v3';
+var CACHE_VERSION = 'webxr-bim-v4';
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var RUNTIME_CACHE = CACHE_VERSION + '-runtime';
 
@@ -91,7 +91,7 @@ self.addEventListener('fetch', function (event) {
 
     // Other app-shell assets: cache-first with a background refresh
     if (!isThirdParty(url) && (SHELL_ASSETS.indexOf(url.pathname.replace(/^\/webxr-bim\//, './')) !== -1 ||
-        /\.(js|png|json|md)$/i.test(url.pathname))) {
+        /\.(js|wasm|png|json|md)$/i.test(url.pathname))) {
         event.respondWith(
             caches.match(request).then(function (cached) {
                 var network = fetch(request).then(function (response) {
