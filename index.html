@@ -1789,17 +1789,13 @@
                             renderer.xr.setReferenceSpaceType('local-floor');
                         }
                         renderer.xr.setSession(session);
+                        // Disable OrbitControls — they override the XR camera pose.
+                        // In VR, the headset drives the camera; desktop controls must stay off.
+                        controls.enabled = false;
                         session.addEventListener('end', function() {
                             activeVRSession = null;
+                            controls.enabled = true;  // restore desktop orbit on session end
                             showToast('info', 'تم إنهاء جلسة الواقع الافتراضي (VR)', 2500);
-                        });
-                        session.addEventListener('visibilitychange', function() {
-                            if (!activeVRSession) return;
-                            if (activeVRSession.visibilityState === 'visible') {
-                                controls.enabled = true;
-                            } else {
-                                controls.enabled = false;
-                            }
                         });
                         showToast('success', 'تم تشغيل جلسة الواقع الافتراضي (VR) بنجاح', 3000);
                     })
@@ -5914,13 +5910,18 @@
 
             function handleVRSelect(event) {
                 var ctrl = event.target;
+                // Ensure the controller's world matrix is up-to-date before raycasting
+                ctrl.updateWorldMatrix(true, false);
                 vrMatrix.identity().extractRotation(ctrl.matrixWorld);
                 vrRaycaster.ray.origin.setFromMatrixPosition(ctrl.matrixWorld);
                 vrRaycaster.ray.direction.set(0, 0, -1).applyMatrix4(vrMatrix);
 
+                // Intersect against the scene graph so split storey meshes and
+                // the loaded model (GLB/IFC) are pickable in VR.
                 var hits = vrRaycaster.intersectObjects(scene.children, true);
                 for (var i = 0; i < hits.length; i++) {
                     var obj = hits[i].object;
+                    if (obj === controller1 || obj === controller2 || obj.parent === controller1 || obj.parent === controller2) continue;
                     if (obj.parent === measureGroup || obj === ifcHighlightMesh || (obj.userData && obj.userData.isClashSphere)) continue;
                     while (obj && obj !== scene) {
                         if (obj.userData && obj.userData.isBIM) {
@@ -5932,8 +5933,19 @@
                     }
                 }
             }
-            controller1.addEventListener('select', handleVRSelect);
-            controller2.addEventListener('select', handleVRSelect);
+
+            // Bind select listener — in Three.js r128 getController(id) returns
+            // the session-managed controller, so we (re)bind on each session start.
+            function bindControllerSelect(controller) {
+                if (!controller || controller._boundSelect) return;
+                controller._boundSelect = true;
+                controller.addEventListener('select', handleVRSelect);
+            }
+
+            controller1._boundSelect = false;
+            controller2._boundSelect = false;
+            bindControllerSelect(controller1);
+            bindControllerSelect(controller2);
 
             // =====================================================================
             // 18.1 VR Guide Modal & Meta Quest Guidance
@@ -6389,12 +6401,18 @@
                 }
             }
 
-            renderer.setAnimationLoop(function() {
+            renderer.setAnimationLoop(function(time, frame) {
                 var delta = clock.getDelta();
                 if (clashBeacon && clashBeacon.visible) {
                     clashBeacon.rotation.z += delta * 0.8;
                 }
-                controls.update();
+                // Only update OrbitControls when NOT in an immersive XR session.
+                // In VR/AR the headset pose drives the camera, so calling
+                // controls.update() here would fight the XR compositor and
+                // freeze the view on the Quest 3 (no 6-DoF motion + no ray).
+                if (!renderer.xr.getSession()) {
+                    controls.update();
+                }
                 renderer.render(scene, camera);
 
                 // Telemetry HUD real-time tracking
