@@ -1780,7 +1780,8 @@
                 showToast('info', 'جارٍ تشغيل جلسة الواقع الافتراضي (VR)...', 2500);
                 navigator.xr.requestSession('immersive-vr', {
                     requiredFeatures: ['local-floor'],
-                    optionalFeatures: ['bounded-floor', 'hand-tracking', 'anchors']
+                    optionalFeatures: ['bounded-floor', 'hand-tracking', 'anchors', 'dom-overlay'],
+                    domOverlay: { root: document.body }
                 })
                     .then(function(session) {
                         activeVRSession = session;
@@ -1792,6 +1793,11 @@
                         // Disable OrbitControls — they override the XR camera pose.
                         // In VR, the headset drives the camera; desktop controls must stay off.
                         controls.enabled = false;
+                        // Re-bind controller select listeners after the session is
+                        // active: Three.js r128 may refresh controller objects on
+                        // inputsourceschange, so we re-bind unconditionally here.
+                        if (typeof controller1 !== 'undefined' && controller1) bindControllerSelect(controller1, true);
+                        if (typeof controller2 !== 'undefined' && controller2) bindControllerSelect(controller2, true);
                         session.addEventListener('end', function() {
                             activeVRSession = null;
                             controls.enabled = true;  // restore desktop orbit on session end
@@ -5936,8 +5942,9 @@
 
             // Bind select listener — in Three.js r128 getController(id) returns
             // the session-managed controller, so we (re)bind on each session start.
-            function bindControllerSelect(controller) {
-                if (!controller || controller._boundSelect) return;
+            function bindControllerSelect(controller, force) {
+                if (!controller) return;
+                if (controller._boundSelect && !force) return;
                 controller._boundSelect = true;
                 controller.addEventListener('select', handleVRSelect);
             }
