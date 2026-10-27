@@ -5916,15 +5916,20 @@
 
             function handleVRSelect(event) {
                 var ctrl = event.target;
+                console.log('[VR] select event on controller', ctrl && ctrl.uuid);
                 // Ensure the controller's world matrix is up-to-date before raycasting
                 ctrl.updateWorldMatrix(true, false);
                 vrMatrix.identity().extractRotation(ctrl.matrixWorld);
                 vrRaycaster.ray.origin.setFromMatrixPosition(ctrl.matrixWorld);
                 vrRaycaster.ray.direction.set(0, 0, -1).applyMatrix4(vrMatrix);
 
+                console.log('[VR] ray origin:', [vrRaycaster.ray.origin.x.toFixed(2), vrRaycaster.ray.origin.y.toFixed(2), vrRaycaster.ray.origin.z.toFixed(2)]);
+                console.log('[VR] scene children:', scene.children.length, 'bimElements:', bimElements.length);
+
                 // Intersect against the scene graph so split storey meshes and
                 // the loaded model (GLB/IFC) are pickable in VR.
                 var hits = vrRaycaster.intersectObjects(scene.children, true);
+                console.log('[VR] hit count:', hits.length);
                 for (var i = 0; i < hits.length; i++) {
                     var obj = hits[i].object;
                     if (obj === controller1 || obj === controller2 || obj.parent === controller1 || obj.parent === controller2) continue;
@@ -5932,6 +5937,7 @@
                     while (obj && obj !== scene) {
                         if (obj.userData && obj.userData.isBIM) {
                             var hitBIM = obj.userData.parentBIM || obj;
+                            console.log('[VR] picked BIM element:', hitBIM.name || 'unnamed');
                             applyObjectHighlight(hitBIM);
                             return;
                         }
@@ -5942,11 +5948,13 @@
 
             // Bind select listener — in Three.js r128 getController(id) returns
             // the session-managed controller, so we (re)bind on each session start.
+            // selectstart fires immediately on trigger-press for responsive targeting.
             function bindControllerSelect(controller, force) {
                 if (!controller) return;
                 if (controller._boundSelect && !force) return;
                 controller._boundSelect = true;
                 controller.addEventListener('select', handleVRSelect);
+                controller.addEventListener('selectstart', handleVRSelect);
             }
 
             controller1._boundSelect = false;
@@ -6417,7 +6425,8 @@
                 // In VR/AR the headset pose drives the camera, so calling
                 // controls.update() here would fight the XR compositor and
                 // freeze the view on the Quest 3 (no 6-DoF motion + no ray).
-                if (!renderer.xr.getSession()) {
+                var session = renderer.xr.getSession();
+                if (!session) {
                     controls.update();
                 }
                 renderer.render(scene, camera);
