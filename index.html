@@ -401,20 +401,24 @@
             border-color: #38bdf8;
             box-shadow: 0 0 10px rgba(56, 189, 248, 0.6);
         }
-        /* 2D Info Panel */
+        /* 2D Info Panel (Desktop & Tablet / iPad Responsive) */
         #desktop-info-panel {
-            position: absolute;
-            bottom: 25px;
-            right: 25px;
-            width: 350px;
-            background: rgba(15, 23, 42, 0.98);
-            backdrop-filter: blur(20px);
-            padding: 18px 20px;
-            border-radius: 14px;
-            border: 2px solid #00f0ff;
-            z-index: 500;
+            position: fixed !important;
+            bottom: calc(env(safe-area-inset-bottom, 0px) + 20px) !important;
+            right: calc(env(safe-area-inset-right, 0px) + 20px) !important;
+            width: 360px !important;
+            max-width: calc(100vw - 32px) !important;
+            max-height: calc(100vh - 100px) !important;
+            overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+            background: rgba(15, 23, 42, 0.98) !important;
+            backdrop-filter: blur(20px) !important;
+            padding: 18px 20px !important;
+            border-radius: 14px !important;
+            border: 2px solid #00f0ff !important;
+            z-index: 500 !important;
             display: none;
-            box-shadow: 0 16px 50px rgba(0, 0, 0, 0.85), 0 0 25px rgba(0, 240, 255, 0.35);
+            box-shadow: 0 16px 50px rgba(0, 0, 0, 0.85), 0 0 25px rgba(0, 240, 255, 0.35) !important;
         }
         #desktop-info-panel h3 {
             font-size: 1rem;
@@ -1801,6 +1805,7 @@
                         session.addEventListener('end', function() {
                             activeVRSession = null;
                             controls.enabled = true;  // restore desktop orbit on session end
+                            if (typeof hideFloatingVRPanel === 'function') hideFloatingVRPanel();
                             showToast('info', 'تم إنهاء جلسة الواقع الافتراضي (VR)', 2500);
                         });
                         showToast('success', 'تم تشغيل جلسة الواقع الافتراضي (VR) بنجاح', 3000);
@@ -3249,6 +3254,7 @@
             });
 
             function clearCustomModel() {
+                if (typeof hideFloatingVRPanel === 'function') hideFloatingVRPanel();
                 if (typeof clearCurrentSelectionHighlight === 'function') clearCurrentSelectionHighlight();
                 clearCategorySubsets();
                 clearStoreySubsets();
@@ -4470,58 +4476,33 @@
             }
 
             if (btnCloseInfoPanel) {
-                btnCloseInfoPanel.addEventListener('click', function(e) {
-                    e.stopPropagation();
+                function closeInfoPanelHandler(e) {
+                    if (e) {
+                        e.stopPropagation();
+                        e.preventDefault();
+                    }
                     panel.style.display = 'none';
                     selectedMesh = null;
                     clearCurrentSelectionHighlight();
-                });
+                }
+                btnCloseInfoPanel.addEventListener('click', closeInfoPanelHandler);
+                btnCloseInfoPanel.addEventListener('touchend', closeInfoPanelHandler);
             }
 
-            var pointerDownPos = { x: 0, y: 0 };
-            window.addEventListener('pointerdown', function(e) {
-                pointerDownPos.x = e.clientX;
-                pointerDownPos.y = e.clientY;
-            });
-
-            window.addEventListener('click', async function(e) {
-                if (e.target.closest('#header-bar') || e.target.closest('#desktop-info-panel') || e.target.closest('#bim-filter-panel') || e.target.closest('#loading-toast') || e.target.closest('#VRButton') || e.target.closest('#btn-export-glb') || e.target.closest('#btn-nft-marker') || e.target.closest('#nft-marker-modal') || e.target.closest('#ar-entry-btn') || e.target.closest('#clash-review-modal') || e.target.closest('#measure-hud') || e.target.closest('#section-panel') || e.target.closest('#telemetry-panel') || e.target.closest('#vr-guide-modal') || e.target.closest('#floating-ui-dock') || e.target.closest('#floating-sidebar-toggle-right') || e.target.closest('#floating-sidebar-toggle-left')) {
-                    return;
-                }
-
-                // If user was dragging OrbitControls to rotate or pan, ignore click selection
-                var dragDist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
-                if (dragDist > 16) return;
-
-                mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-                mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-
-                raycaster.setFromCamera(mouse, camera);
-
-                // If 3D Measurement Mode is active, intercept click for point-to-point measuring
-                if (typeof isMeasureActive !== 'undefined' && isMeasureActive) {
-                    if (typeof handleMeasureClick === 'function') handleMeasureClick();
-                    return;
-                }
-
-                // 1. Inspect IFC Model Element if custom IFC model is active
+            // -----------------------------------------------------------------
+            // Core Element Selection Engine (Shared across Desktop, iPad & VR)
+            // -----------------------------------------------------------------
+            async function executeSelection(activeRaycaster, isVR, hitWorldPos) {
+                // 1. Inspect IFC / Custom Model Element if custom model is active
                 if (currentCustomModel) {
-                    // Build click targets based on what's currently visible
                     var ifcTargets = [];
-
                     if (selectStoreyFilter && selectStoreyFilter.value !== 'all') {
-                        // Storey isolation active: use storey meshes for the selected storey only
                         var selectedStoreyId = selectStoreyFilter.value;
                         var targetStoreyMesh = ifcStoreyMeshes[selectedStoreyId];
                         if (targetStoreyMesh && targetStoreyMesh.visible) {
                             ifcTargets = [targetStoreyMesh];
                         }
                     } else {
-                        // Not isolating: pick the SUBSET meshes (they carry the
-                        // expressID mapping). The raw model meshes duplicate the
-                        // same geometry, so a hit on them resolves to no
-                        // expressID and the element could not be identified
-                        // (and therefore could not be registered as a clash).
                         var subsetTargets = [];
                         for (var cId in ifcCategoryMeshes) {
                             if (ifcCategoryMeshes[cId] && ifcCategoryMeshes[cId].visible) subsetTargets.push(ifcCategoryMeshes[cId]);
@@ -4532,13 +4513,14 @@
                         if (subsetTargets.length > 0) {
                             ifcTargets = subsetTargets;
                         } else {
-                            ifcTargets = clickTargetList.filter(function(obj) {
-                                return obj.visible;
-                            });
+                            ifcTargets = clickTargetList.filter(function(obj) { return obj.visible; });
                         }
                     }
+                    if (ifcTargets.length === 0) {
+                        ifcTargets = [currentCustomModel];
+                    }
 
-                    var ifcHits = raycaster.intersectObjects(ifcTargets, true);
+                    var ifcHits = activeRaycaster.intersectObjects(ifcTargets, true);
                     if (ifcHits.length > 0) {
                         var hit = ifcHits[0];
                         var expressID = null;
@@ -4579,12 +4561,12 @@
                                 }
                             } catch(te) {}
                         } else {
-                            // Fallback if expressID was not resolved from face
                             expressID = (expressID !== null && expressID !== undefined) ? expressID : ('ELEM-' + Math.floor(Math.random() * 9000));
                             pName = hit.object.name || ('كتلة نموذج IFC #' + (hit.faceIndex || 1));
                         }
 
-                        valId.innerText = '#' + expressID + ' (' + pName + ')';
+                        var elemIdStr = '#' + expressID + ' (' + pName + ')';
+                        valId.innerText = elemIdStr;
                         valCat.innerText = pType;
                         valSys.innerText = 'نموذج الـ IFC المستورد';
                         valDim.innerText = 'أبعاد ومناسيب هندسية أصلية';
@@ -4593,39 +4575,55 @@
 
                         selectedMesh = hit.object;
                         selectedMesh.userData = {
-                            elementId: '#' + expressID + ' - ' + pName,
+                            elementId: elemIdStr,
                             category: pType,
                             system: 'Architectural / BIM',
                             expressID: expressID,
-                            clickPoint: hit.point ? hit.point.clone() : hit.object.position.clone()
+                            clickPoint: hit.point ? hit.point.clone() : (hitWorldPos ? hitWorldPos.clone() : hit.object.position.clone())
                         };
-
-                        panel.style.display = 'block';
-                        panel.classList.remove('ui-sidebar-hidden');
-                        var fp = document.getElementById('bim-filter-panel');
-                        if (fp) fp.style.display = 'none';
-
-                        showPlatformNotification('🎯 تم تحديد العنصر: ' + pName + ' | يمكنك الآن تسجيله كتعارض تشغيلي');
 
                         if (typeof expressID === 'number') {
                             deferHighlight(function () { applyIFCHighlight(expressID); });
                         } else {
                             deferHighlight(function () { applyObjectHighlight(hit.object); });
                         }
-                        return;
+
+                        if (isVR) {
+                            if (typeof createOrUpdateFloatingVRPanel === 'function') {
+                                createOrUpdateFloatingVRPanel(selectedMesh.userData, hit.point || hitWorldPos);
+                            }
+                        } else {
+                            panel.classList.remove('ui-sidebar-hidden');
+                            panel.style.display = 'block';
+                            panel.style.opacity = '1';
+                            panel.style.transform = 'none';
+                            panel.style.pointerEvents = 'auto';
+                            var fp = document.getElementById('bim-filter-panel');
+                            if (fp) fp.style.display = 'none';
+                            showPlatformNotification('🎯 تم تحديد العنصر: ' + pName + ' | يمكنك الآن تسجيله كتعارض تشغيلي');
+                            showToast('info', '🎯 تم تحديد: ' + pName + ' | اضغط الزر الأحمر لتسجيله كتعارض', 3500);
+                        }
+                        return true;
                     }
                 }
 
-                // 2. Default WebXR Lab Environment Selection
-                var labTargets = clickTargetList.length > 0 ? clickTargetList : [webxrLabGroup];
-                var intersects = raycaster.intersectObjects(labTargets, true);
+                // 2. Default WebXR Lab Environment or GLB Selection
+                var labTargets = clickTargetList.length > 0 ? clickTargetList : (webxrLabGroup ? [webxrLabGroup] : scene.children);
+                var intersects = activeRaycaster.intersectObjects(labTargets, true);
                 var hitBIM = null;
+                var hitPointFound = null;
+
                 for (var i = 0; i < intersects.length; i++) {
                     var obj = intersects[i].object;
+                    if (obj === controller1 || obj === controller2 || (obj.parent && (obj.parent === controller1 || obj.parent === controller2))) continue;
+                    if (obj === floatingVRPanel || obj.parent === floatingVRPanel) continue;
                     if (obj === ifcHighlightMesh || (obj.userData && obj.userData.isClashSphere)) continue;
+                    if (obj.parent === measureGroup) continue;
+
                     while (obj && obj !== scene) {
                         if (obj.userData && obj.userData.isBIM) {
                             hitBIM = obj.userData.parentBIM || obj;
+                            hitPointFound = intersects[i].point ? intersects[i].point.clone() : null;
                             break;
                         }
                         obj = obj.parent;
@@ -4636,23 +4634,130 @@
                 if (hitBIM) {
                     selectedMesh = hitBIM;
                     var data = selectedMesh.userData || {};
-                    valId.innerText = data.elementId || selectedMesh.name || 'عنصر معماري';
+                    var elemIdStr = data.elementId || selectedMesh.name || 'عنصر معماري / MEP';
+                    valId.innerText = elemIdStr;
                     valCat.innerText = data.category || 'كتلة نموذج BIM';
                     valSys.innerText = data.system || 'العمارة والإنشاءات';
                     valDim.innerText = data.dimensions || 'أبعاد هندسية أصلية';
                     valClearance.innerText = data.clearance || 'مطابق للمواصفات';
                     valStatus.innerText = data.status || 'جاهز للمعاينة الفراغية';
-                    panel.style.display = 'block';
-                    panel.classList.remove('ui-sidebar-hidden');
-                    var fpLab = document.getElementById('bim-filter-panel');
-                    if (fpLab) fpLab.style.display = 'none';
+
+                    if (!data.clickPoint && (hitPointFound || hitWorldPos)) {
+                        data.clickPoint = (hitPointFound || hitWorldPos).clone();
+                    }
 
                     applyObjectHighlight(hitBIM);
+
+                    if (isVR) {
+                        if (typeof createOrUpdateFloatingVRPanel === 'function') {
+                            createOrUpdateFloatingVRPanel(data, hitPointFound || hitWorldPos || hitBIM.position);
+                        }
+                    } else {
+                        panel.classList.remove('ui-sidebar-hidden');
+                        panel.style.display = 'block';
+                        panel.style.opacity = '1';
+                        panel.style.transform = 'none';
+                        panel.style.pointerEvents = 'auto';
+                        var fpLab = document.getElementById('bim-filter-panel');
+                        if (fpLab) fpLab.style.display = 'none';
+                        showPlatformNotification('🎯 تم تحديد العنصر: ' + elemIdStr + ' | يمكنك الآن تسجيله كتعارض تشغيلي');
+                        showToast('info', '🎯 تم تحديد: ' + elemIdStr + ' | اضغط الزر الأحمر لتسجيله كتعارض', 3500);
+                    }
+                    return true;
                 } else {
-                    panel.style.display = 'none';
-                    selectedMesh = null;
-                    clearCurrentSelectionHighlight();
+                    if (!isVR) {
+                        panel.style.display = 'none';
+                        selectedMesh = null;
+                        clearCurrentSelectionHighlight();
+                    }
+                    return false;
                 }
+            }
+
+            function handleScreenSelection(clientX, clientY) {
+                // If 3D Measurement Mode is active, intercept click for point-to-point measuring
+                if (typeof isMeasureActive !== 'undefined' && isMeasureActive) {
+                    if (typeof handleMeasureClick === 'function') handleMeasureClick();
+                    return;
+                }
+
+                mouse.x = (clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+                raycaster.setFromCamera(mouse, camera);
+                executeSelection(raycaster, false, null);
+            }
+
+            // =====================================================================
+            // Tablet (iPad) Touch & Desktop Pointer Selection Engine
+            // =====================================================================
+            var touchDownX = 0, touchDownY = 0, touchDownTime = 0;
+            var isTouchMoving = false;
+            var lastScreenPickTime = 0;
+
+            function isInteractiveUiElement(target) {
+                if (!target || !target.closest) return false;
+                return !!target.closest('#header-bar, #desktop-info-panel, #bim-filter-panel, #loading-toast, #VRButton, #btn-export-glb, #btn-nft-marker, #nft-marker-modal, #ar-entry-btn, #clash-review-modal, #measure-hud, #section-panel, #telemetry-panel, #vr-guide-modal, #floating-ui-dock, #floating-sidebar-toggle-right, #floating-sidebar-toggle-left');
+            }
+
+            // iPad / Mobile touchstart
+            window.addEventListener('touchstart', function(e) {
+                if (e.touches && e.touches.length === 1) {
+                    touchDownX = e.touches[0].clientX;
+                    touchDownY = e.touches[0].clientY;
+                    touchDownTime = performance.now();
+                    isTouchMoving = false;
+                }
+            }, { passive: true });
+
+            window.addEventListener('touchmove', function(e) {
+                if (e.touches && e.touches.length === 1) {
+                    var dx = e.touches[0].clientX - touchDownX;
+                    var dy = e.touches[0].clientY - touchDownY;
+                    if (Math.hypot(dx, dy) > 22) {
+                        isTouchMoving = true;
+                    }
+                }
+            }, { passive: true });
+
+            // iPad / Mobile touchend: Fires reliably even when OrbitControls prevents click on canvas!
+            window.addEventListener('touchend', function(e) {
+                if (!isTouchMoving && e.changedTouches && e.changedTouches.length === 1) {
+                    var elapsed = performance.now() - touchDownTime;
+                    var dx = e.changedTouches[0].clientX - touchDownX;
+                    var dy = e.changedTouches[0].clientY - touchDownY;
+                    var dist = Math.hypot(dx, dy);
+
+                    // Touch tap threshold: < 380ms duration and < 24px distance
+                    if (elapsed < 380 && dist < 24) {
+                        var cx = e.changedTouches[0].clientX;
+                        var cy = e.changedTouches[0].clientY;
+                        var el = document.elementFromPoint(cx, cy);
+                        if (!isInteractiveUiElement(el)) {
+                            lastScreenPickTime = performance.now();
+                            handleScreenSelection(cx, cy);
+                        }
+                    }
+                }
+            }, { passive: true });
+
+            // Desktop Mouse Pointer
+            var pointerDownPos = { x: 0, y: 0 };
+            window.addEventListener('pointerdown', function(e) {
+                if (e.pointerType === 'mouse' || e.pointerType === 'pen') {
+                    pointerDownPos.x = e.clientX;
+                    pointerDownPos.y = e.clientY;
+                }
+            });
+
+            window.addEventListener('click', function(e) {
+                if (isInteractiveUiElement(e.target)) return;
+                // If touchend just handled this tap on iPad/touchscreen, skip duplicate click
+                if (performance.now() - lastScreenPickTime < 450) return;
+
+                var dragDist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
+                if (dragDist > 18) return;
+
+                handleScreenSelection(e.clientX, e.clientY);
             });
 
             // =====================================================================
@@ -4882,10 +4987,19 @@
                 });
             }
 
-            // Flag Clash Button in Info Panel (Checks for duplicates)
-            document.getElementById('btn-flag-clash').addEventListener('click', function() {
+            // =====================================================================
+            // Flag Clash Function (Shared between Desktop, iPad & VR)
+            // =====================================================================
+            var lastFlagClashTime = 0;
+            function flagCurrentSelectionAsClash() {
+                var now = performance.now();
+                if (now - lastFlagClashTime < 450) return; // Debounce double-tap / double-trigger
+                lastFlagClashTime = now;
+
                 if (!selectedMesh) {
-                    showPlatformNotification('⚠️ يرجى النقر على أي عنصر أولاً لتحديده في الفراغ قبل تسجيل التعارض.');
+                    var msgNoSel = '⚠️ يرجى النقر على أي عنصر أولاً لتحديده في الفراغ قبل تسجيل التعارض.';
+                    showPlatformNotification(msgNoSel);
+                    showToast('warning', msgNoSel, 3500);
                     return;
                 }
                 var data = selectedMesh.userData || {};
@@ -4910,7 +5024,12 @@
                 }
 
                 if (isDuplicate) {
-                    alert('⚠️ تنبيه: هذا العنصر مكرر!\n\nتم تسجيل هذا العنصر وتوثيقه مسبقاً في سجل التعارضات (' + targetId + ')، ولا يمكن إضافته أكثر من مرة.');
+                    var dupMsg = '⚠️ هذا العنصر مسجل مسبقاً في سجل التعارضات (' + targetId + ')';
+                    showPlatformNotification(dupMsg);
+                    showToast('warning', dupMsg, 4000);
+                    if (renderer.xr.isPresenting && typeof renderVRPanelCanvas === 'function') {
+                        renderVRPanelCanvas(data, true);
+                    }
                     return;
                 }
 
@@ -4943,12 +5062,34 @@
 
                 updateClashCounter();
                 renderClashModalList();
-                clashModal.style.display = 'block';
-                panel.style.display = 'none';
-                if (typeof filterPanel !== 'undefined' && filterPanel) filterPanel.style.display = 'none';
+
+                if (renderer.xr.isPresenting) {
+                    // Inside VR: update the 3D floating panel to confirmed state
+                    if (typeof renderVRPanelCanvas === 'function') {
+                        renderVRPanelCanvas(data, true);
+                    }
+                } else {
+                    clashModal.style.display = 'block';
+                    panel.style.display = 'none';
+                    if (typeof filterPanel !== 'undefined' && filterPanel) filterPanel.style.display = 'none';
+                }
 
                 showPlatformNotification('🚩 تم توثيق التعارض بنجاح: ' + targetId + ' (أضيف لسجل التعارضات)');
-            });
+                showToast('success', '🚩 تم تسجيل التعارض بنجاح: ' + targetId, 4000);
+            }
+
+            var btnFlagClash = document.getElementById('btn-flag-clash');
+            if (btnFlagClash) {
+                function flagClashClickHandler(e) {
+                    if (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
+                    flagCurrentSelectionAsClash();
+                }
+                btnFlagClash.addEventListener('click', flagClashClickHandler);
+                btnFlagClash.addEventListener('touchend', flagClashClickHandler);
+            }
 
             // Export CSV (Handles both lab predefined clashes and custom flagged issues)
             function exportClashesCSV() {
@@ -5894,7 +6035,7 @@
             }
 
             // =====================================================================
-            // 18. WebXR 6-DoF VR Controllers & Laser Pointer Engine
+            // 18. WebXR 6-DoF VR Controllers, Laser Pointer & In-VR 3D Floating BIM Panel
             // =====================================================================
             var controller1 = renderer.xr.getController(0);
             var controller2 = renderer.xr.getController(1);
@@ -5914,47 +6055,222 @@
             var vrMatrix = new THREE.Matrix4();
             var vrRaycaster = new THREE.Raycaster();
 
-            function handleVRSelect(event) {
+            // -----------------------------------------------------------------
+            // In-VR 3D Floating BIM Inspection & Clash Flagging Panel
+            // (Visible inside Meta Quest 3 headset where 2D DOM is invisible)
+            // -----------------------------------------------------------------
+            var floatingVRPanel = null;
+            var vrPanelCanvas = null;
+            var vrPanelTexture = null;
+
+            function renderVRPanelCanvas(data, isClashFlagged) {
+                if (!vrPanelCanvas) {
+                    vrPanelCanvas = document.createElement('canvas');
+                    vrPanelCanvas.width = 1024;
+                    vrPanelCanvas.height = 640;
+                }
+                var ctx = vrPanelCanvas.getContext('2d');
+                ctx.clearRect(0, 0, 1024, 640);
+
+                // Background Glass Card
+                ctx.fillStyle = 'rgba(15, 23, 42, 0.97)';
+                if (ctx.roundRect) {
+                    ctx.beginPath();
+                    ctx.roundRect(10, 10, 1004, 620, 26);
+                    ctx.fill();
+                    ctx.lineWidth = 6;
+                    ctx.strokeStyle = isClashFlagged ? '#ef4444' : '#00f0ff';
+                    ctx.stroke();
+                } else {
+                    ctx.fillRect(10, 10, 1004, 620);
+                    ctx.lineWidth = 6;
+                    ctx.strokeStyle = isClashFlagged ? '#ef4444' : '#00f0ff';
+                    ctx.strokeRect(10, 10, 1004, 620);
+                }
+
+                // Header Top Banner
+                ctx.fillStyle = isClashFlagged ? 'rgba(239, 68, 68, 0.28)' : 'rgba(0, 240, 255, 0.16)';
+                ctx.fillRect(16, 16, 992, 92);
+
+                // Title: "بيانات العنصر المختار"
+                ctx.font = 'bold 38px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+                ctx.fillStyle = isClashFlagged ? '#f87171' : '#00f0ff';
+                ctx.textAlign = 'right';
+                ctx.direction = 'rtl';
+                ctx.fillText('🥽 بيانات العنصر المختار (BIM Metadata)', 960, 74);
+
+                // Close button (X) top left
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = 'bold 44px sans-serif';
+                ctx.textAlign = 'left';
+                ctx.direction = 'ltr';
+                ctx.fillText('✕', 42, 76);
+
+                // Divider Line
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(30, 114);
+                ctx.lineTo(994, 114);
+                ctx.stroke();
+
+                // Property rows
+                var startY = 170;
+                var lineH = 55;
+                var props = [
+                    { label: 'المعرف (Element ID):', val: data.elementId || 'عنصر BIM' },
+                    { label: 'التصنيف (Category):', val: data.category || 'عام' },
+                    { label: 'النظام (System):', val: data.system || 'Architectural / MEP' },
+                    { label: 'الأبعاد / القطر:', val: data.dimensions || 'أبعاد هندسية حقيقية' },
+                    { label: 'حالة الفحص:', val: data.status || 'جاهز للمعاينة الفراغية' }
+                ];
+
+                for (var i = 0; i < props.length; i++) {
+                    var y = startY + i * lineH;
+                    ctx.font = 'bold 28px sans-serif';
+                    ctx.fillStyle = '#38bdf8';
+                    ctx.textAlign = 'right';
+                    ctx.direction = 'rtl';
+                    ctx.fillText(props[i].label, 960, y);
+
+                    ctx.font = '600 28px sans-serif';
+                    ctx.fillStyle = '#f1f5f9';
+                    ctx.fillText(props[i].val, 640, y);
+                }
+
+                // Action Button at bottom: "🚩 تسجيل كتعارض تشغيلي"
+                if (isClashFlagged) {
+                    ctx.fillStyle = '#10b981';
+                    if (ctx.roundRect) {
+                        ctx.beginPath();
+                        ctx.roundRect(100, 485, 824, 100, 20);
+                        ctx.fill();
+                    } else {
+                        ctx.fillRect(100, 485, 824, 100);
+                    }
+                    ctx.font = 'bold 36px sans-serif';
+                    ctx.fillStyle = '#ffffff';
+                    ctx.textAlign = 'center';
+                    ctx.direction = 'rtl';
+                    ctx.fillText('✅ تم توثيق التعارض بنجاح في السجل الفراغي', 512, 550);
+                } else {
+                    ctx.fillStyle = '#ef4444';
+                    if (ctx.roundRect) {
+                        ctx.beginPath();
+                        ctx.roundRect(100, 485, 824, 100, 20);
+                        ctx.fill();
+                    } else {
+                        ctx.fillRect(100, 485, 824, 100);
+                    }
+                    ctx.lineWidth = 4;
+                    ctx.strokeStyle = '#fca5a5';
+                    ctx.stroke();
+
+                    ctx.font = 'bold 35px sans-serif';
+                    ctx.fillStyle = '#ffffff';
+                    ctx.textAlign = 'center';
+                    ctx.direction = 'rtl';
+                    ctx.fillText('🚩 تسجيل كتعارض تشغيلي (اضغط الزناد أو Grip)', 512, 550);
+                }
+
+                if (vrPanelTexture) {
+                    vrPanelTexture.needsUpdate = true;
+                }
+            }
+
+            function createOrUpdateFloatingVRPanel(data, hitPoint) {
+                renderVRPanelCanvas(data, false);
+                if (!floatingVRPanel) {
+                    vrPanelTexture = new THREE.CanvasTexture(vrPanelCanvas);
+                    vrPanelTexture.minFilter = THREE.LinearFilter;
+                    vrPanelTexture.magFilter = THREE.LinearFilter;
+                    var mat = new THREE.MeshBasicMaterial({
+                        map: vrPanelTexture,
+                        transparent: true,
+                        side: THREE.DoubleSide,
+                        depthTest: false
+                    });
+                    var geo = new THREE.PlaneGeometry(1.0, 0.625);
+                    floatingVRPanel = new THREE.Mesh(geo, mat);
+                    floatingVRPanel.name = 'VR_Floating_BIM_Panel';
+                    floatingVRPanel.userData = { isVRPanel: true };
+                    floatingVRPanel.renderOrder = 9999;
+                    scene.add(floatingVRPanel);
+                } else {
+                    floatingVRPanel.visible = true;
+                    if (vrPanelTexture) vrPanelTexture.needsUpdate = true;
+                }
+
+                var camPos = camera.position.clone();
+                var camDir = new THREE.Vector3();
+                camera.getWorldDirection(camDir);
+
+                if (hitPoint && camPos.distanceTo(hitPoint) < 2.5 && camPos.distanceTo(hitPoint) > 0.4) {
+                    var toCam = new THREE.Vector3().subVectors(camPos, hitPoint).normalize();
+                    floatingVRPanel.position.copy(hitPoint).add(toCam.multiplyScalar(0.45)).add(new THREE.Vector3(0, 0.25, 0));
+                } else {
+                    floatingVRPanel.position.copy(camPos).add(camDir.multiplyScalar(1.25)).add(new THREE.Vector3(0, -0.1, 0));
+                }
+                floatingVRPanel.lookAt(camPos);
+            }
+
+            function hideFloatingVRPanel() {
+                if (floatingVRPanel) {
+                    floatingVRPanel.visible = false;
+                }
+            }
+
+            async function handleVRSelect(event) {
                 var ctrl = event.target;
-                console.log('[VR] select event on controller', ctrl && ctrl.uuid);
-                // Ensure the controller's world matrix is up-to-date before raycasting
+                if (!ctrl) return;
                 ctrl.updateWorldMatrix(true, false);
                 vrMatrix.identity().extractRotation(ctrl.matrixWorld);
                 vrRaycaster.ray.origin.setFromMatrixPosition(ctrl.matrixWorld);
                 vrRaycaster.ray.direction.set(0, 0, -1).applyMatrix4(vrMatrix);
 
-                console.log('[VR] ray origin:', [vrRaycaster.ray.origin.x.toFixed(2), vrRaycaster.ray.origin.y.toFixed(2), vrRaycaster.ray.origin.z.toFixed(2)]);
-                console.log('[VR] scene children:', scene.children.length, 'bimElements:', bimElements.length);
-
-                // Intersect against the scene graph so split storey meshes and
-                // the loaded model (GLB/IFC) are pickable in VR.
-                var hits = vrRaycaster.intersectObjects(scene.children, true);
-                console.log('[VR] hit count:', hits.length);
-                for (var i = 0; i < hits.length; i++) {
-                    var obj = hits[i].object;
-                    if (obj === controller1 || obj === controller2 || obj.parent === controller1 || obj.parent === controller2) continue;
-                    if (obj.parent === measureGroup || obj === ifcHighlightMesh || (obj.userData && obj.userData.isClashSphere)) continue;
-                    while (obj && obj !== scene) {
-                        if (obj.userData && obj.userData.isBIM) {
-                            var hitBIM = obj.userData.parentBIM || obj;
-                            console.log('[VR] picked BIM element:', hitBIM.name || 'unnamed');
-                            applyObjectHighlight(hitBIM);
-                            return;
+                // 1. Check if laser points at the In-VR Floating BIM Panel
+                if (floatingVRPanel && floatingVRPanel.visible) {
+                    var panelHits = vrRaycaster.intersectObject(floatingVRPanel, false);
+                    if (panelHits.length > 0) {
+                        var uv = panelHits[0].uv;
+                        if (uv) {
+                            // Close button (X): top-left in canvas is low U and high V
+                            if (uv.x <= 0.18 && uv.y >= 0.78) {
+                                hideFloatingVRPanel();
+                                return;
+                            }
+                            // "🚩 تسجيل كتعارض تشغيلي" button at bottom of panel
+                            if (uv.x >= 0.08 && uv.x <= 0.92 && uv.y >= 0.04 && uv.y <= 0.30) {
+                                flagCurrentSelectionAsClash();
+                                return;
+                            }
                         }
-                        obj = obj.parent;
                     }
+                }
+
+                // 2. Raycast against scene objects using the unified selection engine
+                var didSelect = await executeSelection(vrRaycaster, true, null);
+                if (!didSelect && floatingVRPanel && floatingVRPanel.visible) {
+                    // Clicking into empty space closes the floating panel
+                    hideFloatingVRPanel();
                 }
             }
 
-            // Bind select listener — in Three.js r128 getController(id) returns
-            // the session-managed controller, so we (re)bind on each session start.
-            // selectstart fires immediately on trigger-press for responsive targeting.
+            function handleVRSqueeze(event) {
+                // Squeeze / Grip button on Meta Quest controller flags the current selection as a clash
+                if (selectedMesh) {
+                    flagCurrentSelectionAsClash();
+                }
+            }
+
+            // Bind select & squeeze listeners to VR controllers
             function bindControllerSelect(controller, force) {
                 if (!controller) return;
                 if (controller._boundSelect && !force) return;
                 controller._boundSelect = true;
                 controller.addEventListener('select', handleVRSelect);
                 controller.addEventListener('selectstart', handleVRSelect);
+                controller.addEventListener('squeezestart', handleVRSqueeze);
             }
 
             controller1._boundSelect = false;
@@ -6420,6 +6736,9 @@
                 var delta = clock.getDelta();
                 if (clashBeacon && clashBeacon.visible) {
                     clashBeacon.rotation.z += delta * 0.8;
+                }
+                if (typeof floatingVRPanel !== 'undefined' && floatingVRPanel && floatingVRPanel.visible) {
+                    floatingVRPanel.lookAt(camera.position);
                 }
                 // Only update OrbitControls when NOT in an immersive XR session.
                 // In VR/AR the headset pose drives the camera, so calling
