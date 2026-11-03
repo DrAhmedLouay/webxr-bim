@@ -6977,8 +6977,8 @@
 
                         // LEFT CONTROLLER: LOCOMOTION (Movement)
                         if (source.handedness === 'left') {
-                            var stickX = axes[2] || 0; // thumbstick X (strafe left/right)
-                            var stickY = axes[3] || 0; // thumbstick Y (forward/backward)
+                            var stickX = axes[0] || 0; // thumbstick X (strafe left/right)
+                            var stickY = axes[1] || 0; // thumbstick Y (forward/backward)
 
                             if (Math.abs(stickX) > deadzone || Math.abs(stickY) > deadzone) {
                                 // Get camera direction in world space
@@ -7000,7 +7000,7 @@
 
                         // RIGHT CONTROLLER: SNAP TURN (Rotation)
                         if (source.handedness === 'right') {
-                            var turnX = axes[2] || 0; // thumbstick X (left/right turn)
+                            var turnX = axes[0] || 0; // thumbstick X (left/right turn)
                             var deadzoneTurn = 0.25; // higher deadzone for turn
 
                             if (Math.abs(turnX) > deadzoneTurn) {
