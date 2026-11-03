@@ -6212,6 +6212,10 @@
                     floatingVRPanel.position.copy(camPos).add(camDir.multiplyScalar(1.25)).add(new THREE.Vector3(0, -0.1, 0));
                 }
                 floatingVRPanel.lookAt(camPos);
+                
+                // Store initial grab state
+                floatingVRPanel.userData.grabbed = false;
+                floatingVRPanel.userData.grabOffset = new THREE.Vector3();
             }
 
             function hideFloatingVRPanel() {
@@ -6219,6 +6223,11 @@
                     floatingVRPanel.visible = false;
                 }
             }
+
+            // Variables for panel dragging
+            var panelGrabbedByController = null;
+            var panelGrabOffset = new THREE.Vector3();
+            var panelGrabbed = false;
 
             async function handleVRSelect(event) {
                 var ctrl = event.target;
@@ -6242,6 +6251,19 @@
                             // "🚩 تسجيل كتعارض تشغيلي" button at bottom of panel
                             if (uv.x >= 0.08 && uv.x <= 0.92 && uv.y >= 0.04 && uv.y <= 0.30) {
                                 flagCurrentSelectionAsClash();
+                                return;
+                            }
+                            // Panel body drag area (middle section)
+                            if (uv.x >= 0.18 && uv.x <= 0.92 && uv.y >= 0.30 && uv.y <= 0.78) {
+                                // Start dragging the panel
+                                panelGrabbed = true;
+                                panelGrabbedByController = ctrl;
+                                // Calculate grab offset in world space
+                                var panelWorldPos = new THREE.Vector3();
+                                floatingVRPanel.getWorldPosition(panelWorldPos);
+                                var controllerWorldPos = new THREE.Vector3();
+                                ctrl.getWorldPosition(controllerWorldPos);
+                                panelGrabOffset.subVectors(panelWorldPos, controllerWorldPos);
                                 return;
                             }
                         }
@@ -6270,7 +6292,19 @@
                 controller._boundSelect = true;
                 controller.addEventListener('select', handleVRSelect);
                 controller.addEventListener('selectstart', handleVRSelect);
+                controller.addEventListener('selectend', function() {
+                    if (panelGrabbed && panelGrabbedByController === this) {
+                        panelGrabbed = false;
+                        panelGrabbedByController = null;
+                    }
+                });
                 controller.addEventListener('squeezestart', handleVRSqueeze);
+                controller.addEventListener('squeezeend', function() {
+                    if (panelGrabbed && panelGrabbedByController === this) {
+                        panelGrabbed = false;
+                        panelGrabbedByController = null;
+                    }
+                });
             }
 
             controller1._boundSelect = false;
@@ -6739,6 +6773,42 @@
                 }
                 if (typeof floatingVRPanel !== 'undefined' && floatingVRPanel && floatingVRPanel.visible) {
                     floatingVRPanel.lookAt(camera.position);
+                }
+                // Handle floating VR panel dragging
+                if (panelGrabbed && panelGrabbedByController) {
+                    var controllerWorldPos = new THREE.Vector3();
+                    panelGrabbedByController.getWorldPosition(controllerWorldPos);
+                    var targetPanelPos = new THREE.Vector3().addVectors(controllerWorldPos, panelGrabOffset);
+                    floatingVRPanel.position.lerp(targetPanelPos, 0.2);
+                    floatingVRPanel.lookAt(camera.position);
+                }
+                // VR Locomotion via thumbstick (left controller)
+                if (session && session.inputSources) {
+                    session.inputSources.forEach(function(source) {
+                        if (source.handedness === 'left' && source.gamepad && source.gamepad.axes) {
+                            var axes = source.gamepad.axes;
+                            // axes[2] = thumbstick X, axes[3] = thumbstick Y (standard gamepad mapping)
+                            var stickX = axes[2] || 0;
+                            var stickY = axes[3] || 0;
+                            var deadzone = 0.15;
+                            if (Math.abs(stickX) > deadzone || Math.abs(stickY) > deadzone) {
+                                var camDir = new THREE.Vector3();
+                                camera.getWorldDirection(camDir);
+                                camDir.y = 0; // keep movement horizontal
+                                camDir.normalize();
+                                var camRight = new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0), camDir).normalize();
+                                var moveSpeed = 2.5; // meters per second
+                                var moveX = -stickX * moveSpeed * delta;
+                                var moveZ = -stickY * moveSpeed * delta;
+                                camera.position.add(camRight.multiplyScalar(moveX));
+                                camera.position.add(camDir.multiplyScalar(moveZ));
+                                if (controls && controls.target) {
+                                    controls.target.add(camRight.multiplyScalar(moveX));
+                                    controls.target.add(camDir.multiplyScalar(moveZ));
+                                }
+                            }
+                        }
+                    });
                 }
                 // Only update OrbitControls when NOT in an immersive XR session.
                 // In VR/AR the headset pose drives the camera, so calling
