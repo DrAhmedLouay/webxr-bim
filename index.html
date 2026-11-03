@@ -6090,6 +6090,8 @@
             var vrReferenceSpace = null;
             var vrLocomotionOffset = { x: 0, y: 0, z: 0 };
             var vrLocomotionSpeed = 3.0; // meters per second
+            var vrTurnSpeed = 1.5; // radians per second
+            var vrCurrentReferenceSpace = null;
 
             function renderVRPanelCanvas(data, isClashFlagged) {
                 if (!vrPanelCanvas) {
@@ -6965,41 +6967,78 @@
                     floatingVRPanel.position.lerp(targetPanelPos, 0.2);
                     floatingVRPanel.lookAt(camera.position);
                 }
-                // VR Locomotion via thumbstick (left controller)
+                // VR Locomotion (Left Thumbstick) + Snap Turn (Right Thumbstick)
                 if (session && session.inputSources) {
                     session.inputSources.forEach(function(source) {
-                        if (source.handedness === 'left' && source.gamepad && source.gamepad.axes) {
-                            var axes = source.gamepad.axes;
-                            // axes[2] = thumbstick X, axes[3] = thumbstick Y (standard gamepad mapping)
-                            var stickX = axes[2] || 0;
-                            var stickY = axes[3] || 0;
-                            var deadzone = 0.15;
+                        if (!source.gamepad || !source.gamepad.axes) return;
+
+                        var axes = source.gamepad.axes;
+                        var deadzone = 0.15;
+
+                        // LEFT CONTROLLER: LOCOMOTION (Movement)
+                        if (source.handedness === 'left') {
+                            var stickX = axes[2] || 0; // thumbstick X (strafe left/right)
+                            var stickY = axes[3] || 0; // thumbstick Y (forward/backward)
+
                             if (Math.abs(stickX) > deadzone || Math.abs(stickY) > deadzone) {
-                                // Accumulate locomotion offset in reference space coordinates
+                                // Get camera direction in world space
                                 var camDir = new THREE.Vector3();
                                 camera.getWorldDirection(camDir);
                                 camDir.y = 0; // keep movement horizontal
                                 camDir.normalize();
-                                var camRight = new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0), camDir).normalize();
+                                var camRight = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), camDir).normalize();
+
                                 var moveSpeed = vrLocomotionSpeed;
-                                var moveX = -stickX * moveSpeed * delta;
-                                var moveZ = -stickY * moveSpeed * delta;
-                                // Accumulate in world space, will be applied to reference space offset
+                                var moveX = -stickX * moveSpeed * delta; // strafe left/right
+                                var moveZ = -stickY * moveSpeed * delta; // forward/backward
+
+                                // Accumulate offset in world space
                                 vrLocomotionOffset.x += camRight.x * moveX + camDir.x * moveZ;
                                 vrLocomotionOffset.z += camRight.z * moveX + camDir.z * moveZ;
                             }
                         }
+
+                        // RIGHT CONTROLLER: SNAP TURN (Rotation)
+                        if (source.handedness === 'right') {
+                            var turnX = axes[2] || 0; // thumbstick X (left/right turn)
+                            var deadzoneTurn = 0.25; // higher deadzone for turn
+
+                            if (Math.abs(turnX) > deadzoneTurn) {
+                                var turnAmount = -turnX * vrTurnSpeed * delta;
+
+                                if (vrCurrentReferenceSpace) {
+                                    try {
+                                        var halfAngle = turnAmount / 2;
+                                        var sinHalf = Math.sin(halfAngle);
+                                        var cosHalf = Math.cos(halfAngle);
+
+                                        var newOrigin = vrCurrentReferenceSpace.getOffsetReferenceSpace(
+                                            new XRRigidTransform(
+                                                { x: 0, y: 0, z: 0 },
+                                                { x: 0, y: sinHalf, z: 0, w: cosHalf }
+                                            )
+                                        );
+                                        renderer.xr.setReferenceSpace(newOrigin);
+                                        vrCurrentReferenceSpace = newOrigin;
+                                    } catch (e) {
+                                        console.warn('Failed to apply snap turn:', e);
+                                    }
+                                }
+                            }
+                        }
                     });
-                    // Apply accumulated offset to reference space
-                    if (vrReferenceSpace && (vrLocomotionOffset.x !== 0 || vrLocomotionOffset.z !== 0)) {
+
+                    // Apply accumulated locomotion offset to reference space
+                    if (vrCurrentReferenceSpace && (vrLocomotionOffset.x !== 0 || vrLocomotionOffset.z !== 0)) {
                         try {
-                            var newOrigin = vrReferenceSpace.getOffsetReferenceSpace(
+                            var newOrigin = vrCurrentReferenceSpace.getOffsetReferenceSpace(
                                 new XRRigidTransform(
                                     { x: vrLocomotionOffset.x, y: 0, z: vrLocomotionOffset.z },
                                     { x: 0, y: 0, z: 0, w: 1 }
                                 )
                             );
                             renderer.xr.setReferenceSpace(newOrigin);
+                            vrCurrentReferenceSpace = newOrigin;
                             // Reset offset after applying
                             vrLocomotionOffset.x = 0;
                             vrLocomotionOffset.z = 0;
