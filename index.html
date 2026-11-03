@@ -1802,10 +1802,14 @@
                         // inputsourceschange, so we re-bind unconditionally here.
                         if (typeof controller1 !== 'undefined' && controller1) bindControllerSelect(controller1, true);
                         if (typeof controller2 !== 'undefined' && controller2) bindControllerSelect(controller2, true);
+                        // Create the persistent VR toggle button
+                        vrPanelVisible = false;
+                        if (typeof createOrUpdateVRToggleButton === 'function') createOrUpdateVRToggleButton();
                         session.addEventListener('end', function() {
                             activeVRSession = null;
                             controls.enabled = true;  // restore desktop orbit on session end
                             if (typeof hideFloatingVRPanel === 'function') hideFloatingVRPanel();
+                            if (typeof hideVRToggleButton === 'function') hideVRToggleButton();
                             showToast('info', 'تم إنهاء جلسة الواقع الافتراضي (VR)', 2500);
                         });
                         showToast('success', 'تم تشغيل جلسة الواقع الافتراضي (VR) بنجاح', 3000);
@@ -5064,9 +5068,15 @@
                 renderClashModalList();
 
                 if (renderer.xr.isPresenting) {
-                    // Inside VR: update the 3D floating panel to confirmed state
+                    // Inside VR: update the 3D floating panel to confirmed state briefly, then hide
                     if (typeof renderVRPanelCanvas === 'function') {
                         renderVRPanelCanvas(data, true);
+                        // Hide panel after brief confirmation
+                        setTimeout(function() {
+                            vrPanelVisible = false;
+                            if (typeof updateVRToggleButtonState === 'function') updateVRToggleButtonState();
+                            if (typeof hideFloatingVRPanel === 'function') hideFloatingVRPanel();
+                        }, 2500);
                     }
                 } else {
                     clashModal.style.display = 'block';
@@ -6062,6 +6072,10 @@
             var floatingVRPanel = null;
             var vrPanelCanvas = null;
             var vrPanelTexture = null;
+            var vrToggleButton = null;
+            var vrToggleCanvas = null;
+            var vrToggleTexture = null;
+            var vrPanelVisible = false;
 
             function renderVRPanelCanvas(data, isClashFlagged) {
                 if (!vrPanelCanvas) {
@@ -6178,6 +6192,122 @@
                 }
             }
 
+            // -----------------------------------------------------------------
+            // In-VR Persistent Toggle Button (Right Side)
+            // -----------------------------------------------------------------
+            function renderVRToggleButton(isPanelOpen) {
+                if (!vrToggleCanvas) {
+                    vrToggleCanvas = document.createElement('canvas');
+                    vrToggleCanvas.width = 256;
+                    vrToggleCanvas.height = 256;
+                }
+                var ctx = vrToggleCanvas.getContext('2d');
+                ctx.clearRect(0, 0, 256, 256);
+
+                // Circular button background
+                var centerX = 128;
+                var centerY = 128;
+                var radius = 110;
+
+                // Outer glow ring
+                var gradient = ctx.createRadialGradient(centerX, centerY, radius * 0.6, centerX, centerY, radius);
+                gradient.addColorStop(0, 'rgba(0, 240, 255, 0.35)');
+                gradient.addColorStop(1, 'rgba(0, 240, 255, 0)');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Main button circle
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+                ctx.fill();
+                ctx.lineWidth = 4;
+                ctx.strokeStyle = '#00f0ff';
+                ctx.stroke();
+
+                // Inner accent ring
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius - 8, 0, Math.PI * 2);
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = 'rgba(0, 240, 255, 0.5)';
+                ctx.stroke();
+
+                // BIM Icon / Panel Icon
+                ctx.font = 'bold 72px sans-serif';
+                ctx.fillStyle = '#00f0ff';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('📋', centerX, centerY - 4);
+
+                // Status indicator dot
+                ctx.beginPath();
+                ctx.arc(centerX + 70, centerY - 70, 16, 0, Math.PI * 2);
+                ctx.fillStyle = vrPanelVisible ? '#10b981' : '#ef4444';
+                ctx.fill();
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = '#ffffff';
+                ctx.stroke();
+
+                // Label below
+                ctx.font = 'bold 22px sans-serif';
+                ctx.fillStyle = '#f1f5f9';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+                ctx.fillText('بيانات BIM', centerX, centerY + radius + 8);
+
+                if (vrToggleTexture) {
+                    vrToggleTexture.needsUpdate = true;
+                }
+            }
+
+            function createOrUpdateVRToggleButton() {
+                renderVRToggleButton(vrPanelVisible);
+                if (!vrToggleButton) {
+                    vrToggleTexture = new THREE.CanvasTexture(vrToggleCanvas);
+                    vrToggleTexture.minFilter = THREE.LinearFilter;
+                    vrToggleTexture.magFilter = THREE.LinearFilter;
+                    var mat = new THREE.MeshBasicMaterial({
+                        map: vrToggleTexture,
+                        transparent: true,
+                        side: THREE.DoubleSide,
+                        depthTest: false
+                    });
+                    var geo = new THREE.PlaneGeometry(0.5, 0.5);
+                    vrToggleButton = new THREE.Mesh(geo, mat);
+                    vrToggleButton.name = 'VR_Toggle_BIM_Panel';
+                    vrToggleButton.userData = { isVRToggle: true };
+                    vrToggleButton.renderOrder = 9998;
+                    scene.add(vrToggleButton);
+                } else {
+                    vrToggleButton.visible = true;
+                    if (vrToggleTexture) vrToggleTexture.needsUpdate = true;
+                }
+
+                // Position on right side, slightly below eye level
+                var camPos = camera.position.clone();
+                var camDir = new THREE.Vector3();
+                camera.getWorldDirection(camDir);
+                var camRight = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), camDir).normalize();
+
+                vrToggleButton.position.copy(camPos).add(camDir.multiplyScalar(1.5)).add(camRight.multiplyScalar(1.2)).add(new THREE.Vector3(0, -0.3, 0));
+                vrToggleButton.lookAt(camPos);
+            }
+
+            function hideVRToggleButton() {
+                if (vrToggleButton) {
+                    vrToggleButton.visible = false;
+                }
+            }
+
+            function updateVRToggleButtonState() {
+                if (vrToggleButton && vrToggleTexture) {
+                    renderVRToggleButton(vrPanelVisible);
+                    vrToggleTexture.needsUpdate = true;
+                }
+            }
+
             function createOrUpdateFloatingVRPanel(data, hitPoint) {
                 renderVRPanelCanvas(data, false);
                 if (!floatingVRPanel) {
@@ -6196,10 +6326,11 @@
                     floatingVRPanel.userData = { isVRPanel: true };
                     floatingVRPanel.renderOrder = 9999;
                     scene.add(floatingVRPanel);
-                } else {
-                    floatingVRPanel.visible = true;
-                    if (vrPanelTexture) vrPanelTexture.needsUpdate = true;
-                }
+                } 
+                
+                // Only show panel if explicitly requested via toggle button
+                floatingVRPanel.visible = vrPanelVisible;
+                if (vrPanelTexture) vrPanelTexture.needsUpdate = true;
 
                 var camPos = camera.position.clone();
                 var camDir = new THREE.Vector3();
@@ -6237,6 +6368,26 @@
                 vrRaycaster.ray.origin.setFromMatrixPosition(ctrl.matrixWorld);
                 vrRaycaster.ray.direction.set(0, 0, -1).applyMatrix4(vrMatrix);
 
+                // 0. Check if laser points at the VR Toggle Button (right side)
+                if (vrToggleButton && vrToggleButton.visible) {
+                    var toggleHits = vrRaycaster.intersectObject(vrToggleButton, false);
+                    if (toggleHits.length > 0) {
+                        vrPanelVisible = !vrPanelVisible;
+                        updateVRToggleButtonState();
+                        if (vrPanelVisible) {
+                            // Create/update panel with current selection data
+                            if (selectedMesh) {
+                                createOrUpdateFloatingVRPanel(selectedMesh.userData, null);
+                            } else {
+                                createOrUpdateFloatingVRPanel({elementId: 'لا يوجد عنصر محدد', category: '-', system: '-', dimensions: '-', status: 'حدد عنصراً أولاً'}, null);
+                            }
+                        } else {
+                            hideFloatingVRPanel();
+                        }
+                        return;
+                    }
+                }
+
                 // 1. Check if laser points at the In-VR Floating BIM Panel
                 if (floatingVRPanel && floatingVRPanel.visible) {
                     var panelHits = vrRaycaster.intersectObject(floatingVRPanel, false);
@@ -6245,12 +6396,18 @@
                         if (uv) {
                             // Close button (X): top-left in canvas is low U and high V
                             if (uv.x <= 0.18 && uv.y >= 0.78) {
+                                vrPanelVisible = false;
+                                updateVRToggleButtonState();
                                 hideFloatingVRPanel();
                                 return;
                             }
                             // "🚩 تسجيل كتعارض تشغيلي" button at bottom of panel
                             if (uv.x >= 0.08 && uv.x <= 0.92 && uv.y >= 0.04 && uv.y <= 0.30) {
                                 flagCurrentSelectionAsClash();
+                                // Hide panel after clash registration
+                                vrPanelVisible = false;
+                                updateVRToggleButtonState();
+                                hideFloatingVRPanel();
                                 return;
                             }
                             // Panel body drag area (middle section)
@@ -6272,8 +6429,14 @@
 
                 // 2. Raycast against scene objects using the unified selection engine
                 var didSelect = await executeSelection(vrRaycaster, true, null);
+                // If panel is visible and we selected an element, update the panel content
+                if (didSelect && vrPanelVisible && floatingVRPanel) {
+                    createOrUpdateFloatingVRPanel(selectedMesh.userData, null);
+                }
                 if (!didSelect && floatingVRPanel && floatingVRPanel.visible) {
                     // Clicking into empty space closes the floating panel
+                    vrPanelVisible = false;
+                    updateVRToggleButtonState();
                     hideFloatingVRPanel();
                 }
             }
