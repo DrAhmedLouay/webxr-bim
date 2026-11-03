@@ -1805,6 +1805,13 @@
                         // Create the persistent VR toggle button
                         vrPanelVisible = false;
                         if (typeof createOrUpdateVRToggleButton === 'function') createOrUpdateVRToggleButton();
+                        // Initialize locomotion reference space offset
+                        vrLocomotionOffset = { x: 0, y: 0, z: 0 };
+                        if (renderer.xr.getReferenceSpace) {
+                            session.requestReferenceSpace('local-floor').then(function(refSpace) {
+                                vrReferenceSpace = refSpace;
+                            });
+                        }
                         session.addEventListener('end', function() {
                             activeVRSession = null;
                             controls.enabled = true;  // restore desktop orbit on session end
@@ -6077,6 +6084,13 @@
             var vrToggleTexture = null;
             var vrPanelVisible = false;
 
+            // -----------------------------------------------------------------
+            // VR Locomotion State (Reference Space Offset)
+            // -----------------------------------------------------------------
+            var vrReferenceSpace = null;
+            var vrLocomotionOffset = { x: 0, y: 0, z: 0 };
+            var vrLocomotionSpeed = 3.0; // meters per second
+
             function renderVRPanelCanvas(data, isClashFlagged) {
                 if (!vrPanelCanvas) {
                     vrPanelCanvas = document.createElement('canvas');
@@ -6429,8 +6443,14 @@
 
                 // 2. Raycast against scene objects using the unified selection engine
                 var didSelect = await executeSelection(vrRaycaster, true, null);
+                // If we selected an element, show the panel automatically
+                if (didSelect) {
+                    vrPanelVisible = true;
+                    updateVRToggleButtonState();
+                    createOrUpdateFloatingVRPanel(selectedMesh.userData, null);
+                }
                 // If panel is visible and we selected an element, update the panel content
-                if (didSelect && vrPanelVisible && floatingVRPanel) {
+                else if (vrPanelVisible && floatingVRPanel) {
                     createOrUpdateFloatingVRPanel(selectedMesh.userData, null);
                 }
                 if (!didSelect && floatingVRPanel && floatingVRPanel.visible) {
@@ -6955,23 +6975,38 @@
                             var stickY = axes[3] || 0;
                             var deadzone = 0.15;
                             if (Math.abs(stickX) > deadzone || Math.abs(stickY) > deadzone) {
+                                // Accumulate locomotion offset in reference space coordinates
                                 var camDir = new THREE.Vector3();
                                 camera.getWorldDirection(camDir);
                                 camDir.y = 0; // keep movement horizontal
                                 camDir.normalize();
                                 var camRight = new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0), camDir).normalize();
-                                var moveSpeed = 2.5; // meters per second
+                                var moveSpeed = vrLocomotionSpeed;
                                 var moveX = -stickX * moveSpeed * delta;
                                 var moveZ = -stickY * moveSpeed * delta;
-                                camera.position.add(camRight.multiplyScalar(moveX));
-                                camera.position.add(camDir.multiplyScalar(moveZ));
-                                if (controls && controls.target) {
-                                    controls.target.add(camRight.multiplyScalar(moveX));
-                                    controls.target.add(camDir.multiplyScalar(moveZ));
-                                }
+                                // Accumulate in world space, will be applied to reference space offset
+                                vrLocomotionOffset.x += camRight.x * moveX + camDir.x * moveZ;
+                                vrLocomotionOffset.z += camRight.z * moveX + camDir.z * moveZ;
                             }
                         }
                     });
+                    // Apply accumulated offset to reference space
+                    if (vrReferenceSpace && (vrLocomotionOffset.x !== 0 || vrLocomotionOffset.z !== 0)) {
+                        try {
+                            var newOrigin = vrReferenceSpace.getOffsetReferenceSpace(
+                                new XRRigidTransform(
+                                    { x: vrLocomotionOffset.x, y: 0, z: vrLocomotionOffset.z },
+                                    { x: 0, y: 0, z: 0, w: 1 }
+                                )
+                            );
+                            renderer.xr.setReferenceSpace(newOrigin);
+                            // Reset offset after applying
+                            vrLocomotionOffset.x = 0;
+                            vrLocomotionOffset.z = 0;
+                        } catch (e) {
+                            console.warn('Failed to update reference space for locomotion:', e);
+                        }
+                    }
                 }
                 // Only update OrbitControls when NOT in an immersive XR session.
                 // In VR/AR the headset pose drives the camera, so calling
