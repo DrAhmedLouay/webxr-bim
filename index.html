@@ -6971,11 +6971,39 @@
                     floatingVRPanel.position.lerp(targetPanelPos, 0.2);
                     floatingVRPanel.lookAt(camera.position);
                 }
-                // VR Locomotion (Left Thumbstick) & Snap Turn (Right Thumbstick) via cameraRig
+                // VR Locomotion (Left Thumbstick) + Snap Turn (Right Thumbstick) + B/Y Button Panel Toggle via cameraRig
                 if (session && session.inputSources) {
                     session.inputSources.forEach(function(source) {
-                        if (!source.gamepad || !source.gamepad.axes) return;
+                        if (!source.gamepad) return;
 
+                        // Check gamepad buttons for B / Y toggle (Button 4 on Quest controllers)
+                        if (source.gamepad.buttons && source.gamepad.buttons.length > 4) {
+                            var btn4 = source.gamepad.buttons[4];
+                            if (btn4 && btn4.pressed && !window._vrButton4Pressed) {
+                                window._vrButton4Pressed = true;
+                                vrPanelVisible = !vrPanelVisible;
+                                updateVRToggleButtonState();
+                                if (vrPanelVisible) {
+                                    if (typeof selectedMesh !== 'undefined' && selectedMesh && selectedMesh.userData) {
+                                        createOrUpdateFloatingVRPanel(selectedMesh.userData, null);
+                                    } else {
+                                        createOrUpdateFloatingVRPanel({
+                                            elementId: 'جاهز للمعاينة الفراغية',
+                                            category: 'نظام BIM التفاعلي',
+                                            system: 'Architectural / MEP',
+                                            dimensions: 'قم بتوجيه الليزر والنقر على أي عنصر',
+                                            status: 'في انتظار التحديد'
+                                        }, null);
+                                    }
+                                } else {
+                                    hideFloatingVRPanel();
+                                }
+                            } else if (btn4 && !btn4.pressed) {
+                                window._vrButton4Pressed = false;
+                            }
+                        }
+
+                        if (!source.gamepad.axes) return;
                         var axes = source.gamepad.axes;
                         var deadzone = 0.18;
 
