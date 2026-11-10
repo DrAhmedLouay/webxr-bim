@@ -1810,6 +1810,7 @@
                         if (renderer.xr.getReferenceSpace) {
                             session.requestReferenceSpace('local-floor').then(function(refSpace) {
                                 vrReferenceSpace = refSpace;
+                                vrCurrentReferenceSpace = refSpace;
                             });
                         }
                         session.addEventListener('end', function() {
@@ -6445,14 +6446,8 @@
 
                 // 2. Raycast against scene objects using the unified selection engine
                 var didSelect = await executeSelection(vrRaycaster, true, null);
-                // If we selected an element, show the panel automatically
-                if (didSelect) {
-                    vrPanelVisible = true;
-                    updateVRToggleButtonState();
-                    createOrUpdateFloatingVRPanel(selectedMesh.userData, null);
-                }
-                // If panel is visible and we selected an element, update the panel content
-                else if (vrPanelVisible && floatingVRPanel) {
+                // If panel is already visible and we selected an element, update the panel content
+                if (didSelect && vrPanelVisible && floatingVRPanel) {
                     createOrUpdateFloatingVRPanel(selectedMesh.userData, null);
                 }
                 if (!didSelect && floatingVRPanel && floatingVRPanel.visible) {
