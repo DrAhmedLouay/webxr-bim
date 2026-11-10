@@ -7797,12 +7797,24 @@
     </script>
 
 
-    <!-- PWA: register the service worker for offline field use -->
+    <!-- PWA: register the service worker for offline field use with auto-update -->
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', function () {
           navigator.serviceWorker.register('./sw.js', { scope: './' }).then(function (reg) {
             console.log('[PWA] service worker registered, scope:', reg.scope);
+            reg.update();
+            reg.addEventListener('updatefound', function () {
+              var installingWorker = reg.installing;
+              if (installingWorker) {
+                installingWorker.addEventListener('statechange', function () {
+                  if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    // New version available, reload to apply updates immediately
+                    window.location.reload();
+                  }
+                });
+              }
+            });
           }).catch(function (err) {
             console.warn('[PWA] service worker registration failed:', err && err.message);
           });

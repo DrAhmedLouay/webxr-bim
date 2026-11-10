@@ -8,7 +8,7 @@
 // ---------------------------------------------------------------------------
 'use strict';
 
-var CACHE_VERSION = 'webxr-bim-v5';
+var CACHE_VERSION = 'webxr-bim-v6';
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var RUNTIME_CACHE = CACHE_VERSION + '-runtime';
 
@@ -69,10 +69,8 @@ self.addEventListener('fetch', function (event) {
     if (isApiTraffic(url) || request.headers.get('accept') === 'application/json') return;
     if (url.protocol === 'data:' || url.protocol === 'blob:') return;
 
-    // HTML documents: network-first, cache as the offline fallback.
-    // The platform is updated often, so a cached page would hide new features
-    // until the service worker happens to refresh.
-    if (!isThirdParty(url) && /\.html$/i.test(url.pathname)) {
+    // HTML documents & root navigation: network-first, cache as the offline fallback.
+    if (!isThirdParty(url) && (/\.html$/i.test(url.pathname) || url.pathname === '/' || url.pathname.endsWith('/webxr-bim/') || url.pathname.endsWith('/webxr-bim') || url.pathname.endsWith('./'))) {
         event.respondWith(
             fetch(request).then(function (response) {
                 if (response && response.ok) {
