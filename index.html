@@ -6052,13 +6052,17 @@
                 });
             }
 
-            // =====================================================================
+             // =====================================================================
             // 18. WebXR 6-DoF VR Controllers, Laser Pointer & In-VR 3D Floating BIM Panel
             // =====================================================================
+            var cameraRig = new THREE.Group();
+            cameraRig.name = 'XR_Camera_Rig';
+            scene.add(cameraRig);
+
             var controller1 = renderer.xr.getController(0);
             var controller2 = renderer.xr.getController(1);
-            scene.add(controller1);
-            scene.add(controller2);
+            cameraRig.add(controller1);
+            cameraRig.add(controller2);
 
             var laserPoints = [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -10)];
             var laserGeo = new THREE.BufferGeometry().setFromPoints(laserPoints);
@@ -6446,8 +6450,13 @@
 
                 // 2. Raycast against scene objects using the unified selection engine
                 var didSelect = await executeSelection(vrRaycaster, true, null);
-                // If panel is already visible and we selected an element, update the panel content
-                if (didSelect && vrPanelVisible && floatingVRPanel) {
+                // If we selected an element, automatically show the floating panel
+                if (didSelect) {
+                    vrPanelVisible = true;
+                    updateVRToggleButtonState();
+                    createOrUpdateFloatingVRPanel(selectedMesh.userData, null);
+                }
+                else if (didSelect && vrPanelVisible && floatingVRPanel) {
                     createOrUpdateFloatingVRPanel(selectedMesh.userData, null);
                 }
                 if (!didSelect && floatingVRPanel && floatingVRPanel.visible) {
@@ -6962,13 +6971,13 @@
                     floatingVRPanel.position.lerp(targetPanelPos, 0.2);
                     floatingVRPanel.lookAt(camera.position);
                 }
-                // VR Locomotion (Left Thumbstick) + Snap Turn (Right Thumbstick)
+                // VR Locomotion (Left Thumbstick) & Snap Turn (Right Thumbstick) via cameraRig
                 if (session && session.inputSources) {
                     session.inputSources.forEach(function(source) {
                         if (!source.gamepad || !source.gamepad.axes) return;
 
                         var axes = source.gamepad.axes;
-                        var deadzone = 0.15;
+                        var deadzone = 0.18;
 
                         // LEFT CONTROLLER: LOCOMOTION (Movement)
                         if (source.handedness === 'left') {
@@ -6976,7 +6985,6 @@
                             var stickY = axes[1] || 0; // thumbstick Y (forward/backward)
 
                             if (Math.abs(stickX) > deadzone || Math.abs(stickY) > deadzone) {
-                                // Get camera direction in world space
                                 var camDir = new THREE.Vector3();
                                 camera.getWorldDirection(camDir);
                                 camDir.y = 0; // keep movement horizontal
@@ -6987,60 +6995,29 @@
                                 var moveX = -stickX * moveSpeed * delta; // strafe left/right
                                 var moveZ = -stickY * moveSpeed * delta; // forward/backward
 
-                                // Accumulate offset in world space
-                                vrLocomotionOffset.x += camRight.x * moveX + camDir.x * moveZ;
-                                vrLocomotionOffset.z += camRight.z * moveX + camDir.z * moveZ;
+                                if (typeof cameraRig !== 'undefined' && cameraRig) {
+                                    cameraRig.position.add(camRight.multiplyScalar(moveX));
+                                    cameraRig.position.add(camDir.multiplyScalar(moveZ));
+                                }
                             }
                         }
 
                         // RIGHT CONTROLLER: SNAP TURN (Rotation)
                         if (source.handedness === 'right') {
                             var turnX = axes[0] || 0; // thumbstick X (left/right turn)
-                            var deadzoneTurn = 0.25; // higher deadzone for turn
+                            var deadzoneTurn = 0.35; // higher deadzone for snap turn
 
-                            if (Math.abs(turnX) > deadzoneTurn) {
-                                var turnAmount = -turnX * vrTurnSpeed * delta;
-
-                                if (vrCurrentReferenceSpace) {
-                                    try {
-                                        var halfAngle = turnAmount / 2;
-                                        var sinHalf = Math.sin(halfAngle);
-                                        var cosHalf = Math.cos(halfAngle);
-
-                                        var newOrigin = vrCurrentReferenceSpace.getOffsetReferenceSpace(
-                                            new XRRigidTransform(
-                                                { x: 0, y: 0, z: 0 },
-                                                { x: 0, y: sinHalf, z: 0, w: cosHalf }
-                                            )
-                                        );
-                                        renderer.xr.setReferenceSpace(newOrigin);
-                                        vrCurrentReferenceSpace = newOrigin;
-                                    } catch (e) {
-                                        console.warn('Failed to apply snap turn:', e);
-                                    }
+                            if (Math.abs(turnX) > deadzoneTurn && !window._vrSnapTurnTriggered) {
+                                window._vrSnapTurnTriggered = true;
+                                var angle = turnX > 0 ? -Math.PI / 6 : Math.PI / 6; // 30 degree snap turn
+                                if (typeof cameraRig !== 'undefined' && cameraRig) {
+                                    cameraRig.rotation.y += angle;
                                 }
+                            } else if (Math.abs(turnX) <= 0.2) {
+                                window._vrSnapTurnTriggered = false;
                             }
                         }
                     });
-
-                    // Apply accumulated locomotion offset to reference space
-                    if (vrCurrentReferenceSpace && (vrLocomotionOffset.x !== 0 || vrLocomotionOffset.z !== 0)) {
-                        try {
-                            var newOrigin = vrCurrentReferenceSpace.getOffsetReferenceSpace(
-                                new XRRigidTransform(
-                                    { x: vrLocomotionOffset.x, y: 0, z: vrLocomotionOffset.z },
-                                    { x: 0, y: 0, z: 0, w: 1 }
-                                )
-                            );
-                            renderer.xr.setReferenceSpace(newOrigin);
-                            vrCurrentReferenceSpace = newOrigin;
-                            // Reset offset after applying
-                            vrLocomotionOffset.x = 0;
-                            vrLocomotionOffset.z = 0;
-                        } catch (e) {
-                            console.warn('Failed to update reference space for locomotion:', e);
-                        }
-                    }
                 }
                 // Only update OrbitControls when NOT in an immersive XR session.
                 // In VR/AR the headset pose drives the camera, so calling
