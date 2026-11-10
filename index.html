@@ -6976,11 +6976,11 @@
                     session.inputSources.forEach(function(source) {
                         if (!source.gamepad) return;
 
-                        // Check gamepad buttons for B / Y toggle (Button 4 on Quest controllers)
-                        if (source.gamepad.buttons && source.gamepad.buttons.length > 4) {
-                            var btn4 = source.gamepad.buttons[4];
-                            if (btn4 && btn4.pressed && !window._vrButton4Pressed) {
-                                window._vrButton4Pressed = true;
+                        // Check right controller A button (Button 3) to toggle the BIM Inspection Panel
+                        if (source.handedness === 'right' && source.gamepad.buttons && source.gamepad.buttons.length > 3) {
+                            var btnA = source.gamepad.buttons[3]; // A button on right controller
+                            if (btnA && btnA.pressed && !window._vrAPressed) {
+                                window._vrAPressed = true;
                                 vrPanelVisible = !vrPanelVisible;
                                 updateVRToggleButtonState();
                                 if (vrPanelVisible) {
@@ -6998,8 +6998,8 @@
                                 } else {
                                     hideFloatingVRPanel();
                                 }
-                            } else if (btn4 && !btn4.pressed) {
-                                window._vrButton4Pressed = false;
+                            } else if (btnA && !btnA.pressed) {
+                                window._vrAPressed = false;
                             }
                         }
 
