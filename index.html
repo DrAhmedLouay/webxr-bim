@@ -1798,9 +1798,20 @@
                         // inputsourceschange, so we re-bind unconditionally here.
                         if (typeof controller1 !== 'undefined' && controller1) bindControllerSelect(controller1, true);
                         if (typeof controller2 !== 'undefined' && controller2) bindControllerSelect(controller2, true);
-                        // Create the persistent VR toggle button
-                        vrPanelVisible = false;
+                        // Create the persistent VR toggle button and auto-show In-VR Toolbar & Welcome Panel
+                        vrPanelVisible = true;
+                        vrToolbarVisible = true;
                         if (typeof createOrUpdateVRToggleButton === 'function') createOrUpdateVRToggleButton();
+                        if (typeof createOrUpdateVRToolbar === 'function') createOrUpdateVRToolbar();
+                        if (typeof createOrUpdateFloatingVRPanel === 'function') {
+                            createOrUpdateFloatingVRPanel({
+                                elementId: 'مرحباً بك في نظام WebXR BIM (VR)',
+                                category: 'المعاينة الفراغية بمقياس 1:1',
+                                system: 'Architectural / MEP Coordination',
+                                dimensions: 'استخدم الزناد لتحديد العناصر',
+                                status: 'جاهز — استخدم العصا اليسرى للتجول'
+                            }, null);
+                        }
                         // Initialize locomotion reference space offset
                         vrLocomotionOffset = { x: 0, y: 0, z: 0 };
                         if (renderer.xr.getReferenceSpace) {
@@ -1814,9 +1825,12 @@
                             controls.enabled = true;  // restore desktop orbit on session end
                             if (typeof hideFloatingVRPanel === 'function') hideFloatingVRPanel();
                             if (typeof hideVRToggleButton === 'function') hideVRToggleButton();
+                            if (typeof hideVRToolbar === 'function') hideVRToolbar();
+                            if (typeof hideVRClashPanel === 'function') hideVRClashPanel();
+                            if (typeof hideVRFilterPanel === 'function') hideVRFilterPanel();
                             showToast('info', 'تم إنهاء جلسة الواقع الافتراضي (VR)', 2500);
                         });
-                        showToast('success', 'تم تشغيل جلسة الواقع الافتراضي (VR) بنجاح', 3000);
+                        showToast('success', '🥽 مرحباً بك في الواقع الافتراضي! استخدم العصا اليسرى للمشي', 4000);
                     })
                     .catch(function(err) {
                         console.error('VR session failed:', err);
