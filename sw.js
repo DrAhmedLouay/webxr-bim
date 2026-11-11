@@ -8,7 +8,7 @@
 // ---------------------------------------------------------------------------
 'use strict';
 
-var CACHE_VERSION = 'webxr-bim-v7';
+var CACHE_VERSION = 'webxr-bim-v9';
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var RUNTIME_CACHE = CACHE_VERSION + '-runtime';
 
@@ -69,19 +69,11 @@ self.addEventListener('fetch', function (event) {
     if (isApiTraffic(url) || request.headers.get('accept') === 'application/json') return;
     if (url.protocol === 'data:' || url.protocol === 'blob:') return;
 
-    // HTML documents & root navigation: network-first, cache as the offline fallback.
+    // HTML documents & root navigation: always fetch fresh from network
     if (!isThirdParty(url) && (/\.html$/i.test(url.pathname) || url.pathname === '/' || url.pathname.endsWith('/webxr-bim/') || url.pathname.endsWith('/webxr-bim') || url.pathname.endsWith('./'))) {
         event.respondWith(
-            fetch(request).then(function (response) {
-                if (response && response.ok) {
-                    var copy = response.clone();
-                    caches.open(SHELL_CACHE).then(function (cache) { cache.put(request, copy); });
-                }
-                return response;
-            }).catch(function () {
-                return caches.match(request).then(function (cached) {
-                    return cached || caches.match('./index.html');
-                });
+            fetch(request).catch(function () {
+                return caches.match(request);
             })
         );
         return;

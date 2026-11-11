@@ -6090,6 +6090,107 @@
             var vrPanelVisible = false;
 
             // -----------------------------------------------------------------
+            // In-VR 3D Top Toolbar (Mirrors the desktop top toolbar inside VR)
+            // -----------------------------------------------------------------
+            var floatingVRToolbar = null;
+            var vrToolbarCanvas = null;
+            var vrToolbarTexture = null;
+            var vrToolbarVisible = false;
+
+            function renderVRToolbarCanvas() {
+                if (!vrToolbarCanvas) {
+                    vrToolbarCanvas = document.createElement('canvas');
+                    vrToolbarCanvas.width = 1024;
+                    vrToolbarCanvas.height = 180;
+                }
+                var ctx = vrToolbarCanvas.getContext('2d');
+                ctx.clearRect(0, 0, 1024, 180);
+
+                ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+                if (ctx.roundRect) {
+                    ctx.beginPath();
+                    ctx.roundRect(10, 10, 1004, 160, 20);
+                    ctx.fill();
+                    ctx.lineWidth = 4;
+                    ctx.strokeStyle = '#00f0ff';
+                    ctx.stroke();
+                } else {
+                    ctx.fillRect(10, 10, 1004, 160);
+                    ctx.lineWidth = 4;
+                    ctx.strokeStyle = '#00f0ff';
+                    ctx.strokeRect(10, 10, 1004, 160);
+                }
+
+                ctx.font = 'bold 28px sans-serif';
+                ctx.fillStyle = '#00f0ff';
+                ctx.textAlign = 'center';
+                ctx.direction = 'rtl';
+                ctx.fillText('🥽 شريط الأدوات الرئيسي (Main Toolbar)', 512, 45);
+
+                var buttons = [
+                    { label: '🏠 الرئيسية', x: 80 },
+                    { label: '📂 تحميل', x: 260 },
+                    { label: '🎨 ألوان', x: 440 },
+                    { label: '🎛️ الطوابق', x: 620 },
+                    { label: '🚩 التعارضات', x: 800 },
+                    { label: '✕', x: 950 }
+                ];
+
+                for (var i = 0; i < buttons.length; i++) {
+                    var b = buttons[i];
+                    ctx.fillStyle = (i === buttons.length - 1) ? 'rgba(239, 68, 68, 0.3)' : 'rgba(0, 240, 255, 0.2)';
+                    if (ctx.roundRect) {
+                        ctx.beginPath();
+                        ctx.roundRect(b.x - 70, 75, 140, 70, 14);
+                        ctx.fill();
+                        ctx.lineWidth = 2;
+                        ctx.strokeStyle = (i === buttons.length - 1) ? '#ef4444' : '#00f0ff';
+                        ctx.stroke();
+                    }
+                    ctx.font = 'bold 22px sans-serif';
+                    ctx.fillStyle = '#ffffff';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(b.label, b.x, 118);
+                }
+
+                if (vrToolbarTexture) vrToolbarTexture.needsUpdate = true;
+            }
+
+            function createOrUpdateVRToolbar() {
+                renderVRToolbarCanvas();
+                if (!floatingVRToolbar) {
+                    vrToolbarTexture = new THREE.CanvasTexture(vrToolbarCanvas);
+                    vrToolbarTexture.minFilter = THREE.LinearFilter;
+                    vrToolbarTexture.magFilter = THREE.LinearFilter;
+                    var mat = new THREE.MeshBasicMaterial({
+                        map: vrToolbarTexture,
+                        transparent: true,
+                        side: THREE.DoubleSide,
+                        depthTest: false
+                    });
+                    var geo = new THREE.PlaneGeometry(1.2, 0.21);
+                    floatingVRToolbar = new THREE.Mesh(geo, mat);
+                    floatingVRToolbar.name = 'VR_Top_Toolbar';
+                    floatingVRToolbar.renderOrder = 9999;
+                    scene.add(floatingVRToolbar);
+                } else {
+                    floatingVRToolbar.visible = vrToolbarVisible;
+                    if (vrToolbarTexture) vrToolbarTexture.needsUpdate = true;
+                }
+
+                var camPos = camera.position.clone();
+                var camDir = new THREE.Vector3();
+                camera.getWorldDirection(camDir);
+
+                floatingVRToolbar.position.copy(camPos).add(camDir.multiplyScalar(1.4)).add(new THREE.Vector3(0, 0.65, 0));
+                floatingVRToolbar.lookAt(camPos);
+            }
+
+            function hideVRToolbar() {
+                if (floatingVRToolbar) floatingVRToolbar.visible = false;
+            }
+
+            // -----------------------------------------------------------------
             // In-VR Clash Review Log Panel (Toggled by Right B Button)
             // -----------------------------------------------------------------
             var floatingVRClashPanel = null;
@@ -7210,6 +7311,9 @@
                 if (typeof floatingVRFilterPanel !== 'undefined' && floatingVRFilterPanel && floatingVRFilterPanel.visible) {
                     floatingVRFilterPanel.lookAt(camera.position);
                 }
+                if (typeof floatingVRToolbar !== 'undefined' && floatingVRToolbar && floatingVRToolbar.visible) {
+                    floatingVRToolbar.lookAt(camera.position);
+                }
                 // Handle floating VR panel dragging
                 if (panelGrabbed && panelGrabbedByController) {
                     var controllerWorldPos = new THREE.Vector3();
@@ -7308,15 +7412,17 @@
                                     window._vrXWasPressed = false;
                                 }
 
-                                // Also toggle guide/filter panel via X/Y button long press or separate button if needed
-                                var btnY = (lButtons[4] && lButtons[4].pressed);
+                                // Check left controller Y button to toggle In-VR Top Toolbar
+                                var btnY = (lButtons[4] && lButtons[4].pressed) || (lButtons[1] && lButtons[1].pressed);
                                 if (btnY && !window._vrYPressed) {
                                     window._vrYPressed = true;
-                                    vrFilterPanelVisible = !vrFilterPanelVisible;
-                                    if (vrFilterPanelVisible) {
-                                        createOrUpdateVRFilterPanel();
+                                    vrToolbarVisible = !vrToolbarVisible;
+                                    if (vrToolbarVisible) {
+                                        createOrUpdateVRToolbar();
+                                        showToast('success', '🥽 تم إظهار شريط الأدوات الرئيسي', 2500);
                                     } else {
-                                        hideVRFilterPanel();
+                                        hideVRToolbar();
+                                        showToast('info', '🔕 تم إخفاء شريط الأدوات الرئيسي', 2500);
                                     }
                                 } else if (!btnY) {
                                     window._vrYPressed = false;
