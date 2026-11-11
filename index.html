@@ -6192,7 +6192,7 @@
                 var camDir = new THREE.Vector3();
                 camera.getWorldDirection(camDir);
 
-                floatingVRToolbar.position.copy(camPos).add(camDir.multiplyScalar(1.4)).add(new THREE.Vector3(0, 0.65, 0));
+                floatingVRToolbar.position.copy(camPos).add(camDir.multiplyScalar(0.85)).add(new THREE.Vector3(0, 0.35, 0));
                 floatingVRToolbar.lookAt(camPos);
             }
 
@@ -6309,7 +6309,7 @@
                 camera.getWorldDirection(camDir);
                 var camRight = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), camDir).normalize();
 
-                floatingVRClashPanel.position.copy(camPos).add(camDir.multiplyScalar(1.3)).add(camRight.multiplyScalar(-0.6));
+                floatingVRClashPanel.position.copy(camPos).add(camDir.multiplyScalar(0.85)).add(new THREE.Vector3(0, -0.05, 0)).add(camRight.multiplyScalar(-0.4));
                 floatingVRClashPanel.lookAt(camPos);
             }
 
@@ -6413,7 +6413,7 @@
                 camera.getWorldDirection(camDir);
                 var camRight = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), camDir).normalize();
 
-                floatingVRFilterPanel.position.copy(camPos).add(camDir.multiplyScalar(1.3)).add(camRight.multiplyScalar(0.6));
+                floatingVRFilterPanel.position.copy(camPos).add(camDir.multiplyScalar(0.85)).add(new THREE.Vector3(0, -0.05, 0)).add(camRight.multiplyScalar(0.4));
                 floatingVRFilterPanel.lookAt(camPos);
             }
 
@@ -6693,7 +6693,7 @@
                     var toCam = new THREE.Vector3().subVectors(camPos, hitPoint).normalize();
                     floatingVRPanel.position.copy(hitPoint).add(toCam.multiplyScalar(0.45)).add(new THREE.Vector3(0, 0.25, 0));
                 } else {
-                    floatingVRPanel.position.copy(camPos).add(camDir.multiplyScalar(1.25)).add(new THREE.Vector3(0, -0.1, 0));
+                    floatingVRPanel.position.copy(camPos).add(camDir.multiplyScalar(0.85)).add(new THREE.Vector3(0, -0.05, 0));
                 }
                 floatingVRPanel.lookAt(camPos);
                 
