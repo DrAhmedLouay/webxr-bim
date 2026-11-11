@@ -6100,6 +6100,106 @@
             var vrPanelVisible = false;
 
             // -----------------------------------------------------------------
+            // In-VR Unified Control Dock (Compact, easily reachable at 0.75m)
+            // -----------------------------------------------------------------
+            var floatingVRControlDock = null;
+            var vrDockCanvas = null;
+            var vrDockTexture = null;
+            var vrDockVisible = true; // Visible by default when entering VR!
+
+            function renderVRDockCanvas() {
+                if (!vrDockCanvas) {
+                    vrDockCanvas = document.createElement('canvas');
+                    vrDockCanvas.width = 1024;
+                    vrDockCanvas.height = 220;
+                }
+                var ctx = vrDockCanvas.getContext('2d');
+                ctx.clearRect(0, 0, 1024, 220);
+
+                ctx.fillStyle = 'rgba(15, 23, 42, 0.96)';
+                if (ctx.roundRect) {
+                    ctx.beginPath();
+                    ctx.roundRect(10, 10, 1004, 200, 24);
+                    ctx.fill();
+                    ctx.lineWidth = 4;
+                    ctx.strokeStyle = '#00f0ff';
+                    ctx.stroke();
+                } else {
+                    ctx.fillRect(10, 10, 1004, 200);
+                    ctx.lineWidth = 4;
+                    ctx.strokeStyle = '#00f0ff';
+                    ctx.strokeRect(10, 10, 1004, 200);
+                }
+
+                ctx.font = 'bold 26px sans-serif';
+                ctx.fillStyle = '#38bdf8';
+                ctx.textAlign = 'center';
+                ctx.direction = 'rtl';
+                ctx.fillText('🥽 لوحة التحكم السريعة في الواقع الافتراضي (VR Control Dock)', 512, 42);
+
+                var buttons = [
+                    { label: '📋 البيانات', x: 100, color: 'rgba(0, 240, 255, 0.25)' },
+                    { label: '🚩 التعارضات', x: 300, color: 'rgba(239, 68, 68, 0.25)' },
+                    { label: '🎛️ الطوابق', x: 500, color: 'rgba(56, 189, 248, 0.25)' },
+                    { label: '🎨 ألوان', x: 700, color: 'rgba(168, 85, 247, 0.25)' },
+                    { label: '✕ إخفاء', x: 900, color: 'rgba(239, 68, 68, 0.35)' }
+                ];
+
+                for (var i = 0; i < buttons.length; i++) {
+                    var b = buttons[i];
+                    ctx.fillStyle = b.color;
+                    if (ctx.roundRect) {
+                        ctx.beginPath();
+                        ctx.roundRect(b.x - 80, 75, 160, 95, 16);
+                        ctx.fill();
+                        ctx.lineWidth = 2;
+                        ctx.strokeStyle = '#00f0ff';
+                        ctx.stroke();
+                    }
+                    ctx.font = 'bold 24px sans-serif';
+                    ctx.fillStyle = '#ffffff';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(b.label, b.x, 132);
+                }
+
+                if (vrDockTexture) vrDockTexture.needsUpdate = true;
+            }
+
+            function createOrUpdateVRControlDock() {
+                renderVRDockCanvas();
+                if (!floatingVRControlDock) {
+                    vrDockTexture = new THREE.CanvasTexture(vrDockCanvas);
+                    vrDockTexture.minFilter = THREE.LinearFilter;
+                    vrDockTexture.magFilter = THREE.LinearFilter;
+                    var mat = new THREE.MeshBasicMaterial({
+                        map: vrDockTexture,
+                        transparent: true,
+                        side: THREE.DoubleSide,
+                        depthTest: false
+                    });
+                    var geo = new THREE.PlaneGeometry(0.9, 0.22);
+                    floatingVRControlDock = new THREE.Mesh(geo, mat);
+                    floatingVRControlDock.name = 'VR_Control_Dock';
+                    floatingVRControlDock.renderOrder = 9999;
+                    scene.add(floatingVRControlDock);
+                } else {
+                    floatingVRControlDock.visible = vrDockVisible;
+                    if (vrDockTexture) vrDockTexture.needsUpdate = true;
+                }
+
+                var camPos = camera.position.clone();
+                var camDir = new THREE.Vector3();
+                camera.getWorldDirection(camDir);
+
+                floatingVRControlDock.position.copy(camPos).add(camDir.multiplyScalar(0.75)).add(new THREE.Vector3(0, -0.22, 0));
+                floatingVRControlDock.lookAt(camPos);
+            }
+
+            function hideVRControlDock() {
+                if (floatingVRControlDock) floatingVRControlDock.visible = false;
+            }
+
+            // -----------------------------------------------------------------
             // In-VR 3D Top Toolbar (Mirrors the desktop top toolbar inside VR)
             // -----------------------------------------------------------------
             var floatingVRToolbar = null;
@@ -6721,6 +6821,43 @@
                 vrRaycaster.ray.origin.setFromMatrixPosition(ctrl.matrixWorld);
                 vrRaycaster.ray.direction.set(0, 0, -1).applyMatrix4(vrMatrix);
 
+                // 0.2. Check if laser points at the In-VR Control Dock (`floatingVRControlDock`)
+                if (floatingVRControlDock && floatingVRControlDock.visible) {
+                    var dockHits = vrRaycaster.intersectObject(floatingVRControlDock, false);
+                    if (dockHits.length > 0 && dockHits[0].uv) {
+                        var duv = dockHits[0].uv;
+                        if (duv.y >= 0.25 && duv.y <= 0.75) {
+                            if (duv.x < 0.20) {
+                                // Button 0: 📋 البيانات
+                                vrPanelVisible = !vrPanelVisible;
+                                updateVRToggleButtonState();
+                                if (vrPanelVisible) {
+                                    createOrUpdateFloatingVRPanel(selectedMesh ? selectedMesh.userData : {elementId: 'بيانات العنصر المختار', category: 'معاينة العناصر', system: 'Architectural / MEP', dimensions: 'أبعاد هندسية أصلية', status: 'جاهز'}, null);
+                                } else {
+                                    hideFloatingVRPanel();
+                                }
+                            } else if (duv.x >= 0.20 && duv.x < 0.40) {
+                                // Button 1: 🚩 التعارضات
+                                vrClashPanelVisible = !vrClashPanelVisible;
+                                if (vrClashPanelVisible) createOrUpdateVRClashPanel(); else hideVRClashPanel();
+                            } else if (duv.x >= 0.40 && duv.x < 0.60) {
+                                // Button 2: 🎛️ الطوابق
+                                vrFilterPanelVisible = !vrFilterPanelVisible;
+                                if (vrFilterPanelVisible) createOrUpdateVRFilterPanel(); else hideVRFilterPanel();
+                            } else if (duv.x >= 0.60 && duv.x < 0.80) {
+                                // Button 3: 🎨 ألوان
+                                if (typeof cycleColorCodingMode === 'function') cycleColorCodingMode();
+                                showToast('info', '🎨 تبديل نمط الألوان', 2000);
+                            } else if (duv.x >= 0.80) {
+                                // Button 4: ✕ إخفاء
+                                vrDockVisible = false;
+                                hideVRControlDock();
+                            }
+                            return;
+                        }
+                    }
+                }
+
                 // 0. Check if laser points at the VR Toggle Button (right side)
                 if (vrToggleButton && vrToggleButton.visible) {
                     var toggleHits = vrRaycaster.intersectObject(vrToggleButton, false);
@@ -7323,6 +7460,9 @@
                 }
                 if (typeof floatingVRToolbar !== 'undefined' && floatingVRToolbar && floatingVRToolbar.visible) {
                     floatingVRToolbar.lookAt(camera.position);
+                }
+                if (typeof floatingVRControlDock !== 'undefined' && floatingVRControlDock && floatingVRControlDock.visible) {
+                    floatingVRControlDock.lookAt(camera.position);
                 }
                 // Handle floating VR panel dragging
                 if (panelGrabbed && panelGrabbedByController) {
