@@ -7480,121 +7480,70 @@
                     floatingVRPanel.position.lerp(targetPanelPos, 0.2);
                     floatingVRPanel.lookAt(camera.position);
                 }
-                // VR Locomotion (Left Thumbstick) + Snap Turn (Right Thumbstick) + A Button Toggle via cameraRig (try-catch protected for Quest & Lucid VR browsers)
+                // VR Locomotion (Left Thumbstick) + Snap Turn (Right Thumbstick) + Button Toggle via cameraRig (try-catch protected for Quest & Lucid VR browsers)
                 if (session && session.inputSources) {
                     try {
                         session.inputSources.forEach(function(source) {
                             if (!source || !source.gamepad) return;
 
-                            // Right controller: A button (index 3) and B button (index 4)
-                            if (source.handedness === 'right' && source.gamepad.buttons) {
-                                var buttons = source.gamepad.buttons;
+                            var buttons = source.gamepad.buttons || [];
+                            var hand = source.handedness; // 'left' or 'right'
 
-                                // A button (Index 3): Toggle BIM Inspection Panel
-                                var btnA = buttons.length > 3 && buttons[3] && (buttons[3].pressed || buttons[3].value > 0.5);
-                                if (btnA && !window._vrAPressed) {
-                                    window._vrAPressed = true;
-                                    vrPanelVisible = !vrPanelVisible;
-                                    updateVRToggleButtonState();
-                                    if (vrPanelVisible) {
-                                        if (typeof selectedMesh !== 'undefined' && selectedMesh && selectedMesh.userData) {
-                                            createOrUpdateFloatingVRPanel(selectedMesh.userData, null);
-                                        } else {
-                                            createOrUpdateFloatingVRPanel({
-                                                elementId: 'جاهز للمعاينة الفراغية',
-                                                category: 'نظام BIM التفاعلي',
-                                                system: 'Architectural / MEP',
-                                                dimensions: 'قم بتوجيه الليزر والنقر على أي عنصر',
-                                                status: 'في انتظار التحديد'
-                                            }, null);
-                                        }
-                                        showToast('success', '📋 لوحة بيانات العنصر (زر A)', 2000);
-                                    } else {
-                                        hideFloatingVRPanel();
-                                        showToast('info', '🔕 تم إخفاء لوحة بيانات العنصر', 2000);
-                                    }
-                                } else if (!btnA) {
-                                    window._vrAPressed = false;
-                                }
+                            // Check ALL buttons on this controller
+                            for (var i = 0; i < buttons.length; i++) {
+                                var btn = buttons[i];
+                                if (!btn) continue;
 
-                                // B button (Index 4): Toggle Clash Review Log Panel
-                                var btnB = buttons.length > 4 && buttons[4] && (buttons[4].pressed || buttons[4].value > 0.5);
-                                if (btnB && !window._vrBPressed) {
-                                    window._vrBPressed = true;
-                                    vrClashPanelVisible = !vrClashPanelVisible;
-                                    if (vrClashPanelVisible) {
-                                        createOrUpdateVRClashPanel();
-                                        showToast('success', '🚩 سجل التعارضات (زر B)', 2000);
-                                    } else {
-                                        hideVRClashPanel();
-                                        showToast('info', '🔕 تم إخفاء سجل التعارضات', 2000);
-                                    }
-                                } else if (!btnB) {
-                                    window._vrBPressed = false;
-                                }
-                            }
+                                var isPressed = btn.pressed || (btn.value !== undefined && btn.value > 0.5);
+                                var pressedKey = '_vrBtn_' + hand + '_' + i;
 
-                            // Left controller: X button (index 3) and Y button (index 4)
-                            if (source.handedness === 'left' && source.gamepad.buttons) {
-                                var lButtons = source.gamepad.buttons;
+                                if (isPressed && !window[pressedKey]) {
+                                    window[pressedKey] = true;
 
-                                // X button (Index 3): Single-press or double-click to toggle BIM Inspection Panel
-                                var btnX = lButtons.length > 3 && lButtons[3] && (lButtons[3].pressed || lButtons[3].value > 0.5);
-                                if (btnX && !window._vrXWasPressed) {
-                                    window._vrXWasPressed = true;
-                                    var now = performance.now();
-                                    if (now - (window._lastXClickTime || 0) < 450) {
-                                        window._xClickCount = (window._xClickCount || 0) + 1;
-                                        if (window._xClickCount >= 2) {
-                                            window._xClickCount = 0;
-                                            window._lastXClickTime = 0;
+                                    // Map buttons to functions:
+                                    // Index 3 = A button (right) / X button (left) -> Toggle BIM Inspection Panel
+                                    // Index 4 = B button (right) / Y button (left) -> Toggle Clash Review Panel
 
-                                            vrPanelVisible = !vrPanelVisible;
-                                            updateVRToggleButtonState();
-                                            if (vrPanelVisible) {
-                                                if (typeof selectedMesh !== 'undefined' && selectedMesh && selectedMesh.userData) {
-                                                    createOrUpdateFloatingVRPanel(selectedMesh.userData, null);
-                                                } else {
-                                                    createOrUpdateFloatingVRPanel({
-                                                        elementId: 'بيانات العنصر المختار',
-                                                        category: 'معاينة العناصر الفراغية',
-                                                        system: 'Architectural / MEP',
-                                                        dimensions: 'أبعاد هندسية أصلية',
-                                                        status: 'جاهز للمعاينة'
-                                                    }, null);
-                                                }
-                                                showToast('success', '📋 لوحة بيانات العنصر (Double-Click X)', 2000);
+                                    if (i === 3) {
+                                        vrPanelVisible = !vrPanelVisible;
+                                        updateVRToggleButtonState();
+                                        if (vrPanelVisible) {
+                                            if (typeof selectedMesh !== 'undefined' && selectedMesh && selectedMesh.userData) {
+                                                createOrUpdateFloatingVRPanel(selectedMesh.userData, null);
                                             } else {
-                                                hideFloatingVRPanel();
-                                                showToast('info', '🔕 تم إخفاء لوحة بيانات العنصر', 2000);
+                                                createOrUpdateFloatingVRPanel({
+                                                    elementId: 'بيانات العنصر المختار',
+                                                    category: 'نظام BIM التفاعلي',
+                                                    system: 'Architectural / MEP',
+                                                    dimensions: 'أبعاد هندسية أصلية',
+                                                    status: 'جاهز للمعاينة'
+                                                }, null);
                                             }
+                                            showToast('success', '📋 لوحة بيانات العنصر (زر #' + i + ' - يد ' + hand + ')', 2500);
+                                        } else {
+                                            hideFloatingVRPanel();
+                                            showToast('info', '🔕 تم إخفاء لوحة بيانات العنصر', 2000);
                                         }
-                                    } else {
-                                        window._xClickCount = 1;
-                                        window._lastXClickTime = now;
+                                    } else if (i === 4) {
+                                        vrClashPanelVisible = !vrClashPanelVisible;
+                                        if (vrClashPanelVisible) {
+                                            createOrUpdateVRClashPanel();
+                                            showToast('success', '🚩 سجل التعارضات (زر #' + i + ' - يد ' + hand + ')', 2000);
+                                        } else {
+                                            hideVRClashPanel();
+                                            showToast('info', '🔕 تم إخفاء سجل التعارضات', 2000);
+                                        }
                                     }
-                                } else if (!btnX) {
-                                    window._vrXWasPressed = false;
-                                }
 
-                                // Y button (Index 4): Toggle In-VR Top Toolbar
-                                var btnY = lButtons.length > 4 && lButtons[4] && (lButtons[4].pressed || lButtons[4].value > 0.5);
-                                if (btnY && !window._vrYPressed) {
-                                    window._vrYPressed = true;
-                                    vrToolbarVisible = !vrToolbarVisible;
-                                    if (vrToolbarVisible) {
-                                        createOrUpdateVRToolbar();
-                                        showToast('success', '🥽 شريط الأدوات الرئيسي (زر Y)', 2000);
-                                    } else {
-                                        hideVRToolbar();
-                                        showToast('info', '🔕 تم إخفاء شريط الأدوات الرئيسي', 2000);
-                                    }
-                                } else if (!btnY) {
-                                    window._vrYPressed = false;
+                                } else if (!isPressed) {
+                                    window[pressedKey] = false;
                                 }
                             }
-
-                            if (!source.gamepad.axes) return;
+                        });
+                    } catch (err) {
+                        console.warn('VR controller poll error:', err);
+                    }
+                }
                             var axes = source.gamepad.axes;
                             var deadzone = 0.15;
 
