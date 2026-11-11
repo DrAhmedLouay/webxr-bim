@@ -7266,20 +7266,60 @@
                                 }
                             }
 
-                            // Check left controller X/Y button to toggle Storey & Guide Panel
+                            // Check left controller X button double-click to toggle the BIM Inspection Panel ("بيانات العنصر المختار")
                             if (source.handedness === 'left' && source.gamepad.buttons) {
                                 var lButtons = source.gamepad.buttons;
                                 var btnX = (lButtons[3] && lButtons[3].pressed) || (lButtons[4] && lButtons[4].pressed) || (lButtons[0] && lButtons[0].pressed);
-                                if (btnX && !window._vrXPressed) {
-                                    window._vrXPressed = true;
+                                if (btnX && !window._vrXWasPressed) {
+                                    window._vrXWasPressed = true;
+                                    var now = performance.now();
+                                    if (now - (window._lastXClickTime || 0) < 450) {
+                                        window._xClickCount = (window._xClickCount || 0) + 1;
+                                        if (window._xClickCount >= 2) {
+                                            window._xClickCount = 0;
+                                            window._lastXClickTime = 0;
+
+                                            vrPanelVisible = !vrPanelVisible;
+                                            updateVRToggleButtonState();
+                                            if (vrPanelVisible) {
+                                                if (typeof selectedMesh !== 'undefined' && selectedMesh && selectedMesh.userData) {
+                                                    createOrUpdateFloatingVRPanel(selectedMesh.userData, null);
+                                                    showToast('success', '📋 تم إظهار لوحة بيانات العنصر', 2500);
+                                                } else {
+                                                    createOrUpdateFloatingVRPanel({
+                                                        elementId: 'بيانات العنصر المختار',
+                                                        category: 'معاينة العناصر الفراغية',
+                                                        system: 'Architectural / MEP',
+                                                        dimensions: 'أبعاد هندسية أصلية',
+                                                        status: 'جاهز للمعاينة'
+                                                    }, null);
+                                                    showToast('success', '📋 تم إظهار لوحة بيانات العنصر', 2500);
+                                                }
+                                            } else {
+                                                hideFloatingVRPanel();
+                                                showToast('info', '🔕 تم إخفاء لوحة بيانات العنصر', 2500);
+                                            }
+                                        }
+                                    } else {
+                                        window._xClickCount = 1;
+                                        window._lastXClickTime = now;
+                                    }
+                                } else if (!btnX) {
+                                    window._vrXWasPressed = false;
+                                }
+
+                                // Also toggle guide/filter panel via X/Y button long press or separate button if needed
+                                var btnY = (lButtons[4] && lButtons[4].pressed);
+                                if (btnY && !window._vrYPressed) {
+                                    window._vrYPressed = true;
                                     vrFilterPanelVisible = !vrFilterPanelVisible;
                                     if (vrFilterPanelVisible) {
                                         createOrUpdateVRFilterPanel();
                                     } else {
                                         hideVRFilterPanel();
                                     }
-                                } else if (!btnX) {
-                                    window._vrXPressed = false;
+                                } else if (!btnY) {
+                                    window._vrYPressed = false;
                                 }
                             }
 
