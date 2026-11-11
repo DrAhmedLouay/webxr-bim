@@ -953,11 +953,7 @@
     <div id="login-portal-overlay">
         <div class="login-card">
             <div class="login-header">
-                <div class="login-logo">🥽 🏛️
-
-    <button id="quick-bypass-btn" style="position: fixed; top: 10px; right: 10px; z-index: 9999999; background: #22c55e; color: #fff; border: none; padding: 8px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.8rem; box-shadow: 0 4px 12px rgba(0,0,0,0.4);">⚡ دخول مباشر (Admin)</button>
-
-</div>
+                <div class="login-logo">🥽 🏛️</div>
                 <h2>منظومة مراجعة الـ BIM والواقع الافتراضي</h2>
                 <p>WebXR BIM Design Review & Coordination Platform</p>
                 <div class="login-academic-badge">
@@ -8060,19 +8056,6 @@
                     const newLang = currentLang === 'ar' ? 'en' : 'ar';
                     setLanguage(newLang);
                     showToast('success', newLang === 'ar' ? 'تم التحويل إلى اللغة العربية' : 'Switched to English');
-                });
-            }
-
-            // Quick Bypass Login Button
-            const btnBypass = document.getElementById('quick-bypass-btn');
-            if (btnBypass) {
-                btnBypass.addEventListener('click', function() {
-                    const overlay = document.getElementById('login-portal-overlay');
-                    if (overlay) overlay.style.display = 'none';
-                    if (typeof applyUserSession === 'function') {
-                        applyUserSession('admin', 'د. أحمد لؤي أحمد');
-                    }
-                    showToast('success', '✅ تم تسجيل الدخول كمدير');
                 });
             }
 
