@@ -8240,6 +8240,11 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', function () {
+          navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            for(let registration of registrations) {
+              registration.unregister();
+            }
+          });
           navigator.serviceWorker.register('./sw.js', { scope: './' }).then(function (reg) {
             console.log('[PWA] service worker registered, scope:', reg.scope);
             reg.update();
@@ -8248,7 +8253,6 @@
               if (installingWorker) {
                 installingWorker.addEventListener('statechange', function () {
                   if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                    // New version available, reload to apply updates immediately
                     window.location.reload();
                   }
                 });
