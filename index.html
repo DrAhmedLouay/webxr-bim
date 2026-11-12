@@ -6195,8 +6195,8 @@
                 var camDir = new THREE.Vector3();
                 camera.getWorldDirection(camDir);
 
-                // Positioned at exactly 2.0 meters in front of camera, comfortable eye-level
-                floatingVRControlDock.position.copy(camPos).add(camDir.multiplyScalar(2.0)).add(new THREE.Vector3(0, -0.45, 0));
+                // Positioned at exactly 1.7 meters in front of camera, comfortable eye-level dock
+                floatingVRControlDock.position.copy(camPos).add(camDir.multiplyScalar(1.7)).add(new THREE.Vector3(0, -0.38, 0));
                 floatingVRControlDock.lookAt(camPos);
             }
 
@@ -6297,8 +6297,8 @@
                 var camDir = new THREE.Vector3();
                 camera.getWorldDirection(camDir);
 
-                // Positioned at exactly 2.0 meters in front of camera, comfortable top view
-                floatingVRToolbar.position.copy(camPos).add(camDir.multiplyScalar(2.0)).add(new THREE.Vector3(0, 0.55, 0));
+                // Positioned at exactly 1.7 meters in front of camera, comfortable top view
+                floatingVRToolbar.position.copy(camPos).add(camDir.multiplyScalar(1.7)).add(new THREE.Vector3(0, 0.45, 0));
                 floatingVRToolbar.lookAt(camPos);
             }
 
@@ -6415,8 +6415,8 @@
                 camera.getWorldDirection(camDir);
                 var camRight = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), camDir).normalize();
 
-                // Positioned at exactly 2.0 meters in front of camera, Eye-level
-                floatingVRClashPanel.position.copy(camPos).add(camDir.multiplyScalar(2.0)).add(new THREE.Vector3(0, 0.05, 0)).add(camRight.multiplyScalar(-0.7));
+                // Positioned at exactly 1.7 meters in front of camera, centered at Eye-level
+                floatingVRClashPanel.position.copy(camPos).add(camDir.multiplyScalar(1.7)).add(new THREE.Vector3(0, 0.0, 0));
                 floatingVRClashPanel.lookAt(camPos);
             }
 
@@ -6520,8 +6520,8 @@
                 camera.getWorldDirection(camDir);
                 var camRight = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), camDir).normalize();
 
-                // Positioned at exactly 2.0 meters in front of camera, Eye-level
-                floatingVRFilterPanel.position.copy(camPos).add(camDir.multiplyScalar(2.0)).add(new THREE.Vector3(0, 0.05, 0)).add(camRight.multiplyScalar(0.7));
+                // Positioned at exactly 1.7 meters in front of camera, centered at Eye-level
+                floatingVRFilterPanel.position.copy(camPos).add(camDir.multiplyScalar(1.7)).add(new THREE.Vector3(0, 0.0, 0));
                 floatingVRFilterPanel.lookAt(camPos);
             }
 
@@ -6801,8 +6801,8 @@
                     var toCam = new THREE.Vector3().subVectors(camPos, hitPoint).normalize();
                     floatingVRPanel.position.copy(hitPoint).add(toCam.multiplyScalar(0.6)).add(new THREE.Vector3(0, 0.35, 0));
                 } else {
-                    // Positioned at exactly 2.0 meters in front of camera, Eye-level
-                    floatingVRPanel.position.copy(camPos).add(camDir.multiplyScalar(2.0)).add(new THREE.Vector3(0, 0.05, 0));
+                    // Positioned at exactly 1.7 meters in front of camera, centered at Eye-level
+                    floatingVRPanel.position.copy(camPos).add(camDir.multiplyScalar(1.7)).add(new THREE.Vector3(0, 0.0, 0));
                 }
                 floatingVRPanel.lookAt(camPos);
                 

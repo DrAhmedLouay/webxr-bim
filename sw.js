@@ -8,7 +8,7 @@
 // ---------------------------------------------------------------------------
 'use strict';
 
-var CACHE_VERSION = 'webxr-bim-v21';
+var CACHE_VERSION = 'webxr-bim-v22';
 var SHELL_CACHE = CACHE_VERSION + '-shell';
 var RUNTIME_CACHE = CACHE_VERSION + '-runtime';
 
