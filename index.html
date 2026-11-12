@@ -2127,6 +2127,7 @@
             var structureGroup = new THREE.Group();
             var mepGroup = new THREE.Group();
             scene.add(webxrLabGroup);
+            webxrLabGroup.visible = true;
             webxrLabGroup.add(ceilingGroup);
             webxrLabGroup.add(wallGroup);
             webxrLabGroup.add(structureGroup);
@@ -7480,7 +7481,7 @@
                     floatingVRPanel.position.lerp(targetPanelPos, 0.2);
                     floatingVRPanel.lookAt(camera.position);
                 }
-                // VR Locomotion (Left Thumbstick) + Snap Turn (Right Thumbstick) + Button Toggle via cameraRig (try-catch protected for Quest & Lucid VR browsers)
+                // VR Locomotion (Left Thumbstick), Snap Turn (Right Thumbstick) & Button Toggles via cameraRig
                 if (session && session.inputSources) {
                     try {
                         session.inputSources.forEach(function(source) {
@@ -7500,10 +7501,6 @@
                                 if (isPressed && !window[pressedKey]) {
                                     window[pressedKey] = true;
 
-                                    // Map buttons to functions:
-                                    // Index 3 = A button (right) / X button (left) -> Toggle BIM Inspection Panel
-                                    // Index 4 = B button (right) / Y button (left) -> Toggle Clash Review Panel
-
                                     if (i === 3) {
                                         vrPanelVisible = !vrPanelVisible;
                                         updateVRToggleButtonState();
@@ -7519,7 +7516,7 @@
                                                     status: 'جاهز للمعاينة'
                                                 }, null);
                                             }
-                                            showToast('success', '📋 لوحة بيانات العنصر (زر #' + i + ' - يد ' + hand + ')', 2500);
+                                            showToast('success', '📋 لوحة بيانات العنصر (زر #' + i + ')', 2500);
                                         } else {
                                             hideFloatingVRPanel();
                                             showToast('info', '🔕 تم إخفاء لوحة بيانات العنصر', 2000);
@@ -7528,7 +7525,7 @@
                                         vrClashPanelVisible = !vrClashPanelVisible;
                                         if (vrClashPanelVisible) {
                                             createOrUpdateVRClashPanel();
-                                            showToast('success', '🚩 سجل التعارضات (زر #' + i + ' - يد ' + hand + ')', 2000);
+                                            showToast('success', '🚩 سجل التعارضات (زر #' + i + ')', 2500);
                                         } else {
                                             hideVRClashPanel();
                                             showToast('info', '🔕 تم إخفاء سجل التعارضات', 2000);
@@ -7539,11 +7536,9 @@
                                     window[pressedKey] = false;
                                 }
                             }
-                        });
-                    } catch (err) {
-                        console.warn('VR controller poll error:', err);
-                    }
-                }
+
+                            // Thumbstick Locomotion & Snap Turn
+                            if (!source.gamepad.axes) return;
                             var axes = source.gamepad.axes;
                             var deadzone = 0.15;
 
