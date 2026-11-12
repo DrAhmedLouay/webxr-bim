@@ -7455,6 +7455,7 @@
 
             renderer.setAnimationLoop(function(time, frame) {
                 var delta = clock.getDelta();
+                var session = (typeof activeVRSession !== 'undefined' && activeVRSession) ? activeVRSession : (renderer.xr.getSession() || renderer.xr.session);
                 if (clashBeacon && clashBeacon.visible) {
                     clashBeacon.rotation.z += delta * 0.8;
                 }
@@ -7599,7 +7600,6 @@
                 // In VR/AR the headset pose drives the camera, so calling
                 // controls.update() here would fight the XR compositor and
                 // freeze the view on the Quest 3 (no 6-DoF motion + no ray).
-                var session = renderer.xr.getSession();
                 if (!session) {
                     controls.update();
                 }
