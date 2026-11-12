@@ -6385,6 +6385,24 @@
                     }
                 }
 
+                // Export BCF button at bottom
+                ctx.fillStyle = '#38bdf8';
+                if (ctx.roundRect) {
+                    ctx.beginPath();
+                    ctx.roundRect(200, 520, 624, 75, 16);
+                    ctx.fill();
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = '#00f0ff';
+                    ctx.stroke();
+                } else {
+                    ctx.fillRect(200, 520, 624, 75);
+                }
+                ctx.font = 'bold 28px sans-serif';
+                ctx.fillStyle = '#ffffff';
+                ctx.textAlign = 'center';
+                ctx.direction = 'rtl';
+                ctx.fillText('📦 تصدير أرشيف التعارضات BCF 2.1 (.bcf)', 512, 565);
+
                 if (vrClashTexture) vrClashTexture.needsUpdate = true;
             }
 
@@ -6929,10 +6947,20 @@
                 // 1.5. Check if laser points at Clash Log Panel close button
                 if (floatingVRClashPanel && floatingVRClashPanel.visible) {
                     var clashHits = vrRaycaster.intersectObject(floatingVRClashPanel, false);
-                    if (clashHits.length > 0 && clashHits[0].uv && clashHits[0].uv.x <= 0.18 && clashHits[0].uv.y >= 0.78) {
-                        vrClashPanelVisible = false;
-                        hideVRClashPanel();
-                        return;
+                    if (clashHits.length > 0 && clashHits[0].uv) {
+                        var cuv = clashHits[0].uv;
+                        if (cuv.x <= 0.18 && cuv.y >= 0.78) {
+                            vrClashPanelVisible = false;
+                            hideVRClashPanel();
+                            return;
+                        }
+                        if (cuv.y >= 0.05 && cuv.y <= 0.25 && cuv.x >= 0.20 && cuv.x <= 0.80) {
+                            if (typeof exportClashesBCF === 'function') {
+                                exportClashesBCF();
+                                showToast('success', '📦 جاري تصدير أرشيف BCF 2.1 (.bcf)...', 3000);
+                            }
+                            return;
+                        }
                     }
                 }
 
@@ -7609,8 +7637,8 @@
                                 }
                             }
 
-                            // RIGHT CONTROLLER: SNAP TURN (Rotation) - Bulletproof axes check
-                            if (source.handedness === 'right') {
+                            // RIGHT CONTROLLER: WORLD-SPACE SNAP TURN (Rotation)
+                            if (hand === 'right') {
                                 var turnX = 0;
                                 if (axes.length >= 1 && Math.abs(axes[0]) > 0.3) {
                                     turnX = axes[0];
@@ -7621,8 +7649,19 @@
                                 if (Math.abs(turnX) > 0.35 && !window._vrSnapTurnTriggered) {
                                     window._vrSnapTurnTriggered = true;
                                     var angle = turnX > 0 ? -Math.PI / 6 : Math.PI / 6; // 30 degree snap turn
-                                    if (typeof cameraRig !== 'undefined' && cameraRig) {
-                                        cameraRig.rotation.y += angle;
+                                    var camPos = camera.position.clone();
+
+                                    if (typeof webxrLabGroup !== 'undefined' && webxrLabGroup) {
+                                        webxrLabGroup.position.sub(camPos);
+                                        webxrLabGroup.position.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle);
+                                        webxrLabGroup.position.add(camPos);
+                                        webxrLabGroup.rotation.y += angle;
+                                    }
+                                    if (typeof currentCustomModel !== 'undefined' && currentCustomModel) {
+                                        currentCustomModel.position.sub(camPos);
+                                        currentCustomModel.position.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle);
+                                        currentCustomModel.position.add(camPos);
+                                        currentCustomModel.rotation.y += angle;
                                     }
                                 } else if (Math.abs(turnX) <= 0.2) {
                                     window._vrSnapTurnTriggered = false;
