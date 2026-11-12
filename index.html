@@ -6145,8 +6145,8 @@
                     { label: '📋 البيانات', x: 100, color: 'rgba(0, 240, 255, 0.25)' },
                     { label: '🚩 التعارضات', x: 300, color: 'rgba(239, 68, 68, 0.25)' },
                     { label: '🎛️ الطوابق', x: 500, color: 'rgba(56, 189, 248, 0.25)' },
-                    { label: '🎨 ألوان', x: 700, color: 'rgba(168, 85, 247, 0.25)' },
-                    { label: '✕ إخفاء', x: 900, color: 'rgba(239, 68, 68, 0.35)' }
+                    { label: '🚪 خروج VR', x: 700, color: 'rgba(239, 68, 68, 0.35)' },
+                    { label: '✕ إخفاء', x: 900, color: 'rgba(148, 163, 184, 0.25)' }
                 ];
 
                 for (var i = 0; i < buttons.length; i++) {
@@ -6871,10 +6871,14 @@
                                 // Button 2: 🎛️ الطوابق
                                 vrFilterPanelVisible = !vrFilterPanelVisible;
                                 if (vrFilterPanelVisible) createOrUpdateVRFilterPanel(); else hideVRFilterPanel();
-                            } else if (duv.x >= 0.60 && duv.x < 0.80) {
-                                // Button 3: 🎨 ألوان
-                                if (typeof cycleColorCodingMode === 'function') cycleColorCodingMode();
-                                showToast('info', '🎨 تبديل نمط الألوان', 2000);
+                            } else if (duv.x >= 0.55 && duv.x < 0.80) {
+                                // Button 3: 🚪 خروج VR
+                                if (typeof activeVRSession !== 'undefined' && activeVRSession) {
+                                    activeVRSession.end();
+                                } else if (renderer.xr.getSession()) {
+                                    renderer.xr.getSession().end();
+                                }
+                                showToast('info', '🚪 جاري الخروج من وضع الواقع الافتراضي...', 2500);
                             } else if (duv.x >= 0.80) {
                                 // Button 4: ✕ إخفاء
                                 vrDockVisible = false;
