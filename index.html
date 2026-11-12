@@ -7576,8 +7576,8 @@
                             var axes = source.gamepad.axes;
                             var deadzone = 0.15;
 
-                            // LEFT CONTROLLER: LOCOMOTION (Movement) - Bulletproof axes check
-                            if (source.handedness === 'left') {
+                            // LEFT CONTROLLER: WORLD-SHIFT LOCOMOTION (Movement)
+                            if (hand === 'left') {
                                 var stickX = 0, stickY = 0;
                                 if (axes.length >= 2 && (Math.abs(axes[0]) > deadzone || Math.abs(axes[1]) > deadzone)) {
                                     stickX = axes[0];
@@ -7594,13 +7594,17 @@
                                     camDir.normalize();
                                     var camRight = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), camDir).normalize();
 
-                                    var moveSpeed = vrLocomotionSpeed;
-                                    var moveX = -stickX * moveSpeed * delta; // strafe left/right
-                                    var moveZ = -stickY * moveSpeed * delta; // forward/backward
+                                    var moveSpeed = vrLocomotionSpeed || 3.0;
+                                    var moveX = stickX * moveSpeed * delta;
+                                    var moveZ = stickY * moveSpeed * delta;
 
-                                    if (typeof cameraRig !== 'undefined' && cameraRig) {
-                                        cameraRig.position.add(camRight.multiplyScalar(moveX));
-                                        cameraRig.position.add(camDir.multiplyScalar(moveZ));
+                                    if (typeof webxrLabGroup !== 'undefined' && webxrLabGroup) {
+                                        webxrLabGroup.position.add(camRight.multiplyScalar(moveX));
+                                        webxrLabGroup.position.add(camDir.multiplyScalar(moveZ));
+                                    }
+                                    if (typeof currentCustomModel !== 'undefined' && currentCustomModel) {
+                                        currentCustomModel.position.add(camRight.multiplyScalar(moveX));
+                                        currentCustomModel.position.add(camDir.multiplyScalar(moveZ));
                                     }
                                 }
                             }
